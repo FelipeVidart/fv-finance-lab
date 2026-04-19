@@ -1,65 +1,70 @@
-import Image from "next/image";
+import Link from "next/link";
+import { Card } from "@/components/card";
+import { PageContainer } from "@/components/page-container";
+import { PageHero } from "@/components/page-hero";
 
-export default function Home() {
+export default function HomePage() {
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
+    <PageContainer className="space-y-10">
+      <PageHero
+        eyebrow="Finance Tools Platform"
+        title="FV Finance Lab is a focused workspace for practical finance tools."
+        description="The site is being shaped as a clean, professional home for calculator interfaces, analytical workflows, and future finance-focused product experiments."
+        actions={
+          <>
+            <Link
+              href="/tools"
+              className="inline-flex items-center justify-center rounded-full bg-white px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-slate-200"
+            >
+              Explore tools
+            </Link>
+            <Link
+              href="/projects"
+              className="inline-flex items-center justify-center rounded-full border border-white/12 px-5 py-3 text-sm font-semibold text-slate-200 transition hover:border-white/24 hover:bg-white/5"
+            >
+              View projects
+            </Link>
+          </>
+        }
+      />
+
+      <section className="grid gap-4 md:grid-cols-3">
+        <Card
+          eyebrow="Platform"
+          title="A single home for finance workflows"
+          description="FV Finance Lab is structured to bring together calculators, research utilities, and product ideas under one consistent interface."
         />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
+        <Card
+          eyebrow="Design"
+          title="Dark, minimal, and decision-oriented"
+          description="The first pass favors clarity, restrained styling, and reusable building blocks that can support more advanced tools later."
+        />
+        <Card
+          eyebrow="Scope"
+          title="Frontend foundation first"
+          description="This stage focuses on information architecture and reusable UI, without backend services, live data, or calculator logic yet."
+        />
+      </section>
+
+      <section className="grid gap-4 lg:grid-cols-[1.35fr,0.95fr]">
+        <Card
+          eyebrow="Current Focus"
+          title="Building the base layer for future calculators"
+          description="The initial structure is centered on three tool tracks: options, risk, and bonds. Each area gets its own route and ready-to-grow interface shell."
+        >
+          <ul className="space-y-3 text-sm text-slate-300">
+            <li>Dedicated routes for each major tool category.</li>
+            <li>Reusable layout pieces that keep navigation and page structure consistent.</li>
+            <li>Placeholder sections prepared for future inputs, outputs, and workflow controls.</li>
+          </ul>
+        </Card>
+
+        <Card
+          eyebrow="Next Up"
+          title="A platform that can expand without redesigning the shell"
+          description="As calculators and datasets arrive later, the current foundation is designed to support deeper tool pages, richer project documentation, and a broader finance product library."
+        />
+      </section>
+    </PageContainer>
   );
 }
