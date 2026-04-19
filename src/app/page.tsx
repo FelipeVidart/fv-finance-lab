@@ -7,9 +7,9 @@ export default function HomePage() {
   return (
     <PageContainer className="space-y-10">
       <PageHero
-        eyebrow="Finance Tools Platform"
-        title="FV Finance Lab is a focused workspace for practical finance tools."
-        description="The site is being shaped as a clean, professional home for calculator interfaces, analytical workflows, and future finance-focused product experiments."
+        eyebrow="Personal Finance And Analytics Platform"
+        title="FV Finance Lab brings together practical finance tools, analytical workflows, and applied research projects."
+        description="The platform is designed as a focused environment for exploring pricing, risk, and fixed-income workflows through clean interfaces, technical projects, and finance-oriented utilities."
         actions={
           <>
             <Link
@@ -30,39 +30,39 @@ export default function HomePage() {
 
       <section className="grid gap-4 md:grid-cols-3">
         <Card
-          eyebrow="Platform"
-          title="A single home for finance workflows"
-          description="FV Finance Lab is structured to bring together calculators, research utilities, and product ideas under one consistent interface."
+          eyebrow="Tools"
+          title="Practical utilities for core finance workflows"
+          description="FV Finance Lab is organized around tools for options, risk, and bonds, with product surfaces designed for analytical work rather than generic content pages."
         />
         <Card
-          eyebrow="Design"
-          title="Dark, minimal, and decision-oriented"
-          description="The first pass favors clarity, restrained styling, and reusable building blocks that can support more advanced tools later."
+          eyebrow="Workflows"
+          title="A bridge between models and usable interfaces"
+          description="The site is meant to connect quantitative ideas with lightweight, usable pages that support pricing, exposure analysis, and fixed-income review."
         />
         <Card
-          eyebrow="Scope"
-          title="Frontend foundation first"
-          description="This stage focuses on information architecture and reusable UI, without backend services, live data, or calculator logic yet."
+          eyebrow="Projects"
+          title="Built alongside real finance projects"
+          description="The project library complements the tools side of the platform with implementation work in portfolio risk, numerical option pricing, and credit spreads research."
         />
       </section>
 
       <section className="grid gap-4 lg:grid-cols-[1.35fr,0.95fr]">
         <Card
-          eyebrow="Current Focus"
-          title="Building the base layer for future calculators"
-          description="The initial structure is centered on three tool tracks: options, risk, and bonds. Each area gets its own route and ready-to-grow interface shell."
+          eyebrow="What You Will Find Here"
+          title="A focused environment for finance and analytics work"
+          description="FV Finance Lab combines three complementary parts of applied finance work: usable tools, structured analytical workflows, and technical projects that reflect how those ideas are implemented."
         >
           <ul className="space-y-3 text-sm text-slate-300">
-            <li>Dedicated routes for each major tool category.</li>
-            <li>Reusable layout pieces that keep navigation and page structure consistent.</li>
-            <li>Placeholder sections prepared for future inputs, outputs, and workflow controls.</li>
+            <li>Tool hubs for options, risk, and bonds.</li>
+            <li>Project pages grounded in real Python and finance research work.</li>
+            <li>A consistent interface for expanding into deeper analytical utilities.</li>
           </ul>
         </Card>
 
         <Card
-          eyebrow="Next Up"
-          title="A platform that can expand without redesigning the shell"
-          description="As calculators and datasets arrive later, the current foundation is designed to support deeper tool pages, richer project documentation, and a broader finance product library."
+          eyebrow="Positioning"
+          title="A personal platform with a clear analytical focus"
+          description="Rather than functioning as a generic portfolio site, FV Finance Lab is framed as a working finance platform centered on tools, models, and project-based analysis."
         />
       </section>
     </PageContainer>

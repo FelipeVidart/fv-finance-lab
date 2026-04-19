@@ -12,8 +12,8 @@ export default function ToolsLayout({
     <PageContainer className="space-y-8">
       <PageHero
         eyebrow="Tools"
-        title="The FV Finance Lab tools hub."
-        description="This section gathers the first calculator categories under one shared structure. The pages are intentionally lightweight for now and ready for future implementation work."
+        title="Finance tools organized around real analytical workflows."
+        description="FV Finance Lab groups its tools by the kinds of tasks they support, from option pricing to risk review and fixed-income analysis."
       />
       <ToolTabs />
       {children}

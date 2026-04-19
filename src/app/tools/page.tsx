@@ -5,29 +5,35 @@ const toolCards = [
   {
     href: "/tools/options",
     eyebrow: "Options",
-    title: "Option pricing and scenario tooling",
+    title: "Option pricing and derivatives utilities",
     description:
-      "Reserved for future interfaces covering pricing models, payoff views, and comparative option analysis.",
+      "A dedicated area for practical options workflows, including pricing-oriented interfaces, scenario comparison, and model-driven analysis.",
   },
   {
     href: "/tools/risk",
     eyebrow: "Risk",
-    title: "Portfolio and position risk workflows",
+    title: "Portfolio and market risk workflows",
     description:
-      "Prepared for future utilities around exposures, stress testing, and risk summaries across strategies or positions.",
+      "Focused on useful utilities for exposures, stress views, and portfolio-level risk interpretation across positions and strategies.",
   },
   {
     href: "/tools/bonds",
     eyebrow: "Bonds",
-    title: "Fixed-income calculators and reference tools",
+    title: "Fixed-income calculators and bond reference tools",
     description:
-      "Ready for later work on yield, duration, cash flow, and bond valuation experiences.",
+      "Structured for bond pricing, yield analysis, duration-oriented workflows, and other fixed-income reference tasks.",
   },
 ] as const;
 
 export default function ToolsPage() {
   return (
     <section className="space-y-4">
+      <Card
+        eyebrow="Tools Hub"
+        title="Practical finance utilities organized by workflow"
+        description="The tools section is the product-facing side of FV Finance Lab. It groups the main areas of work into clear categories so each one can grow into a focused analytical surface."
+      />
+
       <div className="grid gap-4 lg:grid-cols-3">
         {toolCards.map((tool) => (
           <Link key={tool.href} href={tool.href} className="block h-full">
@@ -42,9 +48,9 @@ export default function ToolsPage() {
       </div>
 
       <Card
-        eyebrow="Foundation"
-        title="A hub ready for real calculators later"
-        description="The tools area currently acts as a structured landing page. Once logic is added, each route can grow into a dedicated working surface without changing the information architecture."
+        eyebrow="Current Scope"
+        title="Clear categories now, implementation depth later"
+        description="The calculators are not implemented yet, but the structure is already organized around practical use cases: derivatives, portfolio risk, and fixed-income analysis."
       />
     </section>
   );
