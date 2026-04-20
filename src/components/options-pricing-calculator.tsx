@@ -3,9 +3,10 @@
 import { useState } from "react";
 import { Card } from "@/components/card";
 import {
-  blackScholesPrice,
+  blackScholesValuation,
   type BlackScholesInput,
   type OptionType,
+  type BlackScholesValuation,
 } from "@/lib/finance/black-scholes";
 
 type FormState = {
@@ -21,7 +22,7 @@ type FormState = {
 type FieldName = keyof Omit<FormState, "optionType">;
 type FormErrors = Partial<Record<keyof FormState, string>>;
 type PricingState = {
-  price: number;
+  valuation: BlackScholesValuation;
   inputs: BlackScholesInput;
 };
 
@@ -173,10 +174,42 @@ function createInitialPricingState(): PricingState {
   }
 
   return {
-    price: blackScholesPrice(parsed.values),
+    valuation: blackScholesValuation(parsed.values),
     inputs: parsed.values,
   };
 }
+
+const greekDisplayConfig: Array<{
+  key: keyof BlackScholesValuation;
+  label: string;
+  unit: string;
+}> = [
+  {
+    key: "delta",
+    label: "Delta",
+    unit: "Unitless",
+  },
+  {
+    key: "gamma",
+    label: "Gamma",
+    unit: "Per $1 spot",
+  },
+  {
+    key: "vega",
+    label: "Vega",
+    unit: "Per 1.00 vol",
+  },
+  {
+    key: "theta",
+    label: "Theta",
+    unit: "Per year",
+  },
+  {
+    key: "rho",
+    label: "Rho",
+    unit: "Per 1.00 rate",
+  },
+];
 
 export function OptionsPricingCalculator() {
   const [form, setForm] = useState<FormState>(DEFAULT_FORM);
@@ -208,9 +241,9 @@ export function OptionsPricingCalculator() {
     }
 
     try {
-      const price = blackScholesPrice(parsed.values);
+      const valuation = blackScholesValuation(parsed.values);
       setErrors({});
-      setPricing({ price, inputs: parsed.values });
+      setPricing({ valuation, inputs: parsed.values });
       setPricingError(null);
     } catch (error) {
       setPricingError(
@@ -314,8 +347,8 @@ export function OptionsPricingCalculator() {
 
       <Card
         eyebrow="Result"
-        title="European option value"
-        description="The output uses the dividend-yield Black-Scholes-Merton model with a single scalar price result."
+        title="European option value and Greeks"
+        description="The output uses the dividend-yield Black-Scholes-Merton model for price and first- and second-order sensitivities."
         className="h-full"
       >
         <div className="space-y-6">
@@ -324,7 +357,7 @@ export function OptionsPricingCalculator() {
               Option price
             </p>
             <p className="mt-4 text-4xl font-semibold tracking-tight text-white">
-              {formatNumber(pricing.price)}
+              {formatNumber(pricing.valuation.price)}
             </p>
             <p className="mt-3 text-sm leading-7 text-slate-300">
               {pricing.inputs.optionType === "call" ? "Call" : "Put"} with spot{" "}
@@ -334,6 +367,38 @@ export function OptionsPricingCalculator() {
               {formatNumber(pricing.inputs.rate)}, volatility{" "}
               {formatNumber(pricing.inputs.volatility)}, and dividend yield{" "}
               {formatNumber(pricing.inputs.dividendYield)}.
+            </p>
+          </div>
+
+          <div className="space-y-3">
+            <h3 className="text-sm font-semibold uppercase tracking-[0.22em] text-slate-400">
+              Greeks
+            </h3>
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
+              {greekDisplayConfig.map((greek) => (
+                <div
+                  key={greek.key}
+                  className="rounded-2xl border border-white/10 bg-slate-950/60 p-4"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="space-y-1">
+                      <p className="text-sm font-medium text-slate-100">
+                        {greek.label}
+                      </p>
+                      <p className="text-xs uppercase tracking-[0.18em] text-slate-500">
+                        {greek.unit}
+                      </p>
+                    </div>
+                    <p className="text-lg font-semibold text-white">
+                      {formatNumber(pricing.valuation[greek.key])}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <p className="text-xs leading-6 text-slate-400">
+              Vega and rho are reported per 1.00 absolute change in volatility
+              and rate. Theta is annualized.
             </p>
           </div>
 
@@ -350,12 +415,12 @@ export function OptionsPricingCalculator() {
             <p className="text-sm leading-7 text-slate-300">
               This implementation validates inputs, computes d1 and d2, applies
               continuous discounting for both the risk-free rate and dividend
-              yield, and then prices either the call or put branch.
+              yield, and then prices either the call or put branch with the
+              corresponding Greeks.
             </p>
             <p className="text-sm leading-7 text-slate-300">
-              It is intentionally minimal: one pure pricing function, one
-              normal CDF helper, scalar inputs only, and a single numeric
-              output.
+              It remains intentionally minimal: pure reusable finance functions,
+              scalar inputs only, and frontend-only presentation.
             </p>
           </div>
         </div>
