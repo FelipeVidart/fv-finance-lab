@@ -1,7 +1,12 @@
 "use client";
 
-import { useEffect, useId, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Card } from "@/components/card";
+import { ExpandableChartCard } from "@/components/expandable-chart-card";
+import {
+  LineChartPanel,
+  type LineChartSeries,
+} from "@/components/line-chart-panel";
 import { buildBondYieldSpreadRows } from "@/lib/bonds/analytics";
 import { getBondRegistry } from "@/lib/bonds/registry";
 import type {
@@ -26,6 +31,14 @@ type ChartProps = {
   description: string;
   data: BondMarketExplorerPayload;
   seriesKey: ChartKey;
+  valueFormatter: (value: number) => string;
+};
+
+type SeriesChartProps = {
+  title: string;
+  description: string;
+  dates: string[];
+  series: LineChartSeries[];
   valueFormatter: (value: number) => string;
 };
 
@@ -595,139 +608,54 @@ function BondLineChartCard({
   seriesKey,
   valueFormatter,
 }: ChartProps) {
-  const chartId = useId();
-  const allValues = data.marketData.points.flatMap((point) =>
-    data.marketData.tickers.map((ticker) => point[seriesKey][ticker]),
-  );
-  const minValue = Math.min(...allValues);
-  const maxValue = Math.max(...allValues);
-  const domainPadding =
-    minValue === maxValue
-      ? Math.max(Math.abs(minValue) * 0.1, 1)
-      : (maxValue - minValue) * 0.12;
-  const yMin = minValue - domainPadding;
-  const yMax = maxValue + domainPadding;
-
   return (
-    <Card
-      eyebrow="Chart"
+    <BondSeriesLineChartCard
       title={title}
       description={description}
-      className="h-full"
-    >
-      <div className="space-y-5">
-        <div className="h-72 rounded-2xl border border-white/10 bg-slate-950/60 p-4">
-          <svg
-            viewBox="0 0 640 260"
-            className="h-full w-full"
-            role="img"
-            aria-labelledby={chartId}
-          >
-            <title id={chartId}>{title}</title>
-            {[0, 1, 2, 3].map((index) => {
-              const y = 20 + index * 70;
-              const gridValue = yMax - ((y - 20) / 210) * (yMax - yMin);
-
-              return (
-                <g key={index}>
-                  <line
-                    x1="50"
-                    y1={y}
-                    x2="610"
-                    y2={y}
-                    stroke="rgba(148, 163, 184, 0.16)"
-                    strokeWidth="1"
-                  />
-                  <text
-                    x="0"
-                    y={y + 4}
-                    fill="rgba(203, 213, 225, 0.75)"
-                    fontSize="11"
-                  >
-                    {valueFormatter(gridValue)}
-                  </text>
-                </g>
-              );
-            })}
-
-            {data.marketData.tickers.map((ticker, index) => {
-              const values = data.marketData.points.map(
-                (point) => point[seriesKey][ticker],
-              );
-              const path = buildPath(values, yMin, yMax);
-
-              return (
-                <path
-                  key={ticker}
-                  d={path}
-                  fill="none"
-                  stroke={SERIES_COLORS[index % SERIES_COLORS.length]}
-                  strokeWidth="2.5"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              );
-            })}
-
-            <line
-              x1="50"
-              y1="230"
-              x2="610"
-              y2="230"
-              stroke="rgba(148, 163, 184, 0.25)"
-              strokeWidth="1"
-            />
-            <text
-              x="50"
-              y="250"
-              fill="rgba(148, 163, 184, 0.75)"
-              fontSize="11"
-            >
-              {formatDateLabel(data.marketData.meta.commonStartDate)}
-            </text>
-            <text
-              x="610"
-              y="250"
-              textAnchor="end"
-              fill="rgba(148, 163, 184, 0.75)"
-              fontSize="11"
-            >
-              {formatDateLabel(data.marketData.meta.commonEndDate)}
-            </text>
-          </svg>
-        </div>
-
-        <div className="flex flex-wrap gap-3">
-          {data.marketData.tickers.map((ticker, index) => (
-            <div
-              key={ticker}
-              className="flex items-center gap-2 rounded-full border border-white/10 bg-slate-950/60 px-3 py-2 text-xs text-slate-300"
-            >
-              <span
-                className="h-2.5 w-2.5 rounded-full"
-                style={{
-                  backgroundColor: SERIES_COLORS[index % SERIES_COLORS.length],
-                }}
-              />
-              <span>{ticker}</span>
-            </div>
-          ))}
-        </div>
-      </div>
-    </Card>
+      dates={data.marketData.points.map((point) => point.date)}
+      series={data.marketData.tickers.map((ticker, index) => ({
+        label: ticker,
+        values: data.marketData.points.map((point) => point[seriesKey][ticker]),
+        color: SERIES_COLORS[index % SERIES_COLORS.length],
+      }))}
+      valueFormatter={valueFormatter}
+    />
   );
 }
 
-function buildPath(values: number[], yMin: number, yMax: number): string {
-  return values
-    .map((value, index) => {
-      const x = 50 + (index / Math.max(values.length - 1, 1)) * 560;
-      const y = 230 - ((value - yMin) / Math.max(yMax - yMin, 1e-9)) * 210;
-      const command = index === 0 ? "M" : "L";
-
-      return `${command} ${x.toFixed(2)} ${y.toFixed(2)}`;
-    })
-    .join(" ");
+function BondSeriesLineChartCard({
+  title,
+  description,
+  dates,
+  series,
+  valueFormatter,
+}: SeriesChartProps) {
+  return (
+    <ExpandableChartCard
+      title={title}
+      description={description}
+      renderPreview={({ open }) => (
+        <LineChartPanel
+          title={title}
+          dates={dates}
+          series={series}
+          valueFormatter={valueFormatter}
+          onChartClick={open}
+        />
+      )}
+      detail={
+        <LineChartPanel
+          title={title}
+          dates={dates}
+          series={series}
+          valueFormatter={valueFormatter}
+          heightClassName="h-[24rem] sm:h-[32rem] lg:h-[40rem]"
+          interactive
+          showSummary
+        />
+      }
+    />
+  );
 }
 
 function formatSignedPercent(value: number): string {

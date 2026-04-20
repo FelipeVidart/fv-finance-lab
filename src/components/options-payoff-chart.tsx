@@ -1,3 +1,12 @@
+"use client";
+
+import {
+  useId,
+  useMemo,
+  useState,
+  type MouseEvent as ReactMouseEvent,
+  type PointerEvent as ReactPointerEvent,
+} from "react";
 import type { BlackScholesInput } from "@/lib/finance/black-scholes";
 import type { OptionPayoffPoint } from "@/lib/finance/option-payoff";
 
@@ -5,7 +14,14 @@ type OptionsPayoffChartProps = {
   data: OptionPayoffPoint[];
   inputs: BlackScholesInput;
   optionPrice: number;
+  interactive?: boolean;
+  showSummary?: boolean;
+  heightClassName?: string;
+  onChartClick?: () => void;
+  expandLabel?: string;
 };
+
+type SeriesKey = "payoff" | "profit";
 
 const CHART_WIDTH = 760;
 const CHART_HEIGHT = 320;
@@ -15,6 +31,23 @@ const PADDING = {
   bottom: 44,
   left: 60,
 };
+
+const SERIES_CONFIG: Array<{
+  key: SeriesKey;
+  label: string;
+  color: string;
+}> = [
+  {
+    key: "payoff",
+    label: "Payoff at expiry",
+    color: "rgba(125, 211, 252, 0.95)",
+  },
+  {
+    key: "profit",
+    label: "Profit at expiry",
+    color: "rgba(110, 231, 183, 0.95)",
+  },
+];
 
 function formatAxisNumber(value: number): string {
   return new Intl.NumberFormat("en-US", {
@@ -33,13 +66,14 @@ function formatSeriesValue(value: number): string {
 function buildLinePath(
   values: OptionPayoffPoint[],
   getX: (point: OptionPayoffPoint) => number,
-  getY: (point: OptionPayoffPoint) => number,
+  getY: (value: number) => number,
+  key: SeriesKey,
 ): string {
   return values
     .map((point, index) => {
       const command = index === 0 ? "M" : "L";
 
-      return `${command}${getX(point).toFixed(2)},${getY(point).toFixed(2)}`;
+      return `${command}${getX(point).toFixed(2)},${getY(point[key]).toFixed(2)}`;
     })
     .join(" ");
 }
@@ -48,11 +82,29 @@ export function OptionsPayoffChart({
   data,
   inputs,
   optionPrice,
+  interactive = false,
+  showSummary = false,
+  heightClassName = "h-auto",
+  onChartClick,
+  expandLabel,
 }: OptionsPayoffChartProps) {
+  const chartId = useId();
+  const [hiddenSeriesKeys, setHiddenSeriesKeys] = useState<SeriesKey[]>([]);
+  const [hoverIndex, setHoverIndex] = useState<number | null>(null);
+  const activeSeries = useMemo(() => {
+    const visible = SERIES_CONFIG.filter(
+      (entry) => !hiddenSeriesKeys.includes(entry.key),
+    );
+
+    return visible.length > 0 ? visible : SERIES_CONFIG;
+  }, [hiddenSeriesKeys]);
   const xValues = data.map((point) => point.spot);
-  const yValues = data.flatMap((point) => [point.payoff, point.profit, 0]);
   const xMin = Math.min(...xValues);
   const xMax = Math.max(...xValues);
+  const yValues = data.flatMap((point) => [
+    ...activeSeries.map((entry) => point[entry.key]),
+    0,
+  ]);
   const yMinRaw = Math.min(...yValues);
   const yMaxRaw = Math.max(...yValues);
   const yPadding = Math.max((yMaxRaw - yMinRaw) * 0.12, 1);
@@ -60,22 +112,33 @@ export function OptionsPayoffChart({
   const yMax = yMaxRaw + yPadding;
   const plotWidth = CHART_WIDTH - PADDING.left - PADDING.right;
   const plotHeight = CHART_HEIGHT - PADDING.top - PADDING.bottom;
+  const defaultHoverIndex = useMemo(
+    () =>
+      data.reduce((closestIndex, point, index) => {
+        const currentDistance = Math.abs(point.spot - inputs.spot);
+        const closestDistance = Math.abs(data[closestIndex].spot - inputs.spot);
+
+        return currentDistance < closestDistance ? index : closestIndex;
+      }, 0),
+    [data, inputs.spot],
+  );
+  const resolvedHoverIndex =
+    hoverIndex !== null ? hoverIndex : Math.max(defaultHoverIndex, 0);
+  const hoveredPoint = data[resolvedHoverIndex];
 
   const scaleX = (value: number) =>
-    PADDING.left + ((value - xMin) / (xMax - xMin)) * plotWidth;
+    PADDING.left +
+    ((value - xMin) / Math.max(xMax - xMin, 1e-9)) * plotWidth;
   const scaleY = (value: number) =>
-    PADDING.top + (1 - (value - yMin) / (yMax - yMin)) * plotHeight;
-
-  const payoffPath = buildLinePath(data, (point) => scaleX(point.spot), (point) =>
-    scaleY(point.payoff),
-  );
-  const profitPath = buildLinePath(data, (point) => scaleX(point.spot), (point) =>
-    scaleY(point.profit),
-  );
+    PADDING.top +
+    (1 - (value - yMin) / Math.max(yMax - yMin, 1e-9)) * plotHeight;
 
   const zeroY = scaleY(0);
   const strikeX = scaleX(inputs.strike);
   const spotX = scaleX(inputs.spot);
+  const hoverX = hoveredPoint ? scaleX(hoveredPoint.spot) : PADDING.left;
+  const payoffPath = buildLinePath(data, (point) => scaleX(point.spot), scaleY, "payoff");
+  const profitPath = buildLinePath(data, (point) => scaleX(point.spot), scaleY, "profit");
   const yTicks = Array.from({ length: 5 }, (_, index) => {
     const ratio = index / 4;
 
@@ -83,20 +146,311 @@ export function OptionsPayoffChart({
   });
   const xTicks = [xMin, inputs.strike, inputs.spot, xMax].filter(
     (value, index, values) =>
-      values.findIndex((candidate) => Math.abs(candidate - value) < 0.001) === index,
+      values.findIndex((candidate) => Math.abs(candidate - value) < 0.001) ===
+      index,
+  );
+  const inspectionRows = activeSeries.map((entry) => ({
+    label: entry.label,
+    color: entry.color,
+    value: hoveredPoint[entry.key],
+  }));
+  const summaryRows = activeSeries.map((entry) => ({
+    label: entry.label,
+    color: entry.color,
+    lastValue: data[data.length - 1][entry.key],
+    minValue: Math.min(...data.map((point) => point[entry.key])),
+    maxValue: Math.max(...data.map((point) => point[entry.key])),
+  }));
+
+  function handleToggleSeries(key: SeriesKey) {
+    setHiddenSeriesKeys((current) => {
+      if (current.includes(key)) {
+        return current.filter((entry) => entry !== key);
+      }
+
+      if (SERIES_CONFIG.length - current.length <= 1) {
+        return current;
+      }
+
+      return [...current, key];
+    });
+  }
+
+  const handlePointerMove = (
+    event:
+      | ReactMouseEvent<SVGSVGElement>
+      | ReactPointerEvent<SVGSVGElement>,
+  ) => {
+    const bounds = event.currentTarget.getBoundingClientRect();
+    const relativeX = ((event.clientX - bounds.left) / bounds.width) * CHART_WIDTH;
+    const clampedX = Math.min(
+      Math.max(relativeX, PADDING.left),
+      CHART_WIDTH - PADDING.right,
+    );
+    const ratio = (clampedX - PADDING.left) / plotWidth;
+    const nextIndex = Math.round(ratio * Math.max(data.length - 1, 0));
+
+    setHoverIndex(nextIndex);
+  };
+
+  const handlePointerLeave = () => {
+    setHoverIndex(null);
+  };
+
+  const chart = (
+    <div
+      className={`rounded-3xl border border-white/10 bg-slate-950/60 p-4 ${heightClassName}`.trim()}
+    >
+      <svg
+        viewBox={`0 0 ${CHART_WIDTH} ${CHART_HEIGHT}`}
+        className="h-full w-full"
+        role="img"
+        aria-labelledby={chartId}
+        onMouseMove={interactive ? handlePointerMove : undefined}
+        onMouseLeave={interactive ? handlePointerLeave : undefined}
+        onPointerMove={interactive ? handlePointerMove : undefined}
+        onPointerLeave={interactive ? handlePointerLeave : undefined}
+      >
+        <title id={chartId}>{titleForPayoffChart(inputs.optionType)}</title>
+        <rect
+          x={PADDING.left}
+          y={PADDING.top}
+          width={plotWidth}
+          height={plotHeight}
+          fill="rgba(15, 23, 42, 0.35)"
+          rx="18"
+        />
+
+        {yTicks.map((tick) => (
+          <g key={`y-${tick}`}>
+            <line
+              x1={PADDING.left}
+              x2={CHART_WIDTH - PADDING.right}
+              y1={scaleY(tick)}
+              y2={scaleY(tick)}
+              stroke="rgba(148, 163, 184, 0.14)"
+              strokeWidth="1"
+            />
+            <text
+              x={PADDING.left - 12}
+              y={scaleY(tick) + 4}
+              textAnchor="end"
+              fontSize="11"
+              fill="rgba(148, 163, 184, 0.78)"
+            >
+              {formatAxisNumber(tick)}
+            </text>
+          </g>
+        ))}
+
+        {xTicks.map((tick) => (
+          <g key={`x-${tick}`}>
+            <line
+              x1={scaleX(tick)}
+              x2={scaleX(tick)}
+              y1={PADDING.top}
+              y2={CHART_HEIGHT - PADDING.bottom}
+              stroke="rgba(148, 163, 184, 0.1)"
+              strokeWidth="1"
+            />
+            <text
+              x={scaleX(tick)}
+              y={CHART_HEIGHT - 14}
+              textAnchor="middle"
+              fontSize="11"
+              fill="rgba(148, 163, 184, 0.78)"
+            >
+              {formatAxisNumber(tick)}
+            </text>
+          </g>
+        ))}
+
+        <line
+          x1={PADDING.left}
+          x2={CHART_WIDTH - PADDING.right}
+          y1={zeroY}
+          y2={zeroY}
+          stroke="rgba(148, 163, 184, 0.4)"
+          strokeWidth="1.5"
+        />
+
+        <line
+          x1={strikeX}
+          x2={strikeX}
+          y1={PADDING.top}
+          y2={CHART_HEIGHT - PADDING.bottom}
+          stroke="rgba(253, 224, 71, 0.9)"
+          strokeWidth="1.5"
+          strokeDasharray="6 6"
+        />
+
+        <line
+          x1={spotX}
+          x2={spotX}
+          y1={PADDING.top}
+          y2={CHART_HEIGHT - PADDING.bottom}
+          stroke="rgba(148, 163, 184, 0.7)"
+          strokeWidth="1.5"
+          strokeDasharray="4 6"
+        />
+
+        {activeSeries.some((entry) => entry.key === "profit") ? (
+          <path
+            d={profitPath}
+            fill="none"
+            stroke="rgba(110, 231, 183, 0.95)"
+            strokeWidth="3"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        ) : null}
+
+        {activeSeries.some((entry) => entry.key === "payoff") ? (
+          <path
+            d={payoffPath}
+            fill="none"
+            stroke="rgba(125, 211, 252, 0.95)"
+            strokeWidth="3"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        ) : null}
+
+        {activeSeries.some((entry) => entry.key === "profit") ? (
+          <circle
+            cx={spotX}
+            cy={scaleY(0 - optionPrice)}
+            r="4.5"
+            fill="rgba(110, 231, 183, 1)"
+          />
+        ) : null}
+
+        {interactive ? (
+          <>
+            <line
+              x1={hoverX}
+              x2={hoverX}
+              y1={PADDING.top}
+              y2={CHART_HEIGHT - PADDING.bottom}
+              stroke="rgba(125, 211, 252, 0.55)"
+              strokeWidth="1.5"
+              strokeDasharray="4 4"
+            />
+            {inspectionRows.map((entry) => (
+              <circle
+                key={entry.label}
+                cx={hoverX}
+                cy={scaleY(entry.value)}
+                r="4.5"
+                fill={entry.color}
+                stroke="rgba(15, 23, 42, 0.95)"
+                strokeWidth="2"
+              />
+            ))}
+          </>
+        ) : null}
+
+        <text
+          x={PADDING.left}
+          y={14}
+          fontSize="11"
+          fill="rgba(148, 163, 184, 0.78)"
+        >
+          Payoff / Profit
+        </text>
+        <text
+          x={CHART_WIDTH - PADDING.right}
+          y={CHART_HEIGHT - 14}
+          textAnchor="end"
+          fontSize="11"
+          fill="rgba(148, 163, 184, 0.78)"
+        >
+          Underlying spot at expiry
+        </text>
+      </svg>
+    </div>
   );
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
+      {interactive ? (
+        <div className="grid gap-3 lg:grid-cols-[minmax(220px,280px)_minmax(0,1fr)]">
+          <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+              Inspection Spot
+            </p>
+            <p className="mt-2 text-sm font-semibold text-white">
+              {formatSeriesValue(hoveredPoint.spot)}
+            </p>
+            <p className="mt-1 text-xs leading-6 text-slate-400">
+              Hover the chart to inspect payoff and profit at a specific expiry
+              spot.
+            </p>
+          </div>
+
+          <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+              Values At Cursor
+            </p>
+            <div className="mt-3 flex flex-wrap gap-3">
+              {inspectionRows.map((entry) => (
+                <div
+                  key={entry.label}
+                  className="rounded-2xl border border-white/10 bg-slate-950/60 px-3 py-2"
+                >
+                  <div className="flex items-center gap-2">
+                    <span
+                      className="h-2.5 w-2.5 rounded-full"
+                      style={{ backgroundColor: entry.color }}
+                    />
+                    <span className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">
+                      {entry.label}
+                    </span>
+                  </div>
+                  <p className="mt-2 text-sm font-semibold text-white">
+                    {formatSeriesValue(entry.value)}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       <div className="flex flex-wrap items-center gap-4 text-xs text-slate-400">
-        <div className="flex items-center gap-2">
-          <span className="h-2.5 w-2.5 rounded-full bg-sky-300" />
-          <span>Payoff at expiry</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="h-2.5 w-2.5 rounded-full bg-emerald-300" />
-          <span>Profit at expiry</span>
-        </div>
+        {SERIES_CONFIG.map((entry) => {
+          const isVisible = !hiddenSeriesKeys.includes(entry.key);
+
+          return (
+            <button
+              key={entry.key}
+              type="button"
+              onClick={
+                interactive ? () => handleToggleSeries(entry.key) : undefined
+              }
+              aria-pressed={isVisible}
+              disabled={!interactive}
+              className={`flex items-center gap-2 rounded-full border px-3 py-2 transition ${
+                isVisible
+                  ? "border-white/10 bg-slate-950/60 text-slate-300"
+                  : "border-white/10 bg-slate-950/40 text-slate-500"
+              } ${
+                interactive
+                  ? "hover:border-white/20 hover:bg-white/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/70"
+                  : "cursor-default"
+              }`}
+            >
+              <span
+                className="h-2.5 w-2.5 rounded-full"
+                style={{
+                  backgroundColor: entry.color,
+                  opacity: isVisible ? 1 : 0.35,
+                }}
+              />
+              <span>{entry.label}</span>
+            </button>
+          );
+        })}
         <div className="flex items-center gap-2">
           <span className="h-px w-4 border-t border-dashed border-amber-300" />
           <span>Strike</span>
@@ -107,139 +461,51 @@ export function OptionsPayoffChart({
         </div>
       </div>
 
-      <div className="rounded-3xl border border-white/10 bg-slate-950/60 p-4">
-        <svg
-          viewBox={`0 0 ${CHART_WIDTH} ${CHART_HEIGHT}`}
-          className="h-auto w-full"
-          role="img"
-          aria-label="Option payoff and profit at expiry chart"
+      {onChartClick ? (
+        <button
+          type="button"
+          onClick={onChartClick}
+          aria-label={expandLabel ?? "Expand option payoff chart"}
+          className="block w-full text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/70"
         >
-          <rect
-            x={PADDING.left}
-            y={PADDING.top}
-            width={plotWidth}
-            height={plotHeight}
-            fill="rgba(15, 23, 42, 0.35)"
-            rx="18"
-          />
+          {chart}
+        </button>
+      ) : (
+        chart
+      )}
 
-          {yTicks.map((tick) => (
-            <g key={`y-${tick}`}>
-              <line
-                x1={PADDING.left}
-                x2={CHART_WIDTH - PADDING.right}
-                y1={scaleY(tick)}
-                y2={scaleY(tick)}
-                stroke="rgba(148, 163, 184, 0.14)"
-                strokeWidth="1"
-              />
-              <text
-                x={PADDING.left - 12}
-                y={scaleY(tick) + 4}
-                textAnchor="end"
-                fontSize="11"
-                fill="rgba(148, 163, 184, 0.78)"
-              >
-                {formatAxisNumber(tick)}
-              </text>
-            </g>
+      {showSummary ? (
+        <div className="grid gap-3 md:grid-cols-2">
+          {summaryRows.map((entry) => (
+            <div
+              key={entry.label}
+              className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3"
+            >
+              <div className="flex items-center gap-2">
+                <span
+                  className="h-2.5 w-2.5 rounded-full"
+                  style={{ backgroundColor: entry.color }}
+                />
+                <p className="text-sm font-semibold text-white">{entry.label}</p>
+              </div>
+              <div className="mt-3 grid grid-cols-3 gap-3 text-sm">
+                <SummaryStat
+                  label="Last"
+                  value={formatSeriesValue(entry.lastValue)}
+                />
+                <SummaryStat
+                  label="Min"
+                  value={formatSeriesValue(entry.minValue)}
+                />
+                <SummaryStat
+                  label="Max"
+                  value={formatSeriesValue(entry.maxValue)}
+                />
+              </div>
+            </div>
           ))}
-
-          {xTicks.map((tick) => (
-            <g key={`x-${tick}`}>
-              <line
-                x1={scaleX(tick)}
-                x2={scaleX(tick)}
-                y1={PADDING.top}
-                y2={CHART_HEIGHT - PADDING.bottom}
-                stroke="rgba(148, 163, 184, 0.1)"
-                strokeWidth="1"
-              />
-              <text
-                x={scaleX(tick)}
-                y={CHART_HEIGHT - 14}
-                textAnchor="middle"
-                fontSize="11"
-                fill="rgba(148, 163, 184, 0.78)"
-              >
-                {formatAxisNumber(tick)}
-              </text>
-            </g>
-          ))}
-
-          <line
-            x1={PADDING.left}
-            x2={CHART_WIDTH - PADDING.right}
-            y1={zeroY}
-            y2={zeroY}
-            stroke="rgba(148, 163, 184, 0.4)"
-            strokeWidth="1.5"
-          />
-
-          <line
-            x1={strikeX}
-            x2={strikeX}
-            y1={PADDING.top}
-            y2={CHART_HEIGHT - PADDING.bottom}
-            stroke="rgba(253, 224, 71, 0.9)"
-            strokeWidth="1.5"
-            strokeDasharray="6 6"
-          />
-
-          <line
-            x1={spotX}
-            x2={spotX}
-            y1={PADDING.top}
-            y2={CHART_HEIGHT - PADDING.bottom}
-            stroke="rgba(148, 163, 184, 0.7)"
-            strokeWidth="1.5"
-            strokeDasharray="4 6"
-          />
-
-          <path
-            d={profitPath}
-            fill="none"
-            stroke="rgba(110, 231, 183, 0.95)"
-            strokeWidth="3"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-
-          <path
-            d={payoffPath}
-            fill="none"
-            stroke="rgba(125, 211, 252, 0.95)"
-            strokeWidth="3"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-
-          <circle
-            cx={spotX}
-            cy={scaleY(0 - optionPrice)}
-            r="4.5"
-            fill="rgba(110, 231, 183, 1)"
-          />
-
-          <text
-            x={PADDING.left}
-            y={14}
-            fontSize="11"
-            fill="rgba(148, 163, 184, 0.78)"
-          >
-            Payoff / Profit
-          </text>
-          <text
-            x={CHART_WIDTH - PADDING.right}
-            y={CHART_HEIGHT - 14}
-            textAnchor="end"
-            fontSize="11"
-            fill="rgba(148, 163, 184, 0.78)"
-          >
-            Underlying spot at expiry
-          </text>
-        </svg>
-      </div>
+        </div>
+      ) : null}
 
       <div className="grid gap-3 sm:grid-cols-3">
         <div className="rounded-2xl border border-white/10 bg-slate-950/60 p-4">
@@ -269,4 +535,19 @@ export function OptionsPayoffChart({
       </div>
     </div>
   );
+}
+
+function SummaryStat({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+        {label}
+      </p>
+      <p className="mt-1 font-semibold text-slate-100">{value}</p>
+    </div>
+  );
+}
+
+function titleForPayoffChart(optionType: BlackScholesInput["optionType"]) {
+  return `${optionType === "call" ? "Call" : "Put"} payoff and profit at expiry`;
 }

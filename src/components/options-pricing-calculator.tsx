@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Card } from "@/components/card";
+import { ExpandableChartCard } from "@/components/expandable-chart-card";
 import { OptionsPayoffChart } from "@/components/options-payoff-chart";
 import {
   blackScholesValuation,
@@ -592,25 +593,38 @@ export function OptionsPricingCalculator() {
         </Card>
       </div>
 
-      <Card
+      <ExpandableChartCard
         eyebrow="Payoff View"
         title="Expiry payoff and profit profile"
         description="This chart shows how the selected option behaves at expiry across a spot range centered around the current spot and strike."
-      >
-        <div className="space-y-5">
+        detailDescription="The expanded view keeps the same payoff structure while adding exact spot-by-spot inspection for the payoff and profit curves."
+        renderPreview={({ open }) => (
+          <div className="space-y-5">
+            <OptionsPayoffChart
+              data={payoffData}
+              inputs={pricing.inputs}
+              optionPrice={pricing.blackScholes.price}
+              onChartClick={open}
+            />
+            <p className="max-w-3xl text-sm leading-7 text-slate-300">
+              The blue line is intrinsic payoff at expiry. The green line subtracts
+              the current Black-Scholes-Merton premium to show profit at expiry,
+              which makes the break-even region easier to interpret. Dashed markers
+              identify the strike and today&apos;s spot for quick context.
+            </p>
+          </div>
+        )}
+        detail={
           <OptionsPayoffChart
             data={payoffData}
             inputs={pricing.inputs}
             optionPrice={pricing.blackScholes.price}
+            interactive
+            showSummary
+            heightClassName="h-[24rem] sm:h-[32rem] lg:h-[40rem]"
           />
-          <p className="max-w-3xl text-sm leading-7 text-slate-300">
-            The blue line is intrinsic payoff at expiry. The green line subtracts
-            the current Black-Scholes-Merton premium to show profit at expiry,
-            which makes the break-even region easier to interpret. Dashed markers
-            identify the strike and today&apos;s spot for quick context.
-          </p>
-        </div>
-      </Card>
+        }
+      />
     </section>
   );
 }
