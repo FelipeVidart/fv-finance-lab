@@ -9,6 +9,10 @@ import {
   type OptionType,
   type BlackScholesValuation,
 } from "@/lib/finance/black-scholes";
+import {
+  buildBinomialConvergenceSeries,
+  priceEuropeanBinomial,
+} from "@/lib/finance/binomial";
 import { buildOptionPayoffSeries } from "@/lib/finance/option-payoff";
 
 type FormState = {
@@ -18,14 +22,26 @@ type FormState = {
   rate: string;
   volatility: string;
   dividendYield: string;
+  steps: string;
   optionType: OptionType;
 };
 
 type FieldName = keyof Omit<FormState, "optionType">;
 type FormErrors = Partial<Record<keyof FormState, string>>;
+type CalculatorInput = BlackScholesInput & {
+  steps: number;
+};
 type PricingState = {
-  valuation: BlackScholesValuation;
-  inputs: BlackScholesInput;
+  blackScholes: BlackScholesValuation;
+  binomialPrice: number;
+  absoluteDifference: number;
+  percentageDifference: number;
+  convergence: Array<{
+    steps: number;
+    price: number;
+    absoluteDifference: number;
+  }>;
+  inputs: CalculatorInput;
 };
 
 const DEFAULT_FORM: FormState = {
@@ -36,6 +52,7 @@ const DEFAULT_FORM: FormState = {
   rate: "0.05",
   volatility: "0.20",
   dividendYield: "0.02",
+  steps: "100",
 };
 
 const numericFieldConfig: Array<{
@@ -80,6 +97,12 @@ const numericFieldConfig: Array<{
     step: "0.0001",
     hint: "Continuous dividend yield",
   },
+  {
+    name: "steps",
+    label: "Binomial steps",
+    step: "1",
+    hint: "Positive integer for the CRR tree",
+  },
 ];
 
 function parsePositiveNumber(
@@ -120,9 +143,30 @@ function parseFiniteNumber(
   return { value: parsed };
 }
 
+function parsePositiveInteger(
+  value: string,
+  label: string,
+): { value?: number; error?: string } {
+  if (value.trim() === "") {
+    return { error: `${label} is required` };
+  }
+
+  const parsed = Number(value);
+
+  if (!Number.isFinite(parsed)) {
+    return { error: `${label} must be a valid number` };
+  }
+
+  if (!Number.isInteger(parsed) || parsed <= 0) {
+    return { error: `${label} must be a positive integer` };
+  }
+
+  return { value: parsed };
+}
+
 function parseForm(form: FormState): {
   errors: FormErrors;
-  values?: BlackScholesInput;
+  values?: CalculatorInput;
 } {
   const errors: FormErrors = {};
 
@@ -135,6 +179,7 @@ function parseForm(form: FormState): {
     form.dividendYield,
     "Dividend yield",
   );
+  const steps = parsePositiveInteger(form.steps, "Binomial steps");
 
   if (spot.error) errors.spot = spot.error;
   if (strike.error) errors.strike = strike.error;
@@ -142,6 +187,7 @@ function parseForm(form: FormState): {
   if (rate.error) errors.rate = rate.error;
   if (volatility.error) errors.volatility = volatility.error;
   if (dividendYield.error) errors.dividendYield = dividendYield.error;
+  if (steps.error) errors.steps = steps.error;
 
   if (Object.keys(errors).length > 0) {
     return { errors };
@@ -157,6 +203,7 @@ function parseForm(form: FormState): {
       rate: rate.value as number,
       volatility: volatility.value as number,
       dividendYield: dividendYield.value as number,
+      steps: steps.value as number,
     },
   };
 }
@@ -168,6 +215,47 @@ function formatNumber(value: number): string {
   }).format(value);
 }
 
+function buildPricingState(values: CalculatorInput): PricingState {
+  const blackScholes = blackScholesValuation(values);
+  const binomialPrice = priceEuropeanBinomial({
+    spot: values.spot,
+    strike: values.strike,
+    rate: values.rate,
+    volatility: values.volatility,
+    maturityYears: values.maturity,
+    steps: values.steps,
+    optionType: values.optionType,
+    dividendYield: values.dividendYield,
+  });
+  const absoluteDifference = Math.abs(binomialPrice - blackScholes.price);
+  const percentageDifference =
+    blackScholes.price === 0
+      ? 0
+      : (absoluteDifference / Math.abs(blackScholes.price)) * 100;
+  const convergence = buildBinomialConvergenceSeries(
+    {
+      spot: values.spot,
+      strike: values.strike,
+      rate: values.rate,
+      volatility: values.volatility,
+      maturityYears: values.maturity,
+      optionType: values.optionType,
+      dividendYield: values.dividendYield,
+    },
+    blackScholes.price,
+    [25, 50, 100, 250, 500],
+  );
+
+  return {
+    blackScholes,
+    binomialPrice,
+    absoluteDifference,
+    percentageDifference,
+    convergence,
+    inputs: values,
+  };
+}
+
 function createInitialPricingState(): PricingState {
   const parsed = parseForm(DEFAULT_FORM);
 
@@ -175,10 +263,7 @@ function createInitialPricingState(): PricingState {
     throw new Error("Default form values must be valid");
   }
 
-  return {
-    valuation: blackScholesValuation(parsed.values),
-    inputs: parsed.values,
-  };
+  return buildPricingState(parsed.values);
 }
 
 const greekDisplayConfig: Array<{
@@ -220,7 +305,7 @@ export function OptionsPricingCalculator() {
   const [pricingError, setPricingError] = useState<string | null>(null);
   const payoffData = buildOptionPayoffSeries(
     pricing.inputs,
-    pricing.valuation.price,
+    pricing.blackScholes.price,
   );
 
   function updateField(name: keyof FormState, value: string) {
@@ -247,9 +332,8 @@ export function OptionsPricingCalculator() {
     }
 
     try {
-      const valuation = blackScholesValuation(parsed.values);
       setErrors({});
-      setPricing({ valuation, inputs: parsed.values });
+      setPricing(buildPricingState(parsed.values));
       setPricingError(null);
     } catch (error) {
       setPricingError(
@@ -331,7 +415,7 @@ export function OptionsPricingCalculator() {
 
             <div className="rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-3 text-xs leading-6 text-slate-400">
               Use decimals for rates and volatility: 0.05 means 5%, 0.20 means
-              20%.
+              20%. Binomial steps should be a positive integer.
             </div>
 
             <div className="flex flex-wrap gap-3">
@@ -354,17 +438,17 @@ export function OptionsPricingCalculator() {
 
         <Card
           eyebrow="Result"
-          title="European option value and Greeks"
-          description="The output uses the dividend-yield Black-Scholes-Merton model for price and first- and second-order sensitivities."
+          title="Model comparison and Greeks"
+          description="The output compares analytical Black-Scholes-Merton pricing with a European CRR binomial model, while keeping Greeks from the analytical model."
           className="h-full"
         >
           <div className="space-y-6">
             <div className="rounded-3xl border border-sky-400/20 bg-sky-400/[0.08] p-5">
               <p className="text-xs font-semibold uppercase tracking-[0.22em] text-sky-200/80">
-                Option price
+                Black-Scholes price
               </p>
               <p className="mt-4 text-4xl font-semibold tracking-tight text-white">
-                {formatNumber(pricing.valuation.price)}
+                {formatNumber(pricing.blackScholes.price)}
               </p>
               <p className="mt-3 text-sm leading-7 text-slate-300">
                 {pricing.inputs.optionType === "call" ? "Call" : "Put"} with spot{" "}
@@ -372,8 +456,54 @@ export function OptionsPricingCalculator() {
                 {formatNumber(pricing.inputs.strike)}, maturity{" "}
                 {formatNumber(pricing.inputs.maturity)}, rate{" "}
                 {formatNumber(pricing.inputs.rate)}, volatility{" "}
-                {formatNumber(pricing.inputs.volatility)}, and dividend yield{" "}
-                {formatNumber(pricing.inputs.dividendYield)}.
+                {formatNumber(pricing.inputs.volatility)}, dividend yield{" "}
+                {formatNumber(pricing.inputs.dividendYield)}, and{" "}
+                {pricing.inputs.steps} binomial steps.
+              </p>
+            </div>
+
+            <div className="space-y-3">
+              <h3 className="text-sm font-semibold uppercase tracking-[0.22em] text-slate-400">
+                Pricing comparison
+              </h3>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="rounded-2xl border border-white/10 bg-slate-950/60 p-4">
+                  <p className="text-xs uppercase tracking-[0.18em] text-slate-500">
+                    Black-Scholes
+                  </p>
+                  <p className="mt-2 text-2xl font-semibold text-white">
+                    {formatNumber(pricing.blackScholes.price)}
+                  </p>
+                </div>
+                <div className="rounded-2xl border border-white/10 bg-slate-950/60 p-4">
+                  <p className="text-xs uppercase tracking-[0.18em] text-slate-500">
+                    Binomial CRR
+                  </p>
+                  <p className="mt-2 text-2xl font-semibold text-white">
+                    {formatNumber(pricing.binomialPrice)}
+                  </p>
+                </div>
+                <div className="rounded-2xl border border-white/10 bg-slate-950/60 p-4">
+                  <p className="text-xs uppercase tracking-[0.18em] text-slate-500">
+                    Absolute difference
+                  </p>
+                  <p className="mt-2 text-lg font-semibold text-white">
+                    {formatNumber(pricing.absoluteDifference)}
+                  </p>
+                </div>
+                <div className="rounded-2xl border border-white/10 bg-slate-950/60 p-4">
+                  <p className="text-xs uppercase tracking-[0.18em] text-slate-500">
+                    Percentage difference
+                  </p>
+                  <p className="mt-2 text-lg font-semibold text-white">
+                    {formatNumber(pricing.percentageDifference)}%
+                  </p>
+                </div>
+              </div>
+              <p className="text-xs leading-6 text-slate-400">
+                The CRR model prices the same European payoff numerically using{" "}
+                {pricing.inputs.steps} time steps and the dividend-adjusted
+                risk-neutral probability.
               </p>
             </div>
 
@@ -397,7 +527,7 @@ export function OptionsPricingCalculator() {
                         </p>
                       </div>
                       <p className="text-lg font-semibold text-white">
-                        {formatNumber(pricing.valuation[greek.key])}
+                        {formatNumber(pricing.blackScholes[greek.key])}
                       </p>
                     </div>
                   </div>
@@ -406,6 +536,33 @@ export function OptionsPricingCalculator() {
               <p className="text-xs leading-6 text-slate-400">
                 Vega and rho are reported per 1.00 absolute change in volatility
                 and rate. Theta is annualized.
+              </p>
+            </div>
+
+            <div className="space-y-3">
+              <h3 className="text-sm font-semibold uppercase tracking-[0.22em] text-slate-400">
+                Binomial convergence
+              </h3>
+              <div className="overflow-hidden rounded-2xl border border-white/10 bg-slate-950/60">
+                <div className="grid grid-cols-[1fr_1.3fr_1fr] gap-3 border-b border-white/10 px-4 py-3 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                  <span>Steps</span>
+                  <span>Binomial price</span>
+                  <span>Abs diff</span>
+                </div>
+                {pricing.convergence.map((row) => (
+                  <div
+                    key={row.steps}
+                    className="grid grid-cols-[1fr_1.3fr_1fr] gap-3 px-4 py-3 text-sm text-slate-200 not-last:border-b not-last:border-white/10"
+                  >
+                    <span>{row.steps}</span>
+                    <span>{formatNumber(row.price)}</span>
+                    <span>{formatNumber(row.absoluteDifference)}</span>
+                  </div>
+                ))}
+              </div>
+              <p className="text-xs leading-6 text-slate-400">
+                For European options, the CRR price should generally move toward
+                the Black-Scholes benchmark as the number of steps increases.
               </p>
             </div>
 
@@ -423,7 +580,8 @@ export function OptionsPricingCalculator() {
                 This implementation validates inputs, computes d1 and d2, applies
                 continuous discounting for both the risk-free rate and dividend
                 yield, and then prices either the call or put branch with the
-                corresponding Greeks.
+                corresponding Greeks. The CRR comparison uses a 1D backward
+                induction array rather than storing the full tree.
               </p>
               <p className="text-sm leading-7 text-slate-300">
                 It remains intentionally minimal: pure reusable finance functions,
@@ -443,7 +601,7 @@ export function OptionsPricingCalculator() {
           <OptionsPayoffChart
             data={payoffData}
             inputs={pricing.inputs}
-            optionPrice={pricing.valuation.price}
+            optionPrice={pricing.blackScholes.price}
           />
           <p className="max-w-3xl text-sm leading-7 text-slate-300">
             The blue line is intrinsic payoff at expiry. The green line subtracts
