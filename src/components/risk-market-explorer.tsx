@@ -33,8 +33,7 @@ type ExplorerChartProps = {
 type SeriesChartProps = {
   title: string;
   description: string;
-  startDate: string;
-  endDate: string;
+  dates: string[];
   series: LineChartSeries[];
   valueFormatter: (value: number) => string;
 };
@@ -575,8 +574,7 @@ export function RiskMarketExplorer() {
                 <SeriesLineChartCard
                   title="Portfolio NAV"
                   description="Normalized portfolio NAV built from the weighted daily return series."
-                  startDate={portfolioAnalytics.metrics.startDate}
-                  endDate={portfolioAnalytics.metrics.endDate}
+                  dates={portfolioAnalytics.points.map((point) => point.date)}
                   series={[
                     {
                       label: "Portfolio",
@@ -589,8 +587,7 @@ export function RiskMarketExplorer() {
                 <SeriesLineChartCard
                   title="Portfolio Drawdown"
                   description="Running drawdown of the portfolio NAV."
-                  startDate={portfolioAnalytics.metrics.startDate}
-                  endDate={portfolioAnalytics.metrics.endDate}
+                  dates={portfolioAnalytics.points.map((point) => point.date)}
                   series={[
                     {
                       label: "Portfolio",
@@ -605,8 +602,7 @@ export function RiskMarketExplorer() {
                 <SeriesLineChartCard
                   title="Portfolio vs Assets"
                   description="Portfolio cumulative return compared with the currently selected assets."
-                  startDate={portfolioAnalytics.metrics.startDate}
-                  endDate={portfolioAnalytics.metrics.endDate}
+                  dates={portfolioAnalytics.points.map((point) => point.date)}
                   series={comparisonSeries}
                   valueFormatter={formatPercent}
                 />
@@ -677,8 +673,7 @@ function ExplorerLineChartCard({
     <SeriesLineChartCard
       title={title}
       description={description}
-      startDate={data.meta.commonStartDate}
-      endDate={data.meta.commonEndDate}
+      dates={data.points.map((point) => point.date)}
       series={data.tickers.map((ticker, index) => ({
         label: ticker,
         values: data.points.map((point) => point[seriesKey][ticker]),
@@ -692,8 +687,7 @@ function ExplorerLineChartCard({
 function SeriesLineChartCard({
   title,
   description,
-  startDate,
-  endDate,
+  dates,
   series,
   valueFormatter,
 }: SeriesChartProps) {
@@ -704,8 +698,7 @@ function SeriesLineChartCard({
       renderPreview={({ open }) => (
         <LineChartPanel
           title={title}
-          startDate={startDate}
-          endDate={endDate}
+          dates={dates}
           series={series}
           valueFormatter={valueFormatter}
           onChartClick={open}
@@ -714,11 +707,12 @@ function SeriesLineChartCard({
       detail={
         <LineChartPanel
           title={title}
-          startDate={startDate}
-          endDate={endDate}
+          dates={dates}
           series={series}
           valueFormatter={valueFormatter}
-          heightClassName="h-[22rem] sm:h-[28rem] lg:h-[34rem]"
+          heightClassName="h-[24rem] sm:h-[32rem] lg:h-[40rem]"
+          interactive
+          showSummary
         />
       }
     />

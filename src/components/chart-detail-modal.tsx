@@ -64,7 +64,7 @@ export function ChartDetailModal({
         aria-modal="true"
         aria-labelledby={titleId}
         aria-describedby={description ? descriptionId : undefined}
-        className="relative z-10 flex max-h-[90vh] w-full max-w-6xl flex-col overflow-hidden rounded-[2rem] border border-white/10 bg-[#0b1119] shadow-[0_32px_100px_rgba(0,0,0,0.55)]"
+        className="relative z-10 flex max-h-[92vh] w-full max-w-[88rem] flex-col overflow-hidden rounded-[2rem] border border-white/10 bg-[#0b1119] shadow-[0_32px_100px_rgba(0,0,0,0.55)]"
       >
         <div className="flex items-start justify-between gap-4 border-b border-white/10 px-6 py-5 sm:px-8">
           <div className="space-y-2">
@@ -94,7 +94,7 @@ export function ChartDetailModal({
           </button>
         </div>
 
-        <div className="overflow-y-auto px-6 py-6 sm:px-8 sm:py-8">
+        <div className="overflow-y-auto px-6 py-6 sm:px-8 sm:py-8 lg:px-10 lg:py-10">
           {children}
         </div>
       </div>
