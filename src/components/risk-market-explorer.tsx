@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useMemo, useState } from "react";
 import { Card } from "@/components/card";
+import { buildPortfolioAnalytics } from "@/lib/finance/portfolio";
 import { parseTickerInput } from "@/lib/market-data/request";
 import type {
   MarketDataPeriod,
@@ -10,20 +11,34 @@ import type {
 } from "@/lib/market-data/types";
 
 const PERIOD_OPTIONS: MarketDataPeriod[] = ["1M", "3M", "6M", "1Y"];
-
 const SERIES_COLORS = ["#7dd3fc", "#38bdf8", "#22d3ee", "#a78bfa", "#f59e0b"];
-
+const PORTFOLIO_COLOR = "#f59e0b";
 const DEFAULT_TICKER_INPUT = "AAPL, MSFT, NVDA";
 
 type ChartKey = "normalized" | "cumulativeReturns" | "drawdowns";
 
-type ChartProps = {
+type ExplorerChartProps = {
   title: string;
   description: string;
   data: MarketDataExplorerPayload;
   seriesKey: ChartKey;
   valueFormatter: (value: number) => string;
 };
+
+type SeriesChartProps = {
+  title: string;
+  description: string;
+  startDate: string;
+  endDate: string;
+  series: Array<{
+    label: string;
+    values: number[];
+    color: string;
+  }>;
+  valueFormatter: (value: number) => string;
+};
+
+type WeightState = Record<string, string>;
 
 export function RiskMarketExplorer() {
   const [tickerInput, setTickerInput] = useState(DEFAULT_TICKER_INPUT);
@@ -32,6 +47,7 @@ export function RiskMarketExplorer() {
   const [requestError, setRequestError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [data, setData] = useState<MarketDataExplorerPayload | null>(null);
+  const [weightInputs, setWeightInputs] = useState<WeightState>({});
 
   useEffect(() => {
     void loadMarketData(DEFAULT_TICKER_INPUT, "6M");
@@ -47,6 +63,7 @@ export function RiskMarketExplorer() {
       setValidationError(parsed.error ?? "Enter valid tickers.");
       setRequestError(null);
       setData(null);
+      setWeightInputs({});
       setIsLoading(false);
       return;
     }
@@ -72,8 +89,10 @@ export function RiskMarketExplorer() {
       }
 
       setData(payload.data);
+      setWeightInputs(createEqualWeightInputs(payload.data.tickers));
     } catch (error) {
       setData(null);
+      setWeightInputs({});
       setRequestError(
         error instanceof Error
           ? error.message
@@ -89,6 +108,18 @@ export function RiskMarketExplorer() {
     void loadMarketData(tickerInput, period);
   }
 
+  function updateWeightInput(ticker: string, value: string) {
+    setWeightInputs((current) => ({ ...current, [ticker]: value }));
+  }
+
+  function applyEqualWeights() {
+    if (!data) {
+      return;
+    }
+
+    setWeightInputs(createEqualWeightInputs(data.tickers));
+  }
+
   const inputHint = useMemo(() => {
     const parsed = parseTickerInput(tickerInput);
 
@@ -100,6 +131,100 @@ export function RiskMarketExplorer() {
       parsed.tickers.length === 1 ? "" : "s"
     }: ${parsed.tickers.join(", ")}`;
   }, [tickerInput]);
+  const weightValidation = useMemo(() => {
+    if (!data) {
+      return null;
+    }
+
+    let totalPercent = 0;
+    const parsedWeights: Record<string, number> = {};
+
+    for (const ticker of data.tickers) {
+      const rawValue = weightInputs[ticker];
+
+      if (rawValue === undefined || rawValue.trim() === "") {
+        return {
+          isValid: false,
+          error: "Enter a numeric weight for each selected ticker.",
+          totalPercent,
+          weights: null,
+        };
+      }
+
+      const parsed = Number(rawValue);
+
+      if (!Number.isFinite(parsed)) {
+        return {
+          isValid: false,
+          error: "Weights must be numeric.",
+          totalPercent,
+          weights: null,
+        };
+      }
+
+      if (parsed < 0) {
+        return {
+          isValid: false,
+          error: "Weights cannot be negative.",
+          totalPercent,
+          weights: null,
+        };
+      }
+
+      totalPercent += parsed;
+      parsedWeights[ticker] = parsed / 100;
+    }
+
+    if (Math.abs(totalPercent - 100) > 0.05) {
+      return {
+        isValid: false,
+        error: `Portfolio weights must sum to 100%. Current total: ${totalPercent.toFixed(
+          2,
+        )}%.`,
+        totalPercent,
+        weights: null,
+      };
+    }
+
+    return {
+      isValid: true,
+      error: null,
+      totalPercent,
+      weights: parsedWeights,
+    };
+  }, [data, weightInputs]);
+  const portfolioAnalytics = useMemo(() => {
+    if (!data || !weightValidation?.isValid || !weightValidation.weights) {
+      return null;
+    }
+
+    try {
+      return buildPortfolioAnalytics({
+        data,
+        weights: weightValidation.weights,
+      });
+    } catch {
+      return null;
+    }
+  }, [data, weightValidation]);
+  const comparisonSeries = useMemo(() => {
+    if (!data || !portfolioAnalytics) {
+      return [];
+    }
+
+    return [
+      {
+        label: "Portfolio",
+        values: portfolioAnalytics.points.map((point) => point.cumulativeReturn),
+        color: PORTFOLIO_COLOR,
+      },
+      ...data.tickers.map((ticker, index) => ({
+        label: ticker,
+        values: data.points.map((point) => point.cumulativeReturns[ticker]),
+        color: SERIES_COLORS[index % SERIES_COLORS.length],
+      })),
+    ];
+  }, [data, portfolioAnalytics]);
 
   return (
     <section className="space-y-4">
@@ -196,6 +321,150 @@ export function RiskMarketExplorer() {
         />
       ) : null}
 
+      <Card
+        eyebrow="Portfolio Sandbox"
+        title="Combine the loaded assets into a manual portfolio"
+        description="This sandbox uses the already fetched and aligned market data as its investable universe. It is the foundation for future portfolio risk and asset allocation analysis."
+      >
+        {!data ? (
+          <div className="grid gap-4 lg:grid-cols-2">
+            <div className="rounded-2xl border border-dashed border-white/10 bg-slate-950/60 p-5">
+              <p className="text-sm font-semibold text-white">
+                Portfolio workflow
+              </p>
+              <p className="mt-3 text-sm leading-7 text-slate-300">
+                1. Fetch market data for up to five tickers above.
+              </p>
+              <p className="text-sm leading-7 text-slate-300">
+                2. Assign manual weights to the loaded assets.
+              </p>
+              <p className="text-sm leading-7 text-slate-300">
+                3. Review portfolio NAV, return, volatility, and drawdown against
+                the component assets.
+              </p>
+            </div>
+
+            <div className="rounded-2xl border border-dashed border-white/10 bg-slate-950/60 p-5">
+              <p className="text-sm font-semibold text-white">
+                What is missing right now
+              </p>
+              <p className="mt-3 text-sm leading-7 text-slate-300">
+                The portfolio sandbox needs a successfully loaded aligned market
+                dataset before it can calculate portfolio returns. Fetch market
+                data first to unlock weights, portfolio metrics, and comparison
+                charts.
+              </p>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-5">
+            <div className="grid gap-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(280px,0.9fr)]">
+              <div className="space-y-4">
+                <div className="overflow-x-auto rounded-2xl border border-white/10 bg-slate-950/60">
+                  <div className="min-w-[560px]">
+                    <div className="grid grid-cols-[1.1fr_0.9fr_1fr_1fr] gap-3 border-b border-white/10 px-4 py-3 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                      <span>Ticker</span>
+                      <span>Latest price</span>
+                      <span>Weight</span>
+                      <span>Weight share</span>
+                    </div>
+                    {data.metrics.map((metric) => (
+                      <div
+                        key={metric.ticker}
+                        className="grid grid-cols-[1.1fr_0.9fr_1fr_1fr] gap-3 px-4 py-3 text-sm text-slate-200 not-last:border-b not-last:border-white/10"
+                      >
+                        <div className="space-y-1">
+                          <span className="font-semibold text-white">
+                            {metric.ticker}
+                          </span>
+                          <p className="text-xs text-slate-500">
+                            {metric.observations} obs
+                          </p>
+                        </div>
+                        <span>{formatNumber(metric.endPrice)}</span>
+                        <input
+                          type="number"
+                          inputMode="decimal"
+                          min="0"
+                          step="0.01"
+                          value={weightInputs[metric.ticker] ?? ""}
+                          onChange={(event) =>
+                            updateWeightInput(metric.ticker, event.target.value)
+                          }
+                          className="w-full rounded-xl border border-white/10 bg-slate-900/80 px-3 py-2 text-sm text-white outline-none transition focus:border-sky-400/60"
+                        />
+                        <span className="text-slate-400">
+                          {weightInputs[metric.ticker]
+                            ? `${Number(weightInputs[metric.ticker]).toFixed(2)}%`
+                            : "—"}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap gap-3">
+                  <button
+                    type="button"
+                    onClick={applyEqualWeights}
+                    className="rounded-2xl bg-sky-400 px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-sky-300"
+                  >
+                    Equal weight
+                  </button>
+                  <button
+                    type="button"
+                    onClick={applyEqualWeights}
+                    className="rounded-2xl border border-white/10 px-5 py-3 text-sm font-semibold text-slate-200 transition hover:border-white/20 hover:bg-white/[0.04]"
+                  >
+                    Reset weights
+                  </button>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <div className="rounded-2xl border border-white/10 bg-slate-950/60 p-4">
+                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                    Weight validation
+                  </p>
+                  <p className="mt-3 text-2xl font-semibold text-white">
+                    {weightValidation
+                      ? `${weightValidation.totalPercent.toFixed(2)}%`
+                      : "—"}
+                  </p>
+                  <p className="mt-2 text-sm leading-7 text-slate-300">
+                    Total portfolio weight must sum to 100% before portfolio
+                    analytics are enabled.
+                  </p>
+                  {weightValidation && !weightValidation.isValid ? (
+                    <p className="mt-3 rounded-2xl border border-amber-400/30 bg-amber-400/[0.08] px-4 py-3 text-sm text-amber-200">
+                      {weightValidation.error}
+                    </p>
+                  ) : null}
+                </div>
+
+                <div className="rounded-2xl border border-white/10 bg-slate-950/60 p-4">
+                  <p className="text-sm font-semibold text-white">
+                    Portfolio construction assumption
+                  </p>
+                  <p className="mt-3 text-sm leading-7 text-slate-300">
+                    The sandbox combines aligned daily asset returns using the
+                    entered weights as a fixed-weight daily return mix, then
+                    compounds those returns into a normalized portfolio NAV.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {portfolioAnalytics ? null : (
+              <div className="rounded-2xl border border-amber-400/30 bg-amber-400/[0.08] px-4 py-3 text-sm text-amber-200">
+                Portfolio charts and metrics are disabled until the loaded data has
+                enough aligned observations and the entered weights are valid.
+              </div>
+            )}
+          </div>
+        )}
+      </Card>
+
       {data ? (
         <>
           <div className="grid gap-4 md:grid-cols-3">
@@ -214,21 +483,21 @@ export function RiskMarketExplorer() {
           </div>
 
           <div className="grid gap-4 xl:grid-cols-3">
-            <LineChartCard
+            <ExplorerLineChartCard
               title="Normalized Price"
               description="Each line starts at 100 on the first shared trading day."
               data={data}
               seriesKey="normalized"
               valueFormatter={(value) => value.toFixed(1)}
             />
-            <LineChartCard
+            <ExplorerLineChartCard
               title="Cumulative Return"
               description="Total return since the shared start date."
               data={data}
               seriesKey="cumulativeReturns"
               valueFormatter={formatPercent}
             />
-            <LineChartCard
+            <ExplorerLineChartCard
               title="Drawdown"
               description="Peak-to-trough decline from each ticker's running high."
               data={data}
@@ -275,6 +544,110 @@ export function RiskMarketExplorer() {
               </div>
             </div>
           </Card>
+
+          {portfolioAnalytics ? (
+            <>
+              <div className="grid gap-4 md:grid-cols-4">
+                <StatChip
+                  label="Portfolio return"
+                  value={formatPercent(portfolioAnalytics.metrics.totalReturn)}
+                />
+                <StatChip
+                  label="Annualized return"
+                  value={formatPercent(
+                    portfolioAnalytics.metrics.annualizedReturn,
+                  )}
+                />
+                <StatChip
+                  label="Annualized vol"
+                  value={formatPercent(
+                    portfolioAnalytics.metrics.annualizedVolatility,
+                  )}
+                />
+                <StatChip
+                  label="Max drawdown"
+                  value={formatPercent(portfolioAnalytics.metrics.maxDrawdown)}
+                />
+              </div>
+
+              <div className="grid gap-4 xl:grid-cols-3">
+                <SeriesLineChartCard
+                  title="Portfolio NAV"
+                  description="Normalized portfolio NAV built from the weighted daily return series."
+                  startDate={portfolioAnalytics.metrics.startDate}
+                  endDate={portfolioAnalytics.metrics.endDate}
+                  series={[
+                    {
+                      label: "Portfolio",
+                      values: portfolioAnalytics.points.map((point) => point.nav),
+                      color: PORTFOLIO_COLOR,
+                    },
+                  ]}
+                  valueFormatter={(value) => value.toFixed(1)}
+                />
+                <SeriesLineChartCard
+                  title="Portfolio Drawdown"
+                  description="Running drawdown of the portfolio NAV."
+                  startDate={portfolioAnalytics.metrics.startDate}
+                  endDate={portfolioAnalytics.metrics.endDate}
+                  series={[
+                    {
+                      label: "Portfolio",
+                      values: portfolioAnalytics.points.map(
+                        (point) => point.drawdown,
+                      ),
+                      color: PORTFOLIO_COLOR,
+                    },
+                  ]}
+                  valueFormatter={formatPercent}
+                />
+                <SeriesLineChartCard
+                  title="Portfolio vs Assets"
+                  description="Portfolio cumulative return compared with the currently selected assets."
+                  startDate={portfolioAnalytics.metrics.startDate}
+                  endDate={portfolioAnalytics.metrics.endDate}
+                  series={comparisonSeries}
+                  valueFormatter={formatPercent}
+                />
+              </div>
+
+              <Card
+                eyebrow="Portfolio Summary"
+                title="Weights and latest portfolio snapshot"
+                description="This table summarizes the active manual weights and the latest aligned market price for each component asset in the sandbox."
+              >
+                <div className="overflow-x-auto rounded-2xl border border-white/10 bg-slate-950/60">
+                  <div className="min-w-[640px]">
+                    <div className="grid grid-cols-[1.1fr_1fr_1fr_1fr] gap-3 border-b border-white/10 px-4 py-3 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                      <span>Ticker</span>
+                      <span>Weight</span>
+                      <span>Latest price</span>
+                      <span>Total return</span>
+                    </div>
+                    {data.metrics.map((metric) => (
+                      <div
+                        key={metric.ticker}
+                        className="grid grid-cols-[1.1fr_1fr_1fr_1fr] gap-3 px-4 py-3 text-sm text-slate-200 not-last:border-b not-last:border-white/10"
+                      >
+                        <span className="font-semibold text-white">
+                          {metric.ticker}
+                        </span>
+                        <span>
+                          {weightValidation?.weights
+                            ? `${(
+                                weightValidation.weights[metric.ticker] * 100
+                              ).toFixed(2)}%`
+                            : "—"}
+                        </span>
+                        <span>{formatNumber(metric.endPrice)}</span>
+                        <span>{formatPercent(metric.totalReturn)}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </Card>
+            </>
+          ) : null}
         </>
       ) : null}
     </section>
@@ -292,17 +665,39 @@ function StatChip({ label, value }: { label: string; value: string }) {
   );
 }
 
-function LineChartCard({
+function ExplorerLineChartCard({
   title,
   description,
   data,
   seriesKey,
   valueFormatter,
-}: ChartProps) {
-  const chartId = useId();
-  const allValues = data.points.flatMap((point) =>
-    data.tickers.map((ticker) => point[seriesKey][ticker]),
+}: ExplorerChartProps) {
+  return (
+    <SeriesLineChartCard
+      title={title}
+      description={description}
+      startDate={data.meta.commonStartDate}
+      endDate={data.meta.commonEndDate}
+      series={data.tickers.map((ticker, index) => ({
+        label: ticker,
+        values: data.points.map((point) => point[seriesKey][ticker]),
+        color: SERIES_COLORS[index % SERIES_COLORS.length],
+      }))}
+      valueFormatter={valueFormatter}
+    />
   );
+}
+
+function SeriesLineChartCard({
+  title,
+  description,
+  startDate,
+  endDate,
+  series,
+  valueFormatter,
+}: SeriesChartProps) {
+  const chartId = useId();
+  const allValues = series.flatMap((entry) => entry.values);
   const minValue = Math.min(...allValues);
   const maxValue = Math.max(...allValues);
   const domainPadding =
@@ -354,22 +749,17 @@ function LineChartCard({
               );
             })}
 
-            {data.tickers.map((ticker, index) => {
-              const values = data.points.map((point) => point[seriesKey][ticker]);
-              const path = buildPath(values, yMin, yMax);
-
-              return (
-                <path
-                  key={ticker}
-                  d={path}
-                  fill="none"
-                  stroke={SERIES_COLORS[index % SERIES_COLORS.length]}
-                  strokeWidth="2.5"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              );
-            })}
+            {series.map((entry) => (
+              <path
+                key={entry.label}
+                d={buildPath(entry.values, yMin, yMax)}
+                fill="none"
+                stroke={entry.color}
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            ))}
 
             <line
               x1="50"
@@ -385,7 +775,7 @@ function LineChartCard({
               fill="rgba(148, 163, 184, 0.75)"
               fontSize="11"
             >
-              {formatDateLabel(data.meta.commonStartDate)}
+              {formatDateLabel(startDate)}
             </text>
             <text
               x="610"
@@ -394,24 +784,22 @@ function LineChartCard({
               fill="rgba(148, 163, 184, 0.75)"
               fontSize="11"
             >
-              {formatDateLabel(data.meta.commonEndDate)}
+              {formatDateLabel(endDate)}
             </text>
           </svg>
         </div>
 
         <div className="flex flex-wrap gap-3">
-          {data.tickers.map((ticker, index) => (
+          {series.map((entry) => (
             <div
-              key={ticker}
+              key={entry.label}
               className="flex items-center gap-2 rounded-full border border-white/10 bg-slate-950/60 px-3 py-2 text-xs text-slate-300"
             >
               <span
                 className="h-2.5 w-2.5 rounded-full"
-                style={{
-                  backgroundColor: SERIES_COLORS[index % SERIES_COLORS.length],
-                }}
+                style={{ backgroundColor: entry.color }}
               />
-              <span>{ticker}</span>
+              <span>{entry.label}</span>
             </div>
           ))}
         </div>
@@ -432,6 +820,23 @@ function buildPath(values: number[], yMin: number, yMax: number): string {
     .join(" ");
 }
 
+function createEqualWeightInputs(tickers: string[]): WeightState {
+  if (tickers.length === 0) {
+    return {};
+  }
+
+  const baseWeight = Math.floor((100 / tickers.length) * 100) / 100;
+  const weights = tickers.map((_, index) =>
+    index === tickers.length - 1
+      ? Number((100 - baseWeight * (tickers.length - 1)).toFixed(2))
+      : baseWeight,
+  );
+
+  return Object.fromEntries(
+    tickers.map((ticker, index) => [ticker, weights[index].toFixed(2)]),
+  );
+}
+
 function formatPercent(value: number): string {
   return `${value >= 0 ? "+" : ""}${(value * 100).toFixed(2)}%`;
 }
@@ -442,4 +847,11 @@ function formatDateLabel(value: string): string {
     day: "numeric",
     year: "numeric",
   }).format(new Date(`${value}T00:00:00`));
+}
+
+function formatNumber(value: number): string {
+  return new Intl.NumberFormat("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(value);
 }
