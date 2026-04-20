@@ -31,6 +31,40 @@ export type BondMarketExplorerPayload = {
   };
 };
 
+export type SolveApproximateYtmInput = {
+  price: number;
+  faceValue: number;
+  couponRate: number;
+  maturityDate: string;
+  paymentsPerYear: number;
+  asOfDate: string;
+};
+
+export type SolveApproximateYtmResult = {
+  ytm: number;
+  yearsToMaturity: number;
+  remainingPeriods: number;
+};
+
+export type BondYieldSpreadRow = {
+  symbol: string;
+  displayName: string | null;
+  latestPrice: number | null;
+  priceDate: string | null;
+  benchmarkSymbol: string;
+  approximateYtm: number | null;
+  benchmarkYtm: number | null;
+  spreadBps: number | null;
+  status:
+    | "ok"
+    | "missing_metadata"
+    | "missing_market_price"
+    | "ytm_unavailable"
+    | "missing_benchmark_data"
+    | "benchmark_ytm_unavailable";
+  note: string;
+};
+
 export type BondMarketDataRouteSuccess = {
   ok: true;
   data: BondMarketExplorerPayload;

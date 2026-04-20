@@ -2,10 +2,13 @@
 
 import { useEffect, useId, useMemo, useState } from "react";
 import { Card } from "@/components/card";
+import { buildBondYieldSpreadRows } from "@/lib/bonds/analytics";
+import { getBondRegistry } from "@/lib/bonds/registry";
 import type {
   BondExplorerRecord,
   BondMarketDataRouteResponse,
   BondMarketExplorerPayload,
+  BondYieldSpreadRow,
 } from "@/lib/bonds/types";
 import { parseTickerInput } from "@/lib/market-data/request";
 import type { MarketDataPeriod } from "@/lib/market-data/types";
@@ -13,6 +16,8 @@ import type { MarketDataPeriod } from "@/lib/market-data/types";
 const PERIOD_OPTIONS: MarketDataPeriod[] = ["1M", "3M", "6M", "1Y"];
 const SERIES_COLORS = ["#7dd3fc", "#38bdf8", "#22d3ee", "#a78bfa", "#f59e0b"];
 const DEFAULT_SYMBOL_INPUT = "US2Y, US5Y, US10Y";
+const DEFAULT_BENCHMARK_SYMBOL = "US10Y";
+const REGISTRY_OPTIONS = getBondRegistry();
 
 type ChartKey = "normalized" | "cumulativeReturns" | "drawdowns";
 
@@ -27,6 +32,7 @@ type ChartProps = {
 export function BondMarketExplorer() {
   const [symbolInput, setSymbolInput] = useState(DEFAULT_SYMBOL_INPUT);
   const [period, setPeriod] = useState<MarketDataPeriod>("6M");
+  const [benchmarkSymbol, setBenchmarkSymbol] = useState(DEFAULT_BENCHMARK_SYMBOL);
   const [validationError, setValidationError] = useState<string | null>(null);
   const [requestError, setRequestError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -99,6 +105,30 @@ export function BondMarketExplorer() {
       parsed.tickers.length === 1 ? "" : "s"
     }: ${parsed.tickers.join(", ")}`;
   }, [symbolInput]);
+  const yieldSpreadRows = useMemo(() => {
+    if (!data) {
+      return [];
+    }
+
+    return buildBondYieldSpreadRows({
+      bonds: data.bonds,
+      marketData: data.marketData,
+      benchmarkSymbol,
+    });
+  }, [benchmarkSymbol, data]);
+  const benchmarkAvailableInSelection = useMemo(() => {
+    return Boolean(data?.bonds.some((bond) => bond.symbol === benchmarkSymbol));
+  }, [benchmarkSymbol, data]);
+  const selectedSymbols = useMemo(() => {
+    const parsed = parseTickerInput(symbolInput);
+
+    return parsed.tickers ?? [];
+  }, [symbolInput]);
+  const selectedRegistryEntries = useMemo(() => {
+    return selectedSymbols
+      .map((symbol) => REGISTRY_OPTIONS.find((entry) => entry.symbol === symbol))
+      .filter((entry): entry is (typeof REGISTRY_OPTIONS)[number] => Boolean(entry));
+  }, [selectedSymbols]);
 
   return (
     <section className="space-y-4">
@@ -195,6 +225,113 @@ export function BondMarketExplorer() {
         />
       ) : null}
 
+      <Card
+        eyebrow="Yield and Spread"
+        title="Latest YTM and benchmark spread snapshot"
+        description="This layer estimates approximate YTM from the latest fetched market price for bonds that also have local metadata, then compares each selected bond against a chosen local benchmark."
+      >
+        <div className="space-y-5">
+          <div className="grid gap-4 xl:grid-cols-[minmax(260px,340px)_minmax(0,1fr)]">
+            <label className="space-y-2">
+              <span className="block text-sm font-medium text-slate-100">
+                Benchmark bond
+              </span>
+              <select
+                value={benchmarkSymbol}
+                onChange={(event) => setBenchmarkSymbol(event.target.value)}
+                className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-sm text-white outline-none transition focus:border-sky-400/60"
+              >
+                {REGISTRY_OPTIONS.map((entry) => (
+                  <option key={entry.symbol} value={entry.symbol}>
+                    {entry.symbol} · {entry.displayName}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <div className="rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-3 text-sm leading-7 text-slate-300">
+              <p>
+                This snapshot is a spread monitor and sovereign-risk proxy
+                foundation, not an official EMBI or official country risk
+                measure.
+              </p>
+              <p className="mt-2 text-xs leading-6 text-slate-400">
+                Approximate YTM treats the latest fetched close as a bond price
+                input and solves a plain fixed-rate bond yield from the local
+                registry terms.
+              </p>
+              <p className="mt-2 text-xs leading-6 text-slate-400">
+                {!data
+                  ? selectedRegistryEntries.length > 0
+                    ? "Local metadata is already available for some selected bonds, but market data must load before latest price, benchmark YTM, and spread can be computed."
+                    : "Enter bond symbols and fetch market data to populate the latest price, approximate YTM, benchmark YTM, and spread columns."
+                  : !benchmarkAvailableInSelection
+                    ? "The chosen benchmark is not in the current fetched selection, so benchmark YTM and spreads will remain unavailable until that symbol is included."
+                    : "Benchmark YTM is derived from the latest aligned market close for the selected benchmark bond."}
+              </p>
+            </div>
+          </div>
+
+          {data ? (
+            <div className="overflow-x-auto rounded-2xl border border-white/10 bg-slate-950/60">
+              <div className="min-w-[980px]">
+                <div className="grid grid-cols-[1.05fr_1.1fr_1fr_1fr_1fr_0.9fr_1.6fr] gap-3 border-b border-white/10 px-4 py-3 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                  <span>Symbol</span>
+                  <span>Latest price</span>
+                  <span>Approx YTM</span>
+                  <span>Benchmark</span>
+                  <span>Benchmark YTM</span>
+                  <span>Spread</span>
+                  <span>Status</span>
+                </div>
+                {yieldSpreadRows.map((row) => (
+                  <YieldSpreadRowView key={row.symbol} row={row} />
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div className="grid gap-4 lg:grid-cols-2">
+              <div className="rounded-2xl border border-dashed border-white/10 bg-slate-950/60 p-5">
+                <p className="text-sm font-semibold text-white">
+                  Yield and spread workflow
+                </p>
+                <p className="mt-3 text-sm leading-7 text-slate-300">
+                  1. Select bond symbols that have local metadata.
+                </p>
+                <p className="text-sm leading-7 text-slate-300">
+                  2. Fetch market data to load the latest close for each bond.
+                </p>
+                <p className="text-sm leading-7 text-slate-300">
+                  3. Use the benchmark selector to compare approximate YTM and
+                  spread in basis points.
+                </p>
+              </div>
+
+              <div className="rounded-2xl border border-dashed border-white/10 bg-slate-950/60 p-5">
+                <p className="text-sm font-semibold text-white">
+                  What is missing right now
+                </p>
+                {selectedRegistryEntries.length > 0 ? (
+                  <p className="mt-3 text-sm leading-7 text-slate-300">
+                    Local metadata is available for{" "}
+                    {selectedRegistryEntries.map((entry) => entry.symbol).join(", ")},
+                    but no fetched market price history is available yet for the
+                    current session, so latest price, approximate YTM, benchmark
+                    YTM, and spread cannot be shown.
+                  </p>
+                ) : (
+                  <p className="mt-3 text-sm leading-7 text-slate-300">
+                    Neither fetched market data nor matching local metadata is
+                    available for the current symbol input. Try registered symbols
+                    such as `US2Y`, `US5Y`, `US10Y`, `US30Y`, or `DE10Y`.
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      </Card>
+
       {data ? (
         <>
           <Card
@@ -285,7 +422,9 @@ export function BondMarketExplorer() {
                   <span>Max drawdown</span>
                 </div>
                 {data.marketData.metrics.map((metric) => {
-                  const bond = data.bonds.find((entry) => entry.symbol === metric.ticker);
+                  const bond = data.bonds.find(
+                    (entry) => entry.symbol === metric.ticker,
+                  );
 
                   return (
                     <div
@@ -406,6 +545,35 @@ function MetadataBadge({ label }: { label: string }) {
     <span className="rounded-full border border-sky-400/25 bg-sky-400/[0.10] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-sky-200">
       {label}
     </span>
+  );
+}
+
+function YieldSpreadRowView({ row }: { row: BondYieldSpreadRow }) {
+  return (
+    <div className="grid grid-cols-[1.05fr_1.1fr_1fr_1fr_1fr_0.9fr_1.6fr] gap-3 px-4 py-3 text-sm text-slate-200 not-last:border-b not-last:border-white/10">
+      <div className="space-y-1">
+        <span className="font-semibold text-white">{row.symbol}</span>
+        <p className="text-xs text-slate-500">
+          {row.displayName ?? "No local metadata"}
+        </p>
+      </div>
+      <span>{row.latestPrice !== null ? formatPrice(row.latestPrice) : "—"}</span>
+      <span>
+        {row.approximateYtm !== null
+          ? formatUnsignedPercent(row.approximateYtm)
+          : "—"}
+      </span>
+      <span>{row.benchmarkSymbol}</span>
+      <span>
+        {row.benchmarkYtm !== null
+          ? formatUnsignedPercent(row.benchmarkYtm)
+          : "—"}
+      </span>
+      <span className={row.spreadBps !== null && row.spreadBps < 0 ? "text-emerald-200" : "text-amber-200"}>
+        {row.spreadBps !== null ? formatBasisPoints(row.spreadBps) : "—"}
+      </span>
+      <span className="text-slate-400">{row.note}</span>
+    </div>
   );
 }
 
@@ -570,6 +738,10 @@ function formatUnsignedPercent(value: number): string {
   return `${(value * 100).toFixed(2)}%`;
 }
 
+function formatBasisPoints(value: number): string {
+  return `${value >= 0 ? "+" : ""}${value.toFixed(0)} bps`;
+}
+
 function formatDateLabel(value: string): string {
   return new Intl.DateTimeFormat("en-US", {
     month: "short",
@@ -582,5 +754,12 @@ function formatNumber(value: number): string {
   return new Intl.NumberFormat("en-US", {
     minimumFractionDigits: 0,
     maximumFractionDigits: 2,
+  }).format(value);
+}
+
+function formatPrice(value: number): string {
+  return new Intl.NumberFormat("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 4,
   }).format(value);
 }
