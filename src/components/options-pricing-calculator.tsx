@@ -1,14 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { Card } from "@/components/card";
 import { ExpandableChartCard } from "@/components/expandable-chart-card";
 import { OptionsPayoffChart } from "@/components/options-payoff-chart";
 import {
   blackScholesValuation,
   type BlackScholesInput,
-  type OptionType,
   type BlackScholesValuation,
+  type OptionType,
 } from "@/lib/finance/black-scholes";
 import {
   buildBinomialConvergenceSeries,
@@ -44,6 +44,11 @@ type PricingState = {
   }>;
   inputs: CalculatorInput;
 };
+type OptionSectionId =
+  | "pricing"
+  | "comparison"
+  | "volatility"
+  | "strategies";
 
 const DEFAULT_FORM: FormState = {
   optionType: "call",
@@ -103,6 +108,65 @@ const numericFieldConfig: Array<{
     label: "Binomial steps",
     step: "1",
     hint: "Positive integer for the CRR tree",
+  },
+];
+
+const optionSections: Array<{
+  id: OptionSectionId;
+  label: string;
+  description: string;
+}> = [
+  {
+    id: "pricing",
+    label: "Pricing",
+    description: "Inputs, valuation, Greeks, and expiry profile.",
+  },
+  {
+    id: "comparison",
+    label: "Model comparison",
+    description: "Black-Scholes versus CRR cross-checks.",
+  },
+  {
+    id: "volatility",
+    label: "Volatility",
+    description: "Reserved for implied vol and surface workflows.",
+  },
+  {
+    id: "strategies",
+    label: "Strategies",
+    description: "Reserved for multi-leg structures and scenario views.",
+  },
+];
+
+const greekDisplayConfig: Array<{
+  key: keyof BlackScholesValuation;
+  label: string;
+  unit: string;
+}> = [
+  {
+    key: "delta",
+    label: "Delta",
+    unit: "Unitless",
+  },
+  {
+    key: "gamma",
+    label: "Gamma",
+    unit: "Per $1 spot",
+  },
+  {
+    key: "vega",
+    label: "Vega",
+    unit: "Per 1.00 vol",
+  },
+  {
+    key: "theta",
+    label: "Theta",
+    unit: "Per year",
+  },
+  {
+    key: "rho",
+    label: "Rho",
+    unit: "Per 1.00 rate",
   },
 ];
 
@@ -267,43 +331,14 @@ function createInitialPricingState(): PricingState {
   return buildPricingState(parsed.values);
 }
 
-const greekDisplayConfig: Array<{
-  key: keyof BlackScholesValuation;
-  label: string;
-  unit: string;
-}> = [
-  {
-    key: "delta",
-    label: "Delta",
-    unit: "Unitless",
-  },
-  {
-    key: "gamma",
-    label: "Gamma",
-    unit: "Per $1 spot",
-  },
-  {
-    key: "vega",
-    label: "Vega",
-    unit: "Per 1.00 vol",
-  },
-  {
-    key: "theta",
-    label: "Theta",
-    unit: "Per year",
-  },
-  {
-    key: "rho",
-    label: "Rho",
-    unit: "Per 1.00 rate",
-  },
-];
-
 export function OptionsPricingCalculator() {
   const [form, setForm] = useState<FormState>(DEFAULT_FORM);
   const [errors, setErrors] = useState<FormErrors>({});
   const [pricing, setPricing] = useState<PricingState>(createInitialPricingState);
   const [pricingError, setPricingError] = useState<string | null>(null);
+  const [activeSection, setActiveSection] =
+    useState<OptionSectionId>("pricing");
+
   const payoffData = buildOptionPayoffSeries(
     pricing.inputs,
     pricing.blackScholes.price,
@@ -350,200 +385,378 @@ export function OptionsPricingCalculator() {
     setPricingError(null);
   }
 
+  const contractSummary = [
+    {
+      label: "Instrument",
+      value: pricing.inputs.optionType === "call" ? "European call" : "European put",
+    },
+    {
+      label: "Spot / Strike",
+      value: `${formatNumber(pricing.inputs.spot)} / ${formatNumber(pricing.inputs.strike)}`,
+    },
+    {
+      label: "Maturity",
+      value: `${formatNumber(pricing.inputs.maturity)} years`,
+    },
+    {
+      label: "Risk-free rate",
+      value: formatNumber(pricing.inputs.rate),
+    },
+    {
+      label: "Volatility",
+      value: formatNumber(pricing.inputs.volatility),
+    },
+    {
+      label: "Dividend yield",
+      value: formatNumber(pricing.inputs.dividendYield),
+    },
+  ];
+
   return (
     <section className="space-y-4">
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.05fr)_minmax(320px,0.95fr)]">
-        <Card
-          eyebrow="European Option"
-          title="Black-Scholes-Merton input panel"
-          description="Enter scalar assumptions for a European call or put. Rates, volatility, and dividend yield should be entered in decimal form."
-          className="h-full"
+      <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-2 shadow-[0_20px_60px_rgba(0,0,0,0.18)] backdrop-blur-sm">
+        <div
+          className="grid gap-2 md:grid-cols-2 xl:grid-cols-4"
+          role="tablist"
+          aria-label="Options analytics sections"
         >
-          <form className="space-y-6" onSubmit={handleSubmit}>
-            <div className="space-y-3">
-              <span className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-400">
-                Option type
-              </span>
-              <div className="grid grid-cols-2 gap-3">
-                {(["call", "put"] as const).map((type) => {
-                  const isActive = form.optionType === type;
+          {optionSections.map((section) => {
+            const isActive = activeSection === section.id;
 
-                  return (
-                    <button
-                      key={type}
-                      type="button"
-                      onClick={() => updateField("optionType", type)}
-                      className={`rounded-2xl border px-4 py-3 text-sm font-medium capitalize transition ${
-                        isActive
-                          ? "border-sky-400/70 bg-sky-400/15 text-sky-100"
-                          : "border-white/10 bg-slate-950/60 text-slate-300 hover:border-white/20 hover:bg-white/[0.05]"
-                      }`}
-                    >
-                      {type}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            <div className="grid gap-4 sm:grid-cols-2">
-              {numericFieldConfig.map((field) => (
-                <label key={field.name} className="space-y-2">
-                  <span className="block text-sm font-medium text-slate-100">
-                    {field.label}
-                  </span>
-                  <input
-                    type="number"
-                    inputMode="decimal"
-                    step={field.step}
-                    value={form[field.name]}
-                    onChange={(event) => updateField(field.name, event.target.value)}
-                    className={`w-full rounded-2xl border bg-slate-950/70 px-4 py-3 text-sm text-white outline-none transition ${
-                      errors[field.name]
-                        ? "border-rose-400/70 focus:border-rose-300"
-                        : "border-white/10 focus:border-sky-400/60"
-                    }`}
-                  />
-                  <div className="min-h-10 space-y-1">
-                    <p className="text-xs text-slate-400">{field.hint}</p>
-                    {errors[field.name] ? (
-                      <p className="text-xs text-rose-300">{errors[field.name]}</p>
-                    ) : null}
-                  </div>
-                </label>
-              ))}
-            </div>
-
-            <div className="rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-3 text-xs leading-6 text-slate-400">
-              Use decimals for rates and volatility: 0.05 means 5%, 0.20 means
-              20%. Binomial steps should be a positive integer.
-            </div>
-
-            <div className="flex flex-wrap gap-3">
+            return (
               <button
-                type="submit"
-                className="rounded-2xl bg-sky-400 px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-sky-300"
-              >
-                Price option
-              </button>
-              <button
+                key={section.id}
+                id={`${section.id}-tab`}
                 type="button"
-                onClick={handleReset}
-                className="rounded-2xl border border-white/10 px-5 py-3 text-sm font-semibold text-slate-200 transition hover:border-white/20 hover:bg-white/[0.04]"
+                role="tab"
+                aria-selected={isActive}
+                aria-controls={`${section.id}-panel`}
+                onClick={() => setActiveSection(section.id)}
+                className={`rounded-[1.35rem] border px-4 py-4 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/70 ${
+                  isActive
+                    ? "border-sky-400/30 bg-sky-400/[0.12] text-white"
+                    : "border-white/5 bg-slate-950/50 text-slate-300 hover:border-white/15 hover:bg-white/[0.05]"
+                }`}
               >
-                Reset defaults
+                <p className="text-sm font-semibold">{section.label}</p>
+                <p
+                  className={`mt-2 text-xs leading-5 ${
+                    isActive ? "text-sky-100/80" : "text-slate-400"
+                  }`}
+                >
+                  {section.description}
+                </p>
               </button>
-            </div>
-          </form>
-        </Card>
+            );
+          })}
+        </div>
+      </div>
 
-        <Card
-          eyebrow="Result"
-          title="Model comparison and Greeks"
-          description="The output compares analytical Black-Scholes-Merton pricing with a European CRR binomial model, while keeping Greeks from the analytical model."
-          className="h-full"
+      {pricingError ? (
+        <div className="rounded-2xl border border-rose-400/30 bg-rose-400/[0.08] px-4 py-3 text-sm text-rose-200">
+          {pricingError}
+        </div>
+      ) : null}
+
+      {activeSection === "pricing" ? (
+        <div
+          id="pricing-panel"
+          role="tabpanel"
+          aria-labelledby="pricing-tab"
+          className="space-y-4"
         >
-          <div className="space-y-6">
-            <div className="rounded-3xl border border-sky-400/20 bg-sky-400/[0.08] p-5">
-              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-sky-200/80">
-                Black-Scholes price
-              </p>
-              <p className="mt-4 text-4xl font-semibold tracking-tight text-white">
-                {formatNumber(pricing.blackScholes.price)}
-              </p>
-              <p className="mt-3 text-sm leading-7 text-slate-300">
-                {pricing.inputs.optionType === "call" ? "Call" : "Put"} with spot{" "}
-                {formatNumber(pricing.inputs.spot)}, strike{" "}
-                {formatNumber(pricing.inputs.strike)}, maturity{" "}
-                {formatNumber(pricing.inputs.maturity)}, rate{" "}
-                {formatNumber(pricing.inputs.rate)}, volatility{" "}
-                {formatNumber(pricing.inputs.volatility)}, dividend yield{" "}
-                {formatNumber(pricing.inputs.dividendYield)}, and{" "}
-                {pricing.inputs.steps} binomial steps.
-              </p>
-            </div>
+          <div className="grid gap-4 xl:grid-cols-[minmax(320px,0.9fr)_minmax(0,1.1fr)]">
+            <Card
+              eyebrow="Pricing Setup"
+              title="Option inputs"
+              description="Set the contract and market assumptions for the pricing run."
+              className="h-fit xl:sticky xl:top-24"
+            >
+              <form className="space-y-6" onSubmit={handleSubmit}>
+                <div className="space-y-3">
+                  <span className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-400">
+                    Option type
+                  </span>
+                  <div className="grid grid-cols-2 gap-3">
+                    {(["call", "put"] as const).map((type) => {
+                      const isActive = form.optionType === type;
 
-            <div className="space-y-3">
-              <h3 className="text-sm font-semibold uppercase tracking-[0.22em] text-slate-400">
-                Pricing comparison
-              </h3>
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div className="rounded-2xl border border-white/10 bg-slate-950/60 p-4">
-                  <p className="text-xs uppercase tracking-[0.18em] text-slate-500">
-                    Black-Scholes
-                  </p>
-                  <p className="mt-2 text-2xl font-semibold text-white">
-                    {formatNumber(pricing.blackScholes.price)}
-                  </p>
+                      return (
+                        <button
+                          key={type}
+                          type="button"
+                          onClick={() => updateField("optionType", type)}
+                          className={`rounded-2xl border px-4 py-3 text-sm font-medium capitalize transition ${
+                            isActive
+                              ? "border-sky-400/70 bg-sky-400/15 text-sky-100"
+                              : "border-white/10 bg-slate-950/60 text-slate-300 hover:border-white/20 hover:bg-white/[0.05]"
+                          }`}
+                        >
+                          {type}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
-                <div className="rounded-2xl border border-white/10 bg-slate-950/60 p-4">
-                  <p className="text-xs uppercase tracking-[0.18em] text-slate-500">
-                    Binomial CRR
-                  </p>
-                  <p className="mt-2 text-2xl font-semibold text-white">
-                    {formatNumber(pricing.binomialPrice)}
-                  </p>
-                </div>
-                <div className="rounded-2xl border border-white/10 bg-slate-950/60 p-4">
-                  <p className="text-xs uppercase tracking-[0.18em] text-slate-500">
-                    Absolute difference
-                  </p>
-                  <p className="mt-2 text-lg font-semibold text-white">
-                    {formatNumber(pricing.absoluteDifference)}
-                  </p>
-                </div>
-                <div className="rounded-2xl border border-white/10 bg-slate-950/60 p-4">
-                  <p className="text-xs uppercase tracking-[0.18em] text-slate-500">
-                    Percentage difference
-                  </p>
-                  <p className="mt-2 text-lg font-semibold text-white">
-                    {formatNumber(pricing.percentageDifference)}%
-                  </p>
-                </div>
-              </div>
-              <p className="text-xs leading-6 text-slate-400">
-                The CRR model prices the same European payoff numerically using{" "}
-                {pricing.inputs.steps} time steps and the dividend-adjusted
-                risk-neutral probability.
-              </p>
-            </div>
 
-            <div className="space-y-3">
-              <h3 className="text-sm font-semibold uppercase tracking-[0.22em] text-slate-400">
-                Greeks
-              </h3>
-              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
-                {greekDisplayConfig.map((greek) => (
-                  <div
-                    key={greek.key}
-                    className="rounded-2xl border border-white/10 bg-slate-950/60 p-4"
+                <div className="grid gap-4 sm:grid-cols-2">
+                  {numericFieldConfig.map((field) => (
+                    <label key={field.name} className="space-y-2">
+                      <span className="block text-sm font-medium text-slate-100">
+                        {field.label}
+                      </span>
+                      <input
+                        type="number"
+                        inputMode="decimal"
+                        step={field.step}
+                        value={form[field.name]}
+                        onChange={(event) =>
+                          updateField(field.name, event.target.value)
+                        }
+                        className={`w-full rounded-2xl border bg-slate-950/70 px-4 py-3 text-sm text-white outline-none transition ${
+                          errors[field.name]
+                            ? "border-rose-400/70 focus:border-rose-300"
+                            : "border-white/10 focus:border-sky-400/60"
+                        }`}
+                      />
+                      <div className="min-h-10 space-y-1">
+                        <p className="text-xs text-slate-400">{field.hint}</p>
+                        {errors[field.name] ? (
+                          <p className="text-xs text-rose-300">
+                            {errors[field.name]}
+                          </p>
+                        ) : null}
+                      </div>
+                    </label>
+                  ))}
+                </div>
+
+                <div className="rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-3 text-xs leading-6 text-slate-400">
+                  Use decimals for rates and volatility: `0.05` means 5% and
+                  `0.20` means 20%.
+                </div>
+
+                <div className="flex flex-wrap gap-3">
+                  <button
+                    type="submit"
+                    className="rounded-2xl bg-sky-400 px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-sky-300"
                   >
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="space-y-1">
-                        <p className="text-sm font-medium text-slate-100">
-                          {greek.label}
+                    Reprice contract
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleReset}
+                    className="rounded-2xl border border-white/10 px-5 py-3 text-sm font-semibold text-slate-200 transition hover:border-white/20 hover:bg-white/[0.04]"
+                  >
+                    Reset defaults
+                  </button>
+                </div>
+              </form>
+            </Card>
+
+            <div className="space-y-4">
+              <Card
+                eyebrow="Pricing"
+                title="Black-Scholes-Merton valuation"
+                description="Primary analytical result for the selected European contract."
+              >
+                <div className="space-y-6">
+                  <div className="rounded-3xl border border-sky-400/20 bg-sky-400/[0.08] p-5">
+                    <p className="text-xs font-semibold uppercase tracking-[0.22em] text-sky-200/80">
+                      Model price
+                    </p>
+                    <div className="mt-4 flex flex-wrap items-end justify-between gap-4">
+                      <div>
+                        <p className="text-4xl font-semibold tracking-tight text-white">
+                          {formatNumber(pricing.blackScholes.price)}
                         </p>
-                        <p className="text-xs uppercase tracking-[0.18em] text-slate-500">
-                          {greek.unit}
+                        <p className="mt-2 text-sm text-slate-300">
+                          {pricing.inputs.optionType === "call" ? "Call" : "Put"} priced
+                          with continuous dividends.
                         </p>
                       </div>
-                      <p className="text-lg font-semibold text-white">
-                        {formatNumber(pricing.blackScholes[greek.key])}
-                      </p>
+                      <div className="rounded-2xl border border-sky-300/15 bg-slate-950/35 px-4 py-3">
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-sky-100/70">
+                          Tree benchmark
+                        </p>
+                        <p className="mt-2 text-lg font-semibold text-white">
+                          {formatNumber(pricing.binomialPrice)}
+                        </p>
+                      </div>
                     </div>
                   </div>
-                ))}
-              </div>
-              <p className="text-xs leading-6 text-slate-400">
-                Vega and rho are reported per 1.00 absolute change in volatility
-                and rate. Theta is annualized.
-              </p>
-            </div>
 
-            <div className="space-y-3">
-              <h3 className="text-sm font-semibold uppercase tracking-[0.22em] text-slate-400">
-                Binomial convergence
-              </h3>
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <h3 className="text-sm font-semibold uppercase tracking-[0.22em] text-slate-400">
+                        Contract summary
+                      </h3>
+                      <p className="text-xs uppercase tracking-[0.18em] text-slate-500">
+                        {pricing.inputs.steps} CRR steps
+                      </p>
+                    </div>
+                    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                      {contractSummary.map((item) => (
+                        <SummaryCard
+                          key={item.label}
+                          label={item.label}
+                          value={item.value}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </Card>
+
+              <Card
+                eyebrow="Risk"
+                title="Greeks snapshot"
+                description="Analytical sensitivities from the current Black-Scholes-Merton run."
+              >
+                <div className="space-y-4">
+                  <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                    {greekDisplayConfig.map((greek) => (
+                      <MetricCard
+                        key={greek.key}
+                        label={greek.label}
+                        value={formatNumber(pricing.blackScholes[greek.key])}
+                        meta={greek.unit}
+                      />
+                    ))}
+                  </div>
+                  <p className="text-xs leading-6 text-slate-400">
+                    Vega and rho are reported per 1.00 absolute move in volatility
+                    and rate. Theta is annualized.
+                  </p>
+                </div>
+              </Card>
+            </div>
+          </div>
+
+          <ExpandableChartCard
+            eyebrow="Payoff"
+            title="Expiry payoff and profit profile"
+            description="Inspect how the selected option behaves at expiry across a spot range centered around the current contract."
+            detailDescription="Expanded payoff view with exact spot-by-spot inspection for the payoff and profit curves."
+            renderPreview={({ open }) => (
+              <div className="space-y-5">
+                <OptionsPayoffChart
+                  data={payoffData}
+                  inputs={pricing.inputs}
+                  optionPrice={pricing.blackScholes.price}
+                  onChartClick={open}
+                />
+                <div className="grid gap-3 sm:grid-cols-3">
+                  <MetricCard
+                    label="Payoff view"
+                    value={pricing.inputs.optionType === "call" ? "Long call" : "Long put"}
+                    meta="Intrinsic value at expiry"
+                  />
+                  <MetricCard
+                    label="Profit curve"
+                    value={formatNumber(pricing.blackScholes.price)}
+                    meta="Current premium used as cost basis"
+                  />
+                  <MetricCard
+                    label="Markers"
+                    value="Spot and strike"
+                    meta="Dashed reference levels"
+                  />
+                </div>
+              </div>
+            )}
+            detail={
+              <OptionsPayoffChart
+                data={payoffData}
+                inputs={pricing.inputs}
+                optionPrice={pricing.blackScholes.price}
+                interactive
+                showSummary
+                heightClassName="h-[24rem] sm:h-[32rem] lg:h-[40rem]"
+              />
+            }
+          />
+        </div>
+      ) : null}
+
+      {activeSection === "comparison" ? (
+        <div
+          id="comparison-panel"
+          role="tabpanel"
+          aria-labelledby="comparison-tab"
+          className="space-y-4"
+        >
+          <div className="grid gap-4 xl:grid-cols-[minmax(0,1.08fr)_minmax(320px,0.92fr)]">
+            <Card
+              eyebrow="Comparison"
+              title="Black-Scholes vs CRR"
+              description="Cross-check the analytical benchmark against a European Cox-Ross-Rubinstein tree."
+            >
+              <div className="space-y-5">
+                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                  <MetricCard
+                    label="Black-Scholes"
+                    value={formatNumber(pricing.blackScholes.price)}
+                  />
+                  <MetricCard
+                    label="CRR binomial"
+                    value={formatNumber(pricing.binomialPrice)}
+                  />
+                  <MetricCard
+                    label="Absolute difference"
+                    value={formatNumber(pricing.absoluteDifference)}
+                  />
+                  <MetricCard
+                    label="Percentage difference"
+                    value={`${formatNumber(pricing.percentageDifference)}%`}
+                  />
+                </div>
+
+                <div className="grid gap-3 sm:grid-cols-3">
+                  <SummaryCard
+                    label="Contract"
+                    value={pricing.inputs.optionType === "call" ? "European call" : "European put"}
+                  />
+                  <SummaryCard
+                    label="Dividend treatment"
+                    value={`q = ${formatNumber(pricing.inputs.dividendYield)}`}
+                  />
+                  <SummaryCard
+                    label="Tree depth"
+                    value={`${pricing.inputs.steps} steps`}
+                  />
+                </div>
+              </div>
+            </Card>
+
+            <Card
+              eyebrow="Notes"
+              title="Model context"
+              description="Compact guidance on how to interpret the two views."
+            >
+              <div className="space-y-3">
+                <NoteCard
+                  title="Analytical benchmark"
+                  body="Black-Scholes-Merton provides the primary price and Greeks for the selected European payoff."
+                />
+                <NoteCard
+                  title="Numerical cross-check"
+                  body="The CRR tree prices the same contract with backward induction using the selected number of time steps."
+                />
+                <NoteCard
+                  title="Read the gap"
+                  body="The comparison is most useful as a validation check and to observe convergence as the tree gets deeper."
+                />
+              </div>
+            </Card>
+          </div>
+
+          <Card
+            eyebrow="Convergence"
+            title="Binomial convergence table"
+            description="CRR pricing across increasing tree depths relative to the analytical benchmark."
+          >
+            <div className="space-y-4">
               <div className="overflow-hidden rounded-2xl border border-white/10 bg-slate-950/60">
                 <div className="grid grid-cols-[1fr_1.3fr_1fr] gap-3 border-b border-white/10 px-4 py-3 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
                   <span>Steps</span>
@@ -562,69 +775,153 @@ export function OptionsPricingCalculator() {
                 ))}
               </div>
               <p className="text-xs leading-6 text-slate-400">
-                For European options, the CRR price should generally move toward
-                the Black-Scholes benchmark as the number of steps increases.
+                For European options, the CRR estimate should generally tighten
+                toward the Black-Scholes benchmark as the number of steps increases.
               </p>
             </div>
+          </Card>
+        </div>
+      ) : null}
 
-            {pricingError ? (
-              <div className="rounded-2xl border border-rose-400/30 bg-rose-400/[0.08] px-4 py-3 text-sm text-rose-200">
-                {pricingError}
-              </div>
-            ) : null}
-
-            <div className="space-y-3">
-              <h3 className="text-sm font-semibold uppercase tracking-[0.22em] text-slate-400">
-                Model note
-              </h3>
-              <p className="text-sm leading-7 text-slate-300">
-                This implementation validates inputs, computes d1 and d2, applies
-                continuous discounting for both the risk-free rate and dividend
-                yield, and then prices either the call or put branch with the
-                corresponding Greeks. The CRR comparison uses a 1D backward
-                induction array rather than storing the full tree.
-              </p>
-              <p className="text-sm leading-7 text-slate-300">
-                It remains intentionally minimal: pure reusable finance functions,
-                scalar inputs only, and frontend-only presentation.
-              </p>
-            </div>
-          </div>
-        </Card>
-      </div>
-
-      <ExpandableChartCard
-        eyebrow="Payoff View"
-        title="Expiry payoff and profit profile"
-        description="This chart shows how the selected option behaves at expiry across a spot range centered around the current spot and strike."
-        detailDescription="The expanded view keeps the same payoff structure while adding exact spot-by-spot inspection for the payoff and profit curves."
-        renderPreview={({ open }) => (
-          <div className="space-y-5">
-            <OptionsPayoffChart
-              data={payoffData}
-              inputs={pricing.inputs}
-              optionPrice={pricing.blackScholes.price}
-              onChartClick={open}
-            />
-            <p className="max-w-3xl text-sm leading-7 text-slate-300">
-              The blue line is intrinsic payoff at expiry. The green line subtracts
-              the current Black-Scholes-Merton premium to show profit at expiry,
-              which makes the break-even region easier to interpret. Dashed markers
-              identify the strike and today&apos;s spot for quick context.
-            </p>
-          </div>
-        )}
-        detail={
-          <OptionsPayoffChart
-            data={payoffData}
-            inputs={pricing.inputs}
-            optionPrice={pricing.blackScholes.price}
-            interactive
-            showSummary
-            heightClassName="h-[24rem] sm:h-[32rem] lg:h-[40rem]"
+      {activeSection === "volatility" ? (
+        <div
+          id="volatility-panel"
+          role="tabpanel"
+          aria-labelledby="volatility-tab"
+        >
+          <ComingNextCard
+            eyebrow="Volatility"
+            title="Volatility workflows are planned next"
+            description="This section is reserved for implied volatility and forward-looking volatility analysis once the pricing workflow is fully settled."
+            items={[
+              {
+                label: "Planned",
+                value: "Implied vol solver",
+              },
+              {
+                label: "Planned",
+                value: "Sensitivity sweeps",
+              },
+              {
+                label: "Planned",
+                value: "Scenario-ready layout",
+              },
+            ]}
           />
-        }
-      />
+        </div>
+      ) : null}
+
+      {activeSection === "strategies" ? (
+        <div
+          id="strategies-panel"
+          role="tabpanel"
+          aria-labelledby="strategies-tab"
+        >
+          <ComingNextCard
+            eyebrow="Strategies"
+            title="Strategy analytics will live here"
+            description="This section is reserved for multi-leg structures, payoff aggregation, and cleaner scenario comparison once the single-option workflow is complete."
+            items={[
+              {
+                label: "Planned",
+                value: "Multi-leg payoff builder",
+              },
+              {
+                label: "Planned",
+                value: "Strategy P/L views",
+              },
+              {
+                label: "Planned",
+                value: "Reusable scenario blocks",
+              },
+            ]}
+          />
+        </div>
+      ) : null}
     </section>
+  );
+}
+
+function MetricCard({
+  label,
+  value,
+  meta,
+}: {
+  label: string;
+  value: string;
+  meta?: string;
+}) {
+  return (
+    <div className="rounded-2xl border border-white/10 bg-slate-950/60 p-4">
+      <p className="text-xs uppercase tracking-[0.18em] text-slate-500">
+        {label}
+      </p>
+      <p className="mt-2 text-xl font-semibold text-white">{value}</p>
+      {meta ? <p className="mt-2 text-xs text-slate-400">{meta}</p> : null}
+    </div>
+  );
+}
+
+function SummaryCard({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+        {label}
+      </p>
+      <p className="mt-2 text-sm font-semibold text-white">{value}</p>
+    </div>
+  );
+}
+
+function NoteCard({ title, body }: { title: string; body: string }) {
+  return (
+    <div className="rounded-2xl border border-white/10 bg-slate-950/60 p-4">
+      <p className="text-sm font-semibold text-white">{title}</p>
+      <p className="mt-2 text-sm leading-6 text-slate-300">{body}</p>
+    </div>
+  );
+}
+
+function ComingNextCard({
+  eyebrow,
+  title,
+  description,
+  items,
+}: {
+  eyebrow: string;
+  title: string;
+  description: string;
+  items: Array<{
+    label: string;
+    value: string;
+  }>;
+}) {
+  return (
+    <Card eyebrow={eyebrow} title={title} description={description}>
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1.1fr)_minmax(280px,0.9fr)]">
+        <div className="rounded-3xl border border-dashed border-white/15 bg-slate-950/45 p-6">
+          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-sky-300/80">
+            Coming next
+          </p>
+          <h3 className="mt-4 text-2xl font-semibold tracking-tight text-white">
+            Reserved for the next layer of option analytics
+          </h3>
+          <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-300">
+            The pricing surface is in place first. This section stays intentionally
+            clean until the next workflow is ready to ship.
+          </p>
+        </div>
+
+        <div className="space-y-3">
+          {items.map((item) => (
+            <SummaryCard
+              key={`${item.label}-${item.value}`}
+              label={item.label}
+              value={item.value}
+            />
+          ))}
+        </div>
+      </div>
+    </Card>
   );
 }
