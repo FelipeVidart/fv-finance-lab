@@ -1,5 +1,5 @@
-import { RiskMarketExplorer } from "@/components/risk-market-explorer";
+import { RiskModuleShell } from "@/components/risk-module-shell";
 
 export default function RiskPage() {
-  return <RiskMarketExplorer />;
+  return <RiskModuleShell />;
 }
