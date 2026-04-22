@@ -133,7 +133,7 @@ export function LineChartPanel({
     >
       {onChartClick ? (
         <span className="pointer-events-none absolute right-3 top-3 rounded-full border border-white/10 bg-slate-900/80 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-300">
-          Open detail
+          Expand
         </span>
       ) : null}
 
