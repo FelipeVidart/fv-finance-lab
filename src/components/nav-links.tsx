@@ -31,7 +31,7 @@ export function NavLinks({
         variant === "header" &&
           "items-center rounded-full border border-border/80 bg-surface-elevated/75 p-1.5 shadow-[var(--shadow-soft)] backdrop-blur-xl",
         variant === "tabs" &&
-          "rounded-[var(--radius-lg-value)] border border-border/80 bg-surface/70 p-2 shadow-[var(--shadow-soft)]",
+          "rounded-[var(--radius-lg-value)] border border-border/80 bg-surface/60 p-1.5 shadow-[var(--shadow-soft)] backdrop-blur-xl",
       )}
       aria-label={variant === "header" ? "Primary navigation" : "Tool navigation"}
     >
@@ -52,7 +52,7 @@ export function NavLinks({
                   : "border-transparent text-foreground-muted hover:border-border hover:bg-white/[0.04] hover:text-foreground"),
               variant === "tabs" &&
                 (active
-                  ? "border-accent/30 bg-accent/12 text-accent-foreground"
+                  ? "border-accent/35 bg-accent/12 text-accent-foreground shadow-[0_12px_28px_rgba(196,154,74,0.14)]"
                   : "border-transparent text-foreground-muted hover:border-border hover:bg-white/[0.04] hover:text-foreground"),
             )}
           >
