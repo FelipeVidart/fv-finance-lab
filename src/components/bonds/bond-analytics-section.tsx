@@ -1,5 +1,7 @@
 import { Card } from "@/components/card";
 import { BondMetricCard } from "@/components/bonds/bond-shared";
+import { SurfaceCard } from "@/components/ui/surface-card";
+import { cn } from "@/lib/utils";
 import type { BondAnalyticsSectionProps } from "@/components/bonds/types";
 
 export function BondAnalyticsSection({
@@ -11,13 +13,54 @@ export function BondAnalyticsSection({
       id="analytics-panel"
       role="tabpanel"
       aria-labelledby="analytics-tab"
-      className="space-y-4"
+      className="space-y-6"
     >
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.05fr)_minmax(300px,0.95fr)]">
+      <SurfaceCard tone="elevated" padding="md" className="border-white/[0.08]">
+        <div className="grid gap-4 xl:grid-cols-[minmax(0,1.16fr)_minmax(23rem,0.84fr)]">
+          <div>
+            <p className="text-[0.72rem] font-semibold uppercase tracking-[0.24em] text-accent-strong/85">
+              Bond analytics
+            </p>
+            <h3 className="mt-3 text-2xl font-semibold tracking-[-0.03em] text-foreground">
+              Read the bond through timing, present-value composition, and rate sensitivity.
+            </h3>
+            <p className="mt-3 max-w-2xl text-sm leading-7 text-foreground-soft">
+              This section stays tightly connected to the manual pricing setup so
+              duration, coupon timing, and present-value breakdown all trace back
+              to the same fixed-income assumptions.
+            </p>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            <MiniStat
+              label="Total periods"
+              value={analytics.totalPeriods.toString()}
+              detail="Coupon schedule length"
+            />
+            <MiniStat
+              label="Periodic coupon"
+              value={formatCurrency(analytics.periodicCoupon)}
+              detail="Cash flow per period"
+            />
+            <MiniStat
+              label="Macaulay duration"
+              value={formatYears(analytics.macaulayDuration)}
+              detail="Weighted timing measure"
+            />
+            <MiniStat
+              label="Modified duration"
+              value={formatYears(analytics.modifiedDuration)}
+              detail="Approximate price sensitivity"
+            />
+          </div>
+        </div>
+      </SurfaceCard>
+
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.08fr)_minmax(20rem,0.92fr)]">
         <Card
           eyebrow="Analytics"
-          title="Duration and present value measures"
-          description="Fixed-income analytics derived directly from the current manual bond calculation."
+          title="Duration and present-value measures"
+          description="Core analytical outputs derived directly from the current bond calculation."
         >
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
             <BondMetricCard
@@ -50,64 +93,98 @@ export function BondAnalyticsSection({
 
         <Card
           eyebrow="Analytics"
-          title="Cash flow summary"
-          description="Compact summary of the coupon stream and redemption profile."
+          title="Reading frame"
+          description="Use these notes to connect the bond outputs back to desk interpretation."
         >
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
-            <BondMetricCard
-              label="Periodic coupon"
-              value={formatCurrency(analytics.periodicCoupon)}
+          <div className="space-y-3">
+            <InsightCard
+              title="Duration posture"
+              body="Macaulay duration measures the present-value weighted timing of the cash flows, while modified duration converts that timing into an approximate price response to small yield moves."
             />
-            <BondMetricCard
-              label="Annual coupon"
-              value={formatCurrency(analytics.annualCoupon)}
+            <InsightCard
+              title="Present-value split"
+              body="Separating coupons from principal helps explain whether value is concentrated in the income stream or the terminal redemption."
             />
-            <BondMetricCard
-              label="First coupon bucket"
-              value={formatYears(1 / analytics.input.paymentsPerYear)}
-              tone="muted"
+            <InsightCard
+              title="Cash-flow discipline"
+              body="Coupon frequency and maturity alignment matter because the schedule defines both timing risk and the valuation path."
             />
-            <div className="rounded-2xl border border-white/10 bg-slate-950/60 p-4">
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-                Interpretation
-              </p>
-              <p className="mt-3 text-sm leading-7 text-slate-300">
-                Macaulay duration measures the present-value weighted timing of the
-                cash flows, while modified duration turns that timing into an
-                approximate price sensitivity to small yield moves.
-              </p>
-            </div>
           </div>
         </Card>
       </div>
 
       <Card
         eyebrow="Analytics"
-        title="Cash flow table"
-        description="Preview of the opening and closing cash flow buckets from the current bond schedule."
+        title="Cash-flow schedule snapshot"
+        description="Opening and closing buckets from the current bond schedule, shown as a compact reference table."
       >
-        <div className="overflow-x-auto rounded-2xl border border-white/10 bg-slate-950/60">
-          <div className="min-w-[520px]">
-            <div className="grid grid-cols-[0.7fr_0.9fr_1fr_1fr] gap-3 border-b border-white/10 px-4 py-3 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-              <span>Period</span>
-              <span>Time</span>
-              <span>Cash flow</span>
-              <span>PV</span>
-            </div>
-            {cashFlowRows.map((cashFlow) => (
-              <div
-                key={cashFlow.period}
-                className="grid grid-cols-[0.7fr_0.9fr_1fr_1fr] gap-3 px-4 py-3 text-sm text-slate-200 not-last:border-b not-last:border-white/10"
-              >
-                <span>{cashFlow.period}</span>
-                <span>{formatYears(cashFlow.timeInYears)}</span>
-                <span>{formatCurrency(cashFlow.cashFlow)}</span>
-                <span>{formatCurrency(cashFlow.presentValue)}</span>
+        <div className="grid gap-4 xl:grid-cols-[minmax(0,1.14fr)_minmax(18rem,0.86fr)]">
+          <div className="overflow-x-auto rounded-[1.6rem] border border-white/[0.08] bg-[linear-gradient(180deg,rgba(10,17,26,0.82),rgba(8,13,20,0.72))]">
+            <div className="min-w-[560px]">
+              <div className="grid grid-cols-[0.7fr_0.9fr_1fr_1fr] gap-3 border-b border-white/[0.08] px-5 py-3 text-[11px] font-semibold uppercase tracking-[0.18em] text-foreground-subtle">
+                <span>Period</span>
+                <span>Time</span>
+                <span>Cash flow</span>
+                <span>PV</span>
               </div>
-            ))}
+              {cashFlowRows.map((cashFlow, index) => (
+                <div
+                  key={cashFlow.period}
+                  className={cn(
+                    "grid grid-cols-[0.7fr_0.9fr_1fr_1fr] gap-3 px-5 py-4 text-sm text-foreground-soft not-last:border-b not-last:border-white/[0.08]",
+                    index % 2 === 0 ? "bg-white/[0.015]" : "bg-transparent",
+                  )}
+                >
+                  <span className="font-semibold text-foreground">{cashFlow.period}</span>
+                  <span>{formatYears(cashFlow.timeInYears)}</span>
+                  <span>{formatCurrency(cashFlow.cashFlow)}</span>
+                  <span>{formatCurrency(cashFlow.presentValue)}</span>
+                </div>
+              ))}
+            </div>
           </div>
+
+          <SurfaceCard padding="sm" className="border-white/[0.08]">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-accent-strong/85">
+              Schedule note
+            </p>
+            <p className="mt-3 text-sm leading-7 text-foreground-soft">
+              The table intentionally shows the opening and closing buckets so
+              the user can verify both the early coupon cadence and the maturity
+              redemption structure without scanning the full schedule.
+            </p>
+          </SurfaceCard>
         </div>
       </Card>
+    </div>
+  );
+}
+
+function MiniStat({
+  label,
+  value,
+  detail,
+}: {
+  label: string;
+  value: string;
+  detail: string;
+}) {
+  return (
+    <div className="rounded-[1.35rem] border border-white/[0.08] bg-[linear-gradient(180deg,rgba(10,17,26,0.76),rgba(10,17,26,0.54))] px-4 py-4">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-foreground-subtle">
+        {label}
+      </p>
+      <p className="mt-3 text-base font-semibold text-foreground">{value}</p>
+      <p className="mt-2 text-xs leading-6 text-foreground-muted">{detail}</p>
+    </div>
+  );
+}
+
+function InsightCard({ title, body }: { title: string; body: string }) {
+  return (
+    <div className="rounded-[1.25rem] border border-white/[0.08] bg-[linear-gradient(180deg,rgba(10,17,26,0.76),rgba(10,17,26,0.54))] px-4 py-4">
+      <p className="text-sm font-semibold text-foreground">{title}</p>
+      <p className="mt-2 text-sm leading-6 text-foreground-soft">{body}</p>
     </div>
   );
 }

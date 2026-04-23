@@ -1,11 +1,12 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Card } from "@/components/card";
 import { BondAnalyticsSection } from "@/components/bonds/bond-analytics-section";
 import { BondMarketMonitorSection } from "@/components/bonds/bond-market-monitor-section";
 import { BondPricingSection } from "@/components/bonds/bond-pricing-section";
 import { BondSectionTabs } from "@/components/bonds/bond-section-tabs";
+import { SurfaceCard } from "@/components/ui/surface-card";
+import { cn } from "@/lib/utils";
 import type {
   BondChartModel,
   BondFormErrors,
@@ -306,16 +307,103 @@ export function BondModuleShell() {
     }));
   }, [marketData]);
 
+  const activeSectionLabel =
+    activeSection === "pricing"
+      ? "Pricing"
+      : activeSection === "analytics"
+        ? "Analytics"
+        : "Market monitor";
+
   return (
-    <section className="space-y-4">
-      <Card
-        eyebrow="Fixed Income Workspace"
-        title="Separate manual bond pricing, analytics, and market monitoring into clearer workflows"
-        description="Run the manual fixed-rate bond calculator first, review duration and cash flow analytics second, and keep fetched market monitoring as a secondary layer."
-      />
+    <section className="space-y-8">
+      <SurfaceCard
+        tone="elevated"
+        padding="lg"
+        className="border-border-strong/95"
+      >
+        <div className="grid gap-6 xl:grid-cols-[minmax(0,1.18fr)_minmax(22rem,0.82fr)]">
+          <div className="space-y-6">
+            <div className="flex flex-wrap items-center gap-3">
+              <span className="rounded-full border border-accent/20 bg-accent/10 px-3 py-1.5 text-[0.68rem] font-semibold uppercase tracking-[0.24em] text-accent-foreground">
+                Fixed income workspace
+              </span>
+              <span className="rounded-full border border-white/[0.08] bg-background-muted/75 px-3 py-1.5 text-[0.68rem] font-semibold uppercase tracking-[0.2em] text-foreground-subtle">
+                {activeSectionLabel}
+              </span>
+            </div>
+
+            <div className="space-y-4">
+              <h2 className="max-w-4xl text-balance text-3xl font-semibold tracking-[-0.04em] text-foreground sm:text-[2.8rem]">
+                Price the bond, read the rate sensitivity, then move into market and spread context.
+              </h2>
+              <p className="max-w-3xl text-sm leading-7 text-foreground-soft sm:text-[0.96rem]">
+                The module separates manual fixed-rate valuation, analytical
+                interpretation, and market monitoring into a cleaner desk-style
+                workflow. Pricing stays primary, analytics stay readable, and
+                market context remains reference-oriented.
+              </p>
+            </div>
+
+            <div className="grid gap-3 lg:grid-cols-3">
+              <StagePanel
+                step="01"
+                label="Manual pricing"
+                body="Define the bond terms and value the fixed-rate instrument under the chosen yield assumption."
+                state="active"
+              />
+              <StagePanel
+                step="02"
+                label="Duration and cash flows"
+                body="Read timing, present-value composition, and rate sensitivity off the same calculation base."
+                state="ready"
+              />
+              <StagePanel
+                step="03"
+                label="Market reference"
+                body="Layer aligned market history, approximate YTM, and benchmark spread context on top."
+                state={marketData ? "ready" : isLoading ? "active" : "pending"}
+              />
+            </div>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
+            <WorkspaceSignal
+              label="Pricing posture"
+              value={formatCurrency(analytics.price)}
+              detail={`Current valuation is reading ${describeTradingState(analytics.tradingStatus)} versus par.`}
+              tone="ready"
+            />
+            <WorkspaceSignal
+              label="Analytical basis"
+              value={`${analytics.totalPeriods} cash-flow periods`}
+              detail={`${formatYears(analytics.macaulayDuration)} Macaulay duration and ${formatYears(analytics.modifiedDuration)} modified duration.`}
+              tone="ready"
+            />
+            <WorkspaceSignal
+              label="Market posture"
+              value={
+                marketData
+                  ? `${marketData.marketData.tickers.length} symbols aligned for ${marketData.marketData.period}`
+                  : isLoading
+                    ? "Loading bond market monitor"
+                    : "Awaiting market data"
+              }
+              detail={
+                marketData
+                  ? `${formatDateLabel(marketData.marketData.meta.commonStartDate)} through ${formatDateLabel(
+                      marketData.marketData.meta.commonEndDate,
+                    )}`
+                  : "The desk monitor opens when bond market data is loaded."
+              }
+              tone={marketData ? "ready" : isLoading ? "active" : "default"}
+            />
+          </div>
+        </div>
+      </SurfaceCard>
 
       <BondSectionTabs
         activeSection={activeSection}
+        marketReady={Boolean(marketData)}
         onChange={setActiveSection}
       />
 
@@ -520,4 +608,107 @@ function formatDateLabel(value: string): string {
     day: "numeric",
     year: "numeric",
   }).format(new Date(`${value}T00:00:00`));
+}
+
+function formatCurrency(value: number): string {
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(value);
+}
+
+function formatYears(value: number): string {
+  return `${value.toFixed(2)} yrs`;
+}
+
+function describeTradingState(status: FixedRateBondAnalytics["tradingStatus"]) {
+  if (status === "premium") {
+    return "at a premium";
+  }
+
+  if (status === "discount") {
+    return "at a discount";
+  }
+
+  return "near par";
+}
+
+function StagePanel({
+  step,
+  label,
+  body,
+  state,
+}: {
+  step: string;
+  label: string;
+  body: string;
+  state: "pending" | "active" | "ready";
+}) {
+  return (
+    <div
+      className={cn(
+        "rounded-[1.6rem] border px-4 py-4",
+        state === "ready" &&
+          "border-emerald-400/18 bg-emerald-400/[0.06] text-emerald-100",
+        state === "active" &&
+          "border-accent/18 bg-accent/[0.07] text-accent-foreground",
+        state === "pending" &&
+          "border-white/[0.08] bg-[linear-gradient(180deg,rgba(10,16,24,0.72),rgba(10,16,24,0.46))] text-foreground",
+      )}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-foreground-subtle">
+            Step {step}
+          </p>
+          <p className="mt-3 text-sm font-semibold text-current">{label}</p>
+        </div>
+        <span
+          className={cn(
+            "rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em]",
+            state === "ready" &&
+              "border-emerald-300/20 bg-emerald-300/[0.08] text-emerald-200",
+            state === "active" &&
+              "border-accent/25 bg-accent/12 text-accent-foreground",
+            state === "pending" &&
+              "border-white/[0.08] bg-background-muted/80 text-foreground-subtle",
+          )}
+        >
+          {state === "ready" ? "Ready" : state === "active" ? "Current" : "Pending"}
+        </span>
+      </div>
+      <p className="mt-3 text-sm leading-6 text-foreground-soft">{body}</p>
+    </div>
+  );
+}
+
+function WorkspaceSignal({
+  label,
+  value,
+  detail,
+  tone = "default",
+}: {
+  label: string;
+  value: string;
+  detail: string;
+  tone?: "default" | "active" | "ready";
+}) {
+  return (
+    <SurfaceCard
+      padding="sm"
+      className={cn(
+        "h-full border-white/[0.08]",
+        tone === "active" && "border-accent/18",
+        tone === "ready" && "border-emerald-400/18",
+      )}
+    >
+      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-foreground-subtle">
+        {label}
+      </p>
+      <p className="mt-3 text-sm font-semibold leading-6 text-foreground">{value}</p>
+      <p className="mt-3 text-sm leading-6 text-foreground-soft">{detail}</p>
+    </SurfaceCard>
+  );
 }
