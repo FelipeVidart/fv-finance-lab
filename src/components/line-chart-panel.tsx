@@ -136,7 +136,7 @@ export function LineChartPanel({
   const chart = (
     <div
       className={cn(
-        "relative overflow-hidden rounded-[1.8rem] border border-border-strong/80",
+        "relative overflow-hidden rounded-[1.75rem] border border-border-strong/80",
         "bg-[radial-gradient(circle_at_top_right,rgba(226,184,107,0.08),transparent_24%),linear-gradient(180deg,rgba(13,20,30,0.98),rgba(7,12,19,0.96))]",
         "shadow-[var(--shadow-card)]",
         heightClassName,
@@ -167,7 +167,7 @@ export function LineChartPanel({
           ) : null}
         </div>
 
-        <div className="relative min-h-0 flex-1 overflow-hidden rounded-[1.45rem] border border-white/[0.06] bg-[linear-gradient(180deg,rgba(8,14,22,0.88),rgba(8,14,22,0.52))] px-2 py-2 sm:px-3 sm:py-3">
+        <div className="relative min-h-0 flex-1 overflow-hidden rounded-[1.5rem] border border-white/[0.06] bg-[linear-gradient(180deg,rgba(8,14,22,0.88),rgba(8,14,22,0.52))] px-2 py-2 sm:px-3 sm:py-3">
           <div
             aria-hidden="true"
             className="pointer-events-none absolute inset-0 opacity-80 [background-image:linear-gradient(rgba(148,163,184,0.05)_1px,transparent_1px),linear-gradient(90deg,rgba(148,163,184,0.04)_1px,transparent_1px)] [background-size:32px_32px]"
@@ -283,7 +283,7 @@ export function LineChartPanel({
     <div className="space-y-4">
       {interactive ? (
         <div className="grid gap-3 lg:grid-cols-[minmax(220px,280px)_minmax(0,1fr)]">
-          <div className="rounded-[1.45rem] border border-border/80 bg-background-muted/80 px-4 py-3">
+          <div className="rounded-[1.5rem] border border-border/80 bg-background-muted/80 px-4 py-3">
             <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-foreground-subtle">
               Inspection date
             </p>
@@ -295,7 +295,7 @@ export function LineChartPanel({
             </p>
           </div>
 
-          <div className="rounded-[1.45rem] border border-border/80 bg-background-muted/80 px-4 py-3">
+          <div className="rounded-[1.5rem] border border-border/80 bg-background-muted/80 px-4 py-3">
             <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-foreground-subtle">
               Values at cursor
             </p>
@@ -384,7 +384,7 @@ export function LineChartPanel({
           {summaryRows.map((entry) => (
             <div
               key={entry.label}
-              className="rounded-[1.45rem] border border-border/80 bg-background-muted/80 px-4 py-3"
+              className="rounded-[1.5rem] border border-border/80 bg-background-muted/80 px-4 py-3"
             >
               <div className="flex items-center gap-2">
                 <span

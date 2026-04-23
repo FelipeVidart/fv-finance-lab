@@ -43,7 +43,7 @@ export function ExpandableChartCard({
           <button
             type="button"
             onClick={open}
-            className="rounded-full border border-accent/20 bg-accent/10 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-accent-foreground transition hover:border-accent/35 hover:bg-accent/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70"
+            className="rounded-[1.15rem] border border-border/80 bg-[linear-gradient(180deg,rgba(19,30,43,0.88),rgba(11,19,29,0.78))] px-4 py-2.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-foreground transition hover:border-accent/25 hover:bg-white/[0.04] hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70"
           >
             Expand chart
           </button>

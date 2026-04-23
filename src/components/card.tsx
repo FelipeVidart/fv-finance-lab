@@ -26,7 +26,7 @@ export function Card({
       <div
         className={
           actions
-            ? "flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between"
+            ? "flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between"
             : undefined
         }
       >
@@ -36,8 +36,8 @@ export function Card({
               {eyebrow}
             </p>
           ) : null}
-          <div className="space-y-3">
-            <h2 className="text-xl font-semibold tracking-[-0.03em] text-foreground sm:text-[1.4rem]">
+          <div className="space-y-2.5">
+            <h2 className="text-xl font-semibold tracking-[-0.032em] text-foreground sm:text-[1.38rem]">
               {title}
             </h2>
             <p className="max-w-2xl text-sm leading-7 text-foreground-soft">
@@ -47,7 +47,7 @@ export function Card({
         </div>
         {actions ? <div className="shrink-0">{actions}</div> : null}
       </div>
-      {children ? <div className="mt-7">{children}</div> : null}
+      {children ? <div className="mt-6">{children}</div> : null}
     </SurfaceCard>
   );
 }

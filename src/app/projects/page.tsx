@@ -114,9 +114,9 @@ const bottomStrip = [
 
 export default function ProjectsPage() {
   return (
-    <PageContainer className="space-y-14 lg:space-y-[4.5rem]">
+    <PageContainer className="space-y-12 lg:space-y-16">
       <section className="grid gap-6 xl:grid-cols-[minmax(0,1.06fr)_minmax(20rem,0.94fr)]">
-        <div className="space-y-8">
+        <div className="space-y-7">
           <div className="space-y-5">
             <p className="text-[0.72rem] font-semibold uppercase tracking-[0.3em] text-accent-strong/90">
               Research And Implementation Catalog
@@ -172,7 +172,7 @@ export default function ProjectsPage() {
               {featuredProjects.map((project) => (
                 <div
                   key={project.key}
-                  className="rounded-[1.45rem] border border-white/10 bg-slate-950/50 px-4 py-4"
+                  className="rounded-[1.45rem] border border-border/80 bg-background-muted/80 px-4 py-4"
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="space-y-2">
@@ -345,7 +345,7 @@ function ProjectModuleCard({
           </div>
         </div>
 
-        <div className="rounded-[1.45rem] border border-white/10 bg-slate-950/45 px-4 py-4">
+        <div className="rounded-[1.45rem] border border-border/80 bg-background-muted/80 px-4 py-4">
           <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-foreground-subtle">
             Case framing
           </p>
@@ -371,7 +371,7 @@ function ProjectModuleCard({
         </div>
       </div>
 
-      <div className="mt-8 rounded-[1.45rem] border border-white/10 bg-slate-950/45 px-4 py-4">
+      <div className="mt-8 rounded-[1.45rem] border border-border/80 bg-background-muted/80 px-4 py-4">
         <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-foreground-subtle">
           Role inside FV Finance Lab
         </p>
@@ -389,7 +389,7 @@ function ProjectStat({
   value: string;
 }) {
   return (
-    <div className="rounded-[1.35rem] border border-white/10 bg-slate-950/40 px-4 py-4">
+    <div className="rounded-[1.4rem] border border-border/80 bg-background-muted/80 px-4 py-4">
       <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-foreground-subtle">
         {label}
       </p>
@@ -408,7 +408,7 @@ function BottomStripCell({
   value: string;
 }) {
   return (
-    <div className="rounded-[1.4rem] border border-white/10 bg-slate-950/40 px-4 py-4">
+    <div className="rounded-[1.4rem] border border-border/80 bg-background-muted/80 px-4 py-4">
       <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-foreground-subtle">
         {label}
       </p>

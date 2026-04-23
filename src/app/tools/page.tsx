@@ -93,7 +93,7 @@ const bottomStrip = [
 
 export default function ToolsPage() {
   return (
-    <section className="space-y-10">
+    <section className="space-y-12">
       <section className="grid gap-4 xl:grid-cols-[minmax(0,1.02fr)_minmax(0,0.98fr)]">
         <SurfaceCard tone="accent" padding="lg">
           <div className="space-y-6">
@@ -227,7 +227,7 @@ function ToolModuleCard({
           </div>
         </div>
 
-        <div className="rounded-[1.45rem] border border-white/10 bg-slate-950/45 px-4 py-4">
+        <div className="rounded-[1.45rem] border border-border/80 bg-background-muted/80 px-4 py-4">
           <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-foreground-subtle">
             Module framing
           </p>
@@ -270,7 +270,7 @@ function WorkspaceStat({
   value: string;
 }) {
   return (
-    <div className="rounded-[1.35rem] border border-white/10 bg-slate-950/40 px-4 py-4">
+    <div className="rounded-[1.4rem] border border-border/80 bg-background-muted/80 px-4 py-4">
       <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-foreground-subtle">
         {label}
       </p>
@@ -289,7 +289,7 @@ function BottomStripCell({
   value: string;
 }) {
   return (
-    <div className="rounded-[1.4rem] border border-white/10 bg-slate-950/40 px-4 py-4">
+    <div className="rounded-[1.4rem] border border-border/80 bg-background-muted/80 px-4 py-4">
       <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-foreground-subtle">
         {label}
       </p>

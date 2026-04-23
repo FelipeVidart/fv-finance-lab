@@ -2,7 +2,7 @@ export function SearchShell() {
   return (
     <div
       aria-hidden="true"
-      className="hidden min-w-[16rem] items-center gap-3 rounded-full border border-border/80 bg-surface-elevated/80 px-3.5 py-2.5 text-sm text-foreground-soft shadow-[var(--shadow-soft)] xl:flex"
+      className="hidden min-w-[16rem] items-center gap-3 rounded-[1.45rem] border border-border/75 bg-[linear-gradient(180deg,rgba(19,30,43,0.88),rgba(11,19,29,0.78))] px-3.5 py-2.5 text-sm text-foreground-soft shadow-[var(--shadow-soft)] xl:flex"
     >
       <svg
         viewBox="0 0 20 20"

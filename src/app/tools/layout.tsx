@@ -9,9 +9,9 @@ export default function ToolsLayout({
   children: ReactNode;
 }>) {
   return (
-    <PageContainer className="space-y-10 lg:space-y-12">
+    <PageContainer className="space-y-12 lg:space-y-16">
       <section className="grid gap-6 xl:grid-cols-[minmax(0,1.06fr)_minmax(20rem,0.94fr)]">
-        <div className="space-y-6">
+        <div className="space-y-7">
           <div className="space-y-5">
             <p className="text-[0.72rem] font-semibold uppercase tracking-[0.3em] text-accent-strong/90">
               Product Workspace
@@ -107,7 +107,7 @@ function WorkspaceNote({
   body: string;
 }) {
   return (
-    <div className="rounded-[1.45rem] border border-white/10 bg-slate-950/50 px-4 py-4">
+    <div className="rounded-[1.45rem] border border-border/80 bg-background-muted/80 px-4 py-4">
       <p className="text-sm font-semibold text-foreground">{title}</p>
       <p className="mt-2 text-sm leading-6 text-foreground-soft">{body}</p>
     </div>
