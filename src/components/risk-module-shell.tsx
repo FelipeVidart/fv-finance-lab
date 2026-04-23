@@ -1,11 +1,11 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Card } from "@/components/card";
 import { RiskAssetAnalyticsSection } from "@/components/risk/risk-asset-analytics-section";
 import { RiskPortfolioAnalyticsSection } from "@/components/risk/risk-portfolio-analytics-section";
 import { RiskSectionTabs } from "@/components/risk/risk-section-tabs";
 import { RiskSetupSection } from "@/components/risk/risk-setup-section";
+import { SurfaceCard } from "@/components/ui/surface-card";
 import type {
   RiskChartModel,
   RiskSectionId,
@@ -20,8 +20,8 @@ import type {
   MarketDataRouteResponse,
 } from "@/lib/market-data/types";
 
-const SERIES_COLORS = ["#7dd3fc", "#38bdf8", "#22d3ee", "#a78bfa", "#f59e0b"];
-const PORTFOLIO_COLOR = "#f59e0b";
+const SERIES_COLORS = ["#d2ab67", "#7f95b3", "#608aa7", "#7f709d", "#5f8b7e"];
+const PORTFOLIO_COLOR = "#e2b86b";
 const DEFAULT_TICKER_INPUT = "AAPL, MSFT, NVDA";
 const DEFAULT_PERIOD: MarketDataPeriod = "6M";
 
@@ -380,12 +380,68 @@ export function RiskModuleShell() {
   }, [data, weightValidation]);
 
   return (
-    <section className="space-y-4">
-      <Card
-        eyebrow="Risk Workspace"
-        title="Separate setup, asset review, and portfolio review into a clearer workflow"
-        description="Load a shared market dataset first, inspect asset-level behavior second, and move into weighted portfolio analytics only when the sandbox is ready."
-      />
+    <section className="space-y-6">
+      <SurfaceCard tone="elevated" padding="lg">
+        <div className="grid gap-6 xl:grid-cols-[minmax(0,1.08fr)_minmax(20rem,0.92fr)]">
+          <div className="space-y-6">
+            <div className="space-y-4">
+              <p className="text-[0.72rem] font-semibold uppercase tracking-[0.28em] text-accent-strong/90">
+                Risk Workspace
+              </p>
+              <div className="space-y-4">
+                <h2 className="max-w-3xl text-balance text-3xl font-semibold tracking-[-0.04em] text-foreground sm:text-[2.55rem]">
+                  A structured workflow for loading, inspecting, and combining market risk data.
+                </h2>
+                <p className="max-w-2xl text-sm leading-7 text-foreground-soft">
+                  Start by aligning the market dataset, then review asset
+                  behavior, and only move into portfolio analytics once the
+                  sandbox weights are valid. The module is organized to keep
+                  those stages readable and operational.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              <StageChip label="01 Setup" active={activeSection === "setup"} />
+              <StageChip
+                label="02 Asset Analytics"
+                active={activeSection === "asset-analytics"}
+              />
+              <StageChip
+                label="03 Portfolio Analytics"
+                active={activeSection === "portfolio-analytics"}
+              />
+            </div>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
+            <WorkspaceSignal
+              label="Dataset status"
+              value={
+                data
+                  ? `${data.tickers.length} tickers aligned for ${data.period}`
+                  : isLoading
+                    ? "Loading shared dataset"
+                    : "Awaiting dataset load"
+              }
+            />
+            <WorkspaceSignal
+              label="Sandbox status"
+              value={
+                weightValidation?.isValid
+                  ? "Weights validated for portfolio review"
+                  : data
+                    ? "Weights still need validation"
+                    : "Portfolio sandbox locked"
+              }
+            />
+            <WorkspaceSignal
+              label="Review path"
+              value="Load data, inspect assets, then unlock portfolio analytics"
+            />
+          </div>
+        </div>
+      </SurfaceCard>
 
       <RiskSectionTabs
         activeSection={activeSection}
@@ -431,6 +487,43 @@ export function RiskModuleShell() {
         />
       ) : null}
     </section>
+  );
+}
+
+function StageChip({
+  label,
+  active,
+}: {
+  label: string;
+  active: boolean;
+}) {
+  return (
+    <span
+      className={`rounded-full border px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.18em] ${
+        active
+          ? "border-accent/30 bg-accent/12 text-accent-foreground"
+          : "border-border/80 bg-background-muted/70 text-foreground-subtle"
+      }`}
+    >
+      {label}
+    </span>
+  );
+}
+
+function WorkspaceSignal({
+  label,
+  value,
+}: {
+  label: string;
+  value: string;
+}) {
+  return (
+    <SurfaceCard padding="sm" className="h-full">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-foreground-subtle">
+        {label}
+      </p>
+      <p className="mt-3 text-sm leading-7 text-foreground-soft">{value}</p>
+    </SurfaceCard>
   );
 }
 
