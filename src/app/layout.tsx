@@ -60,8 +60,7 @@ export default function RootLayout({
       <body className="min-h-full bg-background font-sans text-foreground">
         <div className="relative flex min-h-screen flex-col overflow-hidden">
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_18%_0%,rgba(196,154,74,0.10),transparent_26%),radial-gradient(circle_at_88%_0%,rgba(120,141,173,0.12),transparent_24%)]" />
-          <div className="pointer-events-none absolute inset-0 opacity-[0.18] [background-image:linear-gradient(rgba(158,173,192,0.08)_1px,transparent_1px),linear-gradient(90deg,rgba(158,173,192,0.08)_1px,transparent_1px)] [background-size:84px_84px] [mask-image:linear-gradient(to_bottom,white,transparent_76%)]" />
-          <div className="pointer-events-none absolute inset-x-0 top-0 h-72 bg-[linear-gradient(180deg,rgba(5,11,17,0),rgba(5,11,17,0.82))]" />
+          <div className="pointer-events-none absolute inset-0 opacity-[0.12] [background-image:linear-gradient(rgba(158,173,192,0.08)_1px,transparent_1px),linear-gradient(90deg,rgba(158,173,192,0.08)_1px,transparent_1px)] [background-size:96px_96px] [mask-image:radial-gradient(circle_at_top,white,transparent_74%)]" />
           <SiteHeader />
           <main className="relative z-10 flex-1 py-14 sm:py-16 lg:py-20">
             {children}

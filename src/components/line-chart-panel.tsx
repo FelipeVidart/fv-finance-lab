@@ -7,6 +7,7 @@ import {
   type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
 } from "react";
+import { cn } from "@/lib/utils";
 
 export type LineChartSeries = {
   label: string;
@@ -129,115 +130,136 @@ export function LineChartPanel({
 
   const chart = (
     <div
-      className={`relative rounded-2xl border border-white/10 bg-slate-950/60 p-4 ${heightClassName}`.trim()}
+      className={cn(
+        "relative overflow-hidden rounded-[1.7rem] border border-border/80",
+        "bg-[linear-gradient(180deg,rgba(12,20,31,0.96),rgba(8,14,22,0.96))]",
+        "shadow-[var(--shadow-card)]",
+        heightClassName,
+      )}
     >
-      {onChartClick ? (
-        <span className="pointer-events-none absolute right-3 top-3 rounded-full border border-white/10 bg-slate-900/80 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-300">
-          Expand
-        </span>
-      ) : null}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-x-6 top-0 h-px bg-[linear-gradient(90deg,transparent,rgba(226,184,107,0.55),transparent)]"
+      />
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute -right-14 top-0 h-32 w-32 rounded-full bg-accent/10 blur-3xl"
+      />
 
-      <svg
-        viewBox="0 0 640 260"
-        className="h-full w-full"
-        role="img"
-        aria-labelledby={chartId}
-        onMouseMove={interactive ? handlePointerMove : undefined}
-        onMouseLeave={interactive ? handlePointerLeave : undefined}
-        onPointerMove={interactive ? handlePointerMove : undefined}
-        onPointerLeave={interactive ? handlePointerLeave : undefined}
-      >
-        <title id={chartId}>{title}</title>
-        {[0, 1, 2, 3].map((index) => {
-          const y = CHART_TOP + index * 70;
-          const gridValue =
-            yMax - ((y - CHART_TOP) / CHART_HEIGHT) * (yMax - yMin);
+      <div className="relative z-10 flex h-full flex-col p-4 sm:p-5">
+        <div className="flex items-center justify-between gap-3 pb-4">
+          <span className="rounded-full border border-border/80 bg-background-muted/85 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-foreground-subtle">
+            {interactive ? "Interactive view" : "Chart preview"}
+          </span>
+          {onChartClick ? (
+            <span className="pointer-events-none rounded-full border border-accent/20 bg-accent/10 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-accent-foreground">
+              {expandLabel ?? "Open detail"}
+            </span>
+          ) : null}
+        </div>
 
-          return (
-            <g key={index}>
-              <line
-                x1={CHART_LEFT}
-                y1={y}
-                x2={CHART_RIGHT}
-                y2={y}
-                stroke="rgba(148, 163, 184, 0.16)"
-                strokeWidth="1"
-              />
-              <text
-                x="0"
-                y={y + 4}
-                fill="rgba(203, 213, 225, 0.75)"
-                fontSize="11"
-              >
-                {valueFormatter(gridValue)}
-              </text>
-            </g>
-          );
-        })}
+        <svg
+          viewBox="0 0 640 260"
+          className="min-h-0 flex-1 w-full"
+          role="img"
+          aria-labelledby={chartId}
+          onMouseMove={interactive ? handlePointerMove : undefined}
+          onMouseLeave={interactive ? handlePointerLeave : undefined}
+          onPointerMove={interactive ? handlePointerMove : undefined}
+          onPointerLeave={interactive ? handlePointerLeave : undefined}
+        >
+          <title id={chartId}>{title}</title>
+          {[0, 1, 2, 3].map((index) => {
+            const y = CHART_TOP + index * 70;
+            const gridValue =
+              yMax - ((y - CHART_TOP) / CHART_HEIGHT) * (yMax - yMin);
 
-        {activeSeries.map((entry) => (
-          <path
-            key={entry.label}
-            d={buildPath(entry.values, yMin, yMax)}
-            fill="none"
-            stroke={entry.color}
-            strokeWidth="2.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        ))}
+            return (
+              <g key={index}>
+                <line
+                  x1={CHART_LEFT}
+                  y1={y}
+                  x2={CHART_RIGHT}
+                  y2={y}
+                  stroke="rgba(148, 163, 184, 0.14)"
+                  strokeWidth="1"
+                />
+                <text
+                  x="0"
+                  y={y + 4}
+                  fill="rgba(202, 211, 222, 0.72)"
+                  fontSize="11"
+                >
+                  {valueFormatter(gridValue)}
+                </text>
+              </g>
+            );
+          })}
 
-        {interactive && dates.length > 0 ? (
-          <>
-            <line
-              x1={hoverX}
-              y1={CHART_TOP}
-              x2={hoverX}
-              y2={CHART_BOTTOM}
-              stroke="rgba(125, 211, 252, 0.55)"
-              strokeWidth="1.2"
-              strokeDasharray="4 4"
+          {activeSeries.map((entry) => (
+            <path
+              key={entry.label}
+              d={buildPath(entry.values, yMin, yMax)}
+              fill="none"
+              stroke={entry.color}
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
             />
-            {inspectionRows.map((entry) => (
-              <circle
-                key={entry.label}
-                cx={hoverX}
-                cy={getYCoordinate(entry.value, yMin, yMax)}
-                r="4"
-                fill={entry.color}
-                stroke="rgba(15, 23, 42, 0.95)"
-                strokeWidth="2"
-              />
-            ))}
-          </>
-        ) : null}
+          ))}
 
-        <line
-          x1={CHART_LEFT}
-          y1={CHART_BOTTOM}
-          x2={CHART_RIGHT}
-          y2={CHART_BOTTOM}
-          stroke="rgba(148, 163, 184, 0.25)"
-          strokeWidth="1"
-        />
-        <text
-          x={CHART_LEFT}
-          y="250"
-          fill="rgba(148, 163, 184, 0.75)"
-          fontSize="11"
-        >
-          {dates.length > 0 ? formatDateLabel(dates[0]) : ""}
-        </text>
-        <text
-          x={CHART_RIGHT}
-          y="250"
-          textAnchor="end"
-          fill="rgba(148, 163, 184, 0.75)"
-          fontSize="11"
-        >
-          {dates.length > 0 ? formatDateLabel(dates[dates.length - 1]) : ""}
-        </text>
-      </svg>
+          {interactive && dates.length > 0 ? (
+            <>
+              <line
+                x1={hoverX}
+                y1={CHART_TOP}
+                x2={hoverX}
+                y2={CHART_BOTTOM}
+                stroke="rgba(217, 176, 107, 0.48)"
+                strokeWidth="1.2"
+                strokeDasharray="5 4"
+              />
+              {inspectionRows.map((entry) => (
+                <circle
+                  key={entry.label}
+                  cx={hoverX}
+                  cy={getYCoordinate(entry.value, yMin, yMax)}
+                  r="4"
+                  fill={entry.color}
+                  stroke="rgba(7, 16, 25, 0.96)"
+                  strokeWidth="2"
+                />
+              ))}
+            </>
+          ) : null}
+
+          <line
+            x1={CHART_LEFT}
+            y1={CHART_BOTTOM}
+            x2={CHART_RIGHT}
+            y2={CHART_BOTTOM}
+            stroke="rgba(148, 163, 184, 0.22)"
+            strokeWidth="1"
+          />
+          <text
+            x={CHART_LEFT}
+            y="250"
+            fill="rgba(148, 163, 184, 0.72)"
+            fontSize="11"
+          >
+            {dates.length > 0 ? formatDateLabel(dates[0]) : ""}
+          </text>
+          <text
+            x={CHART_RIGHT}
+            y="250"
+            textAnchor="end"
+            fill="rgba(148, 163, 184, 0.72)"
+            fontSize="11"
+          >
+            {dates.length > 0 ? formatDateLabel(dates[dates.length - 1]) : ""}
+          </text>
+        </svg>
+      </div>
     </div>
   );
 
@@ -245,38 +267,38 @@ export function LineChartPanel({
     <div className="space-y-5">
       {interactive ? (
         <div className="grid gap-3 lg:grid-cols-[minmax(220px,280px)_minmax(0,1fr)]">
-          <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+          <div className="rounded-[1.45rem] border border-border/80 bg-background-muted/80 px-4 py-3">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-foreground-subtle">
               Inspection Date
             </p>
-            <p className="mt-2 text-sm font-semibold text-white">
+            <p className="mt-2 text-sm font-semibold text-foreground">
               {activeDate ? formatDateLabel(activeDate) : "No data"}
             </p>
-            <p className="mt-1 text-xs leading-6 text-slate-400">
+            <p className="mt-1 text-xs leading-6 text-foreground-muted">
               Hover the chart to inspect exact values for the visible series.
             </p>
           </div>
 
-          <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+          <div className="rounded-[1.45rem] border border-border/80 bg-background-muted/80 px-4 py-3">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-foreground-subtle">
               Values At Cursor
             </p>
             <div className="mt-3 flex flex-wrap gap-3">
               {inspectionRows.map((entry) => (
                 <div
                   key={entry.label}
-                  className="rounded-2xl border border-white/10 bg-slate-950/60 px-3 py-2"
+                  className="rounded-2xl border border-border/80 bg-slate-950/65 px-3 py-2"
                 >
                   <div className="flex items-center gap-2">
                     <span
                       className="h-2.5 w-2.5 rounded-full"
                       style={{ backgroundColor: entry.color }}
                     />
-                    <span className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">
+                    <span className="text-xs font-semibold uppercase tracking-[0.16em] text-foreground-muted">
                       {entry.label}
                     </span>
                   </div>
-                  <p className="mt-2 text-sm font-semibold text-white">
+                  <p className="mt-2 text-sm font-semibold text-foreground">
                     {valueFormatter(entry.value)}
                   </p>
                 </div>
@@ -312,15 +334,15 @@ export function LineChartPanel({
               }
               aria-pressed={isVisible}
               disabled={!interactive}
-              className={`flex items-center gap-2 rounded-full border px-3 py-2 text-xs transition ${
+              className={cn(
+                "flex items-center gap-2 rounded-full border px-3 py-2 text-xs transition",
                 isVisible
-                  ? "border-white/10 bg-slate-950/60 text-slate-300"
-                  : "border-white/10 bg-slate-950/40 text-slate-500"
-              } ${
+                  ? "border-border-strong/85 bg-background-muted/80 text-foreground"
+                  : "border-white/[0.08] bg-slate-950/35 text-foreground-subtle",
                 interactive
-                  ? "hover:border-white/20 hover:bg-white/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70"
-                  : "cursor-default"
-              }`}
+                  ? "hover:border-accent/25 hover:bg-accent/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70"
+                  : "cursor-default",
+              )}
             >
               <span
                 className="h-2.5 w-2.5 rounded-full"
@@ -340,14 +362,16 @@ export function LineChartPanel({
           {summaryRows.map((entry) => (
             <div
               key={entry.label}
-              className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3"
+              className="rounded-[1.45rem] border border-border/80 bg-background-muted/80 px-4 py-3"
             >
               <div className="flex items-center gap-2">
                 <span
                   className="h-2.5 w-2.5 rounded-full"
                   style={{ backgroundColor: entry.color }}
                 />
-                <p className="text-sm font-semibold text-white">{entry.label}</p>
+                <p className="text-sm font-semibold text-foreground">
+                  {entry.label}
+                </p>
               </div>
               <div className="mt-3 grid grid-cols-3 gap-3 text-sm">
                 <SummaryStat
@@ -395,10 +419,10 @@ function getYCoordinate(value: number, yMin: number, yMax: number): number {
 function SummaryStat({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-foreground-subtle">
         {label}
       </p>
-      <p className="mt-1 font-semibold text-slate-100">{value}</p>
+      <p className="mt-1 font-semibold text-foreground">{value}</p>
     </div>
   );
 }
