@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useState } from "react";
 import { Card } from "@/components/card";
 import { ExpandableChartCard } from "@/components/expandable-chart-card";
 import { OptionsPayoffChart } from "@/components/options-payoff-chart";
@@ -432,16 +432,16 @@ export function OptionsPricingCalculator() {
                 aria-selected={isActive}
                 aria-controls={`${section.id}-panel`}
                 onClick={() => setActiveSection(section.id)}
-                className={`rounded-[1.35rem] border px-4 py-4 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/70 ${
+                className={`rounded-[1.35rem] border px-4 py-4 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70 ${
                   isActive
-                    ? "border-sky-400/30 bg-sky-400/[0.12] text-white"
-                    : "border-white/5 bg-slate-950/50 text-slate-300 hover:border-white/15 hover:bg-white/[0.05]"
+                    ? "border-accent/30 bg-accent/12 text-white"
+                    : "border-white/5 bg-slate-950/50 text-slate-300 hover:border-border hover:bg-white/[0.05]"
                 }`}
               >
                 <p className="text-sm font-semibold">{section.label}</p>
                 <p
                   className={`mt-2 text-xs leading-5 ${
-                    isActive ? "text-sky-100/80" : "text-slate-400"
+                    isActive ? "text-accent-foreground/80" : "text-slate-400"
                   }`}
                 >
                   {section.description}
@@ -488,7 +488,7 @@ export function OptionsPricingCalculator() {
                           onClick={() => updateField("optionType", type)}
                           className={`rounded-2xl border px-4 py-3 text-sm font-medium capitalize transition ${
                             isActive
-                              ? "border-sky-400/70 bg-sky-400/15 text-sky-100"
+                              ? "border-accent/60 bg-accent/12 text-accent-foreground"
                               : "border-white/10 bg-slate-950/60 text-slate-300 hover:border-white/20 hover:bg-white/[0.05]"
                           }`}
                         >
@@ -516,7 +516,7 @@ export function OptionsPricingCalculator() {
                         className={`w-full rounded-2xl border bg-slate-950/70 px-4 py-3 text-sm text-white outline-none transition ${
                           errors[field.name]
                             ? "border-rose-400/70 focus:border-rose-300"
-                            : "border-white/10 focus:border-sky-400/60"
+                            : "border-white/10 focus:border-accent/60"
                         }`}
                       />
                       <div className="min-h-10 space-y-1">
@@ -539,7 +539,7 @@ export function OptionsPricingCalculator() {
                 <div className="flex flex-wrap gap-3">
                   <button
                     type="submit"
-                    className="rounded-2xl bg-sky-400 px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-sky-300"
+                    className="rounded-2xl bg-accent px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-accent-strong"
                   >
                     Reprice contract
                   </button>
@@ -561,8 +561,8 @@ export function OptionsPricingCalculator() {
                 description="Primary analytical result for the selected European contract."
               >
                 <div className="space-y-6">
-                  <div className="rounded-3xl border border-sky-400/20 bg-sky-400/[0.08] p-5">
-                    <p className="text-xs font-semibold uppercase tracking-[0.22em] text-sky-200/80">
+                  <div className="rounded-3xl border border-accent/20 bg-accent/10 p-5">
+                    <p className="text-xs font-semibold uppercase tracking-[0.22em] text-accent-foreground/80">
                       Model price
                     </p>
                     <div className="mt-4 flex flex-wrap items-end justify-between gap-4">
@@ -575,8 +575,8 @@ export function OptionsPricingCalculator() {
                           with continuous dividends.
                         </p>
                       </div>
-                      <div className="rounded-2xl border border-sky-300/15 bg-slate-950/35 px-4 py-3">
-                        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-sky-100/70">
+                      <div className="rounded-2xl border border-accent/15 bg-slate-950/35 px-4 py-3">
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-accent-foreground/70">
                           Tree benchmark
                         </p>
                         <p className="mt-2 text-lg font-semibold text-white">
@@ -900,7 +900,7 @@ function ComingNextCard({
     <Card eyebrow={eyebrow} title={title} description={description}>
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1.1fr)_minmax(280px,0.9fr)]">
         <div className="rounded-3xl border border-dashed border-white/15 bg-slate-950/45 p-6">
-          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-sky-300/80">
+          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-accent-strong/85">
             Coming next
           </p>
           <h3 className="mt-4 text-2xl font-semibold tracking-tight text-white">

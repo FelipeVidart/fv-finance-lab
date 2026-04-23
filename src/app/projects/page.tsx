@@ -25,7 +25,7 @@ const featuredProjects = [
 
 export default function ProjectsPage() {
   return (
-    <PageContainer className="space-y-10">
+    <PageContainer className="space-y-12">
       <PageHero
         eyebrow="Projects"
         title="A selection of finance and analytics projects behind FV Finance Lab."
@@ -49,7 +49,7 @@ export default function ProjectsPage() {
           title="Quantitative finance, risk analysis, and implementation depth"
           description="Taken together, the featured work shows a consistent focus on applied finance problems that combine modeling, data work, and interpretable outputs."
         >
-          <ul className="space-y-3 text-sm text-slate-300">
+          <ul className="space-y-3 text-sm text-foreground-soft">
             <li>Portfolio market risk measurement and attribution.</li>
             <li>Numerical methods for derivative pricing across product types.</li>
             <li>Empirical fixed-income research on credit spreads and macro shocks.</li>

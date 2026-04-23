@@ -1,29 +1,23 @@
-import Link from "next/link";
 import { Card } from "@/components/card";
 import { PageContainer } from "@/components/page-container";
 import { PageHero } from "@/components/page-hero";
+import { ButtonLink } from "@/components/ui/button-link";
 
 export default function HomePage() {
   return (
-    <PageContainer className="space-y-10">
+    <PageContainer className="space-y-12">
       <PageHero
         eyebrow="Personal Finance And Analytics Platform"
         title="FV Finance Lab brings together practical finance tools, analytical workflows, and applied research projects."
         description="The platform is designed as a focused environment for exploring pricing, risk, and fixed-income workflows through clean interfaces, technical projects, and finance-oriented utilities."
         actions={
           <>
-            <Link
-              href="/tools"
-              className="inline-flex items-center justify-center rounded-full bg-white px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-slate-200"
-            >
+            <ButtonLink href="/tools" variant="primary">
               Explore tools
-            </Link>
-            <Link
-              href="/projects"
-              className="inline-flex items-center justify-center rounded-full border border-white/12 px-5 py-3 text-sm font-semibold text-slate-200 transition hover:border-white/24 hover:bg-white/5"
-            >
+            </ButtonLink>
+            <ButtonLink href="/projects" variant="secondary">
               View projects
-            </Link>
+            </ButtonLink>
           </>
         }
       />
@@ -52,7 +46,7 @@ export default function HomePage() {
           title="A focused environment for finance and analytics work"
           description="FV Finance Lab combines three complementary parts of applied finance work: usable tools, structured analytical workflows, and technical projects that reflect how those ideas are implemented."
         >
-          <ul className="space-y-3 text-sm text-slate-300">
+          <ul className="space-y-3 text-sm text-foreground-soft">
             <li>Tool hubs for options, risk, and bonds.</li>
             <li>Project pages grounded in real Python and finance research work.</li>
             <li>A consistent interface for expanding into deeper analytical utilities.</li>

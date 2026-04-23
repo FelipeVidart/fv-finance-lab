@@ -59,7 +59,7 @@ export function BondMarketMonitorSection({
                 className={`w-full rounded-2xl border bg-slate-950/70 px-4 py-3 text-sm text-white outline-none transition ${
                   validationError
                     ? "border-rose-400/70 focus:border-rose-300"
-                    : "border-white/10 focus:border-sky-400/60"
+                    : "border-white/10 focus:border-accent/60"
                 }`}
               />
               <div className="space-y-1">
@@ -88,7 +88,7 @@ export function BondMarketMonitorSection({
                       onClick={() => onPeriodChange(option)}
                       className={`rounded-2xl border px-4 py-3 text-sm font-medium transition ${
                         isActive
-                          ? "border-sky-400/70 bg-sky-400/15 text-sky-100"
+                          ? "border-accent/60 bg-accent/12 text-accent-foreground"
                           : "border-white/10 bg-slate-950/60 text-slate-300 hover:border-white/20 hover:bg-white/[0.05]"
                       }`}
                     >
@@ -100,7 +100,7 @@ export function BondMarketMonitorSection({
               <button
                 type="submit"
                 disabled={isLoading}
-                className="w-full rounded-2xl bg-sky-400 px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-sky-300 disabled:cursor-wait disabled:bg-sky-400/70"
+                className="w-full rounded-2xl bg-accent px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-accent-strong disabled:cursor-wait disabled:bg-accent/60"
               >
                 {isLoading ? "Loading data..." : "Fetch bond data"}
               </button>
@@ -115,23 +115,27 @@ export function BondMarketMonitorSection({
               <select
                 value={benchmarkSymbol}
                 onChange={(event) => onBenchmarkChange(event.target.value)}
-                className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-sm text-white outline-none transition focus:border-sky-400/60"
+                className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-sm text-white outline-none transition focus:border-accent/60"
               >
                 {registryCards
                   .map((bond) => bond.metadata)
                   .filter((entry): entry is NonNullable<typeof entry> => Boolean(entry))
                   .map((entry) => (
                     <option key={entry.symbol} value={entry.symbol}>
-                      {entry.symbol} · {entry.displayName}
+                      {`${entry.symbol} - ${entry.displayName}`}
                     </option>
                   ))}
               </select>
             </label>
 
             <div className="rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-3 text-sm leading-7 text-slate-300">
-              <p>Approximate YTM is solved from the latest fetched close using local registry terms.</p>
+              <p>
+                Approximate YTM is solved from the latest fetched close using
+                local registry terms.
+              </p>
               <p className="mt-2 text-xs leading-6 text-slate-400">
-                This is a practical monitor, not an official spread or country-risk index.
+                This is a practical monitor, not an official spread or
+                country-risk index.
               </p>
               <p className="mt-2 text-xs leading-6 text-slate-400">
                 {!data
@@ -260,7 +264,7 @@ function InlineState({
   message: string;
 }) {
   const toneMap = {
-    loading: "border-sky-400/25 bg-sky-400/[0.08] text-sky-100",
+    loading: "border-accent/25 bg-accent/10 text-accent-foreground",
     empty: "border-white/10 bg-slate-950/60 text-slate-300",
     error: "border-rose-400/30 bg-rose-400/[0.08] text-rose-200",
   };
@@ -290,7 +294,8 @@ function BondMetadataCard({
           <MetadataBadge label="No registry entry" />
         </div>
         <p className="mt-4 text-sm leading-7 text-slate-300">
-          Market data can still be requested for this symbol, but reference metadata is unavailable.
+          Market data can still be requested for this symbol, but reference
+          metadata is unavailable.
         </p>
       </div>
     );
@@ -355,7 +360,7 @@ function BondMetadataCard({
 
 function MetadataBadge({ label }: { label: string }) {
   return (
-    <span className="rounded-full border border-sky-400/25 bg-sky-400/[0.10] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-sky-200">
+    <span className="rounded-full border border-accent/25 bg-accent/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-accent-foreground">
       {label}
     </span>
   );
@@ -374,17 +379,17 @@ function YieldSpreadRowView({
           {row.displayName ?? "No local metadata"}
         </p>
       </div>
-      <span>{row.latestPrice !== null ? formatPrice(row.latestPrice) : "—"}</span>
+      <span>{row.latestPrice !== null ? formatPrice(row.latestPrice) : "--"}</span>
       <span>
         {row.approximateYtm !== null
           ? formatUnsignedPercent(row.approximateYtm)
-          : "—"}
+          : "--"}
       </span>
       <span>{row.benchmarkSymbol}</span>
       <span>
         {row.benchmarkYtm !== null
           ? formatUnsignedPercent(row.benchmarkYtm)
-          : "—"}
+          : "--"}
       </span>
       <span
         className={
@@ -393,7 +398,7 @@ function YieldSpreadRowView({
             : "text-amber-200"
         }
       >
-        {row.spreadBps !== null ? formatBasisPoints(row.spreadBps) : "—"}
+        {row.spreadBps !== null ? formatBasisPoints(row.spreadBps) : "--"}
       </span>
       <span className="text-slate-400">{row.note}</span>
     </div>

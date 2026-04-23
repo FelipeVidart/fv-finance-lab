@@ -291,7 +291,7 @@ export function LineChartPanel({
           type="button"
           onClick={onChartClick}
           aria-label={expandLabel ?? `Expand ${title} chart`}
-          className="block w-full text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/70"
+          className="block w-full text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70"
         >
           {chart}
         </button>
@@ -318,7 +318,7 @@ export function LineChartPanel({
                   : "border-white/10 bg-slate-950/40 text-slate-500"
               } ${
                 interactive
-                  ? "hover:border-white/20 hover:bg-white/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/70"
+                  ? "hover:border-white/20 hover:bg-white/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70"
                   : "cursor-default"
               }`}
             >

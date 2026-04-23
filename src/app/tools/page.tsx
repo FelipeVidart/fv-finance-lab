@@ -27,7 +27,7 @@ const toolCards = [
 
 export default function ToolsPage() {
   return (
-    <section className="space-y-4">
+    <section className="space-y-5">
       <Card
         eyebrow="Tools Hub"
         title="Practical finance utilities organized by workflow"
@@ -41,7 +41,7 @@ export default function ToolsPage() {
               eyebrow={tool.eyebrow}
               title={tool.title}
               description={tool.description}
-              className="h-full transition hover:border-white/20 hover:bg-white/[0.06]"
+              className="h-full transition duration-200 hover:-translate-y-0.5 hover:border-border-strong/90 hover:bg-white/[0.04]"
             />
           </Link>
         ))}
