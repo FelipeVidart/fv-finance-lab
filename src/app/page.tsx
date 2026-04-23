@@ -123,15 +123,15 @@ const platformMap = [
 
 export default function HomePage() {
   return (
-    <PageContainer className="space-y-14 lg:space-y-[4.5rem]">
+    <PageContainer className="space-y-12 lg:space-y-16">
       <section className="grid gap-6 xl:grid-cols-[minmax(0,1.08fr)_minmax(20rem,0.92fr)]">
-        <div className="space-y-8">
+        <div className="space-y-7">
           <div className="space-y-5">
             <p className="text-[0.72rem] font-semibold uppercase tracking-[0.3em] text-accent-strong/90">
               Finance Analytics Platform
             </p>
             <div className="space-y-5">
-              <h1 className="max-w-4xl text-balance font-display text-5xl leading-[1.01] tracking-[-0.045em] text-foreground sm:text-[4.05rem] lg:text-[5.1rem]">
+              <h1 className="max-w-4xl text-balance font-display text-5xl leading-[1.01] tracking-[-0.045em] text-foreground sm:text-[4rem] lg:text-[5rem]">
                 Practical tools for options, risk, and fixed-income work.
               </h1>
               <p className="max-w-2xl text-lg leading-8 text-foreground-soft">
@@ -185,7 +185,7 @@ export default function HomePage() {
               {platformMap.map((item) => (
                 <div
                   key={item.label}
-                  className="rounded-[1.45rem] border border-white/10 bg-slate-950/50 px-4 py-4"
+                  className="rounded-[1.45rem] border border-border/80 bg-background-muted/80 px-4 py-4"
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div>
@@ -304,7 +304,7 @@ export default function HomePage() {
 
       <SurfaceCard padding="sm" className="overflow-hidden">
         <div className="grid gap-3 lg:grid-cols-[minmax(0,1.15fr)_repeat(3,minmax(0,0.85fr))]">
-          <div className="rounded-[1.4rem] border border-white/10 bg-slate-950/40 px-4 py-4">
+          <div className="rounded-[1.45rem] border border-border/80 bg-background-muted/80 px-4 py-4">
             <p className="text-[0.72rem] font-semibold uppercase tracking-[0.22em] text-accent-strong/85">
               Current platform status
             </p>
@@ -395,7 +395,7 @@ function PositioningStat({
   value: string;
 }) {
   return (
-    <div className="rounded-[1.35rem] border border-white/10 bg-slate-950/40 px-4 py-4">
+    <div className="rounded-[1.4rem] border border-border/80 bg-background-muted/80 px-4 py-4">
       <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-foreground-subtle">
         {label}
       </p>
@@ -414,7 +414,7 @@ function StatusCell({
   value: string;
 }) {
   return (
-    <div className="rounded-[1.4rem] border border-white/10 bg-slate-950/40 px-4 py-4">
+    <div className="rounded-[1.4rem] border border-border/80 bg-background-muted/80 px-4 py-4">
       <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-foreground-subtle">
         {label}
       </p>
