@@ -6,6 +6,7 @@ import { RiskPortfolioAnalyticsSection } from "@/components/risk/risk-portfolio-
 import { RiskSectionTabs } from "@/components/risk/risk-section-tabs";
 import { RiskSetupSection } from "@/components/risk/risk-setup-section";
 import { SurfaceCard } from "@/components/ui/surface-card";
+import { cn } from "@/lib/utils";
 import type {
   RiskChartModel,
   RiskSectionId,
@@ -329,7 +330,8 @@ export function RiskModuleShell() {
     return [
       {
         title: "Portfolio NAV",
-        description: "Normalized portfolio NAV built from the weighted daily return series.",
+        description:
+          "Normalized portfolio NAV built from the weighted daily return series.",
         dates: portfolioDates,
         series: [
           {
@@ -355,7 +357,8 @@ export function RiskModuleShell() {
       },
       {
         title: "Portfolio vs Assets",
-        description: "Portfolio cumulative return compared with the currently selected assets.",
+        description:
+          "Portfolio cumulative return compared with the currently selected assets.",
         dates: portfolioDates,
         series: comparisonSeries,
         valueFormatter: formatPercent,
@@ -379,65 +382,107 @@ export function RiskModuleShell() {
     }));
   }, [data, weightValidation]);
 
+  const datasetReady = Boolean(data);
+  const sandboxReady = Boolean(weightValidation?.isValid);
+  const activeSectionLabel =
+    activeSection === "setup"
+      ? "Setup"
+      : activeSection === "asset-analytics"
+        ? "Asset analytics"
+        : "Portfolio analytics";
+
   return (
-    <section className="space-y-6">
-      <SurfaceCard tone="elevated" padding="lg">
-        <div className="grid gap-6 xl:grid-cols-[minmax(0,1.08fr)_minmax(20rem,0.92fr)]">
+    <section className="space-y-8">
+      <SurfaceCard
+        tone="elevated"
+        padding="lg"
+        className="border-border-strong/95"
+      >
+        <div className="grid gap-6 xl:grid-cols-[minmax(0,1.18fr)_minmax(22rem,0.82fr)]">
           <div className="space-y-6">
-            <div className="space-y-4">
-              <p className="text-[0.72rem] font-semibold uppercase tracking-[0.28em] text-accent-strong/90">
-                Risk Workspace
-              </p>
-              <div className="space-y-4">
-                <h2 className="max-w-3xl text-balance text-3xl font-semibold tracking-[-0.04em] text-foreground sm:text-[2.55rem]">
-                  A structured workflow for loading, inspecting, and combining market risk data.
-                </h2>
-                <p className="max-w-2xl text-sm leading-7 text-foreground-soft">
-                  Start by aligning the market dataset, then review asset
-                  behavior, and only move into portfolio analytics once the
-                  sandbox weights are valid. The module is organized to keep
-                  those stages readable and operational.
-                </p>
-              </div>
+            <div className="flex flex-wrap items-center gap-3">
+              <span className="rounded-full border border-accent/20 bg-accent/10 px-3 py-1.5 text-[0.68rem] font-semibold uppercase tracking-[0.24em] text-accent-foreground">
+                Risk workspace
+              </span>
+              <span className="rounded-full border border-white/[0.08] bg-background-muted/75 px-3 py-1.5 text-[0.68rem] font-semibold uppercase tracking-[0.2em] text-foreground-subtle">
+                {activeSectionLabel}
+              </span>
             </div>
 
-            <div className="flex flex-wrap gap-2">
-              <StageChip label="01 Setup" active={activeSection === "setup"} />
-              <StageChip
-                label="02 Asset Analytics"
-                active={activeSection === "asset-analytics"}
+            <div className="space-y-4">
+              <h2 className="max-w-4xl text-balance text-3xl font-semibold tracking-[-0.04em] text-foreground sm:text-[2.8rem]">
+                Serious market-risk review starts with a clean dataset, a
+                controlled sandbox, and a readable portfolio lens.
+              </h2>
+              <p className="max-w-3xl text-sm leading-7 text-foreground-soft sm:text-[0.96rem]">
+                The workspace keeps dataset alignment, asset inspection, and
+                portfolio construction inside one analytical flow. Each step is
+                intentionally staged so the downstream views remain operational,
+                comparable, and easy to audit.
+              </p>
+            </div>
+
+            <div className="grid gap-3 lg:grid-cols-3">
+              <StagePanel
+                step="01"
+                label="Dataset alignment"
+                body="Select the market universe, align the shared trading window, and establish the review base."
+                state={datasetReady ? "ready" : isLoading ? "active" : "pending"}
               />
-              <StageChip
-                label="03 Portfolio Analytics"
-                active={activeSection === "portfolio-analytics"}
+              <StagePanel
+                step="02"
+                label="Sandbox controls"
+                body="Define portfolio weights and validate the capital mix before moving into weighted analytics."
+                state={sandboxReady ? "ready" : datasetReady ? "active" : "pending"}
+              />
+              <StagePanel
+                step="03"
+                label="Portfolio review"
+                body="Read the combined portfolio through NAV, drawdown, comparison, and holdings outputs."
+                state={sandboxReady ? "active" : "pending"}
               />
             </div>
           </div>
 
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
             <WorkspaceSignal
-              label="Dataset status"
+              label="Dataset posture"
               value={
                 data
-                  ? `${data.tickers.length} tickers aligned for ${data.period}`
+                  ? `${data.tickers.length} tickers aligned across ${data.period}`
                   : isLoading
-                    ? "Loading shared dataset"
-                    : "Awaiting dataset load"
+                    ? "Loading shared market history"
+                    : "Awaiting dataset request"
               }
+              detail={
+                data
+                  ? `${formatDateLabel(data.meta.commonStartDate)} through ${formatDateLabel(
+                      data.meta.commonEndDate,
+                    )}`
+                  : "The module begins by creating a common observation window."
+              }
+              tone={datasetReady ? "ready" : isLoading ? "active" : "default"}
             />
             <WorkspaceSignal
-              label="Sandbox status"
+              label="Sandbox posture"
               value={
-                weightValidation?.isValid
-                  ? "Weights validated for portfolio review"
-                  : data
-                    ? "Weights still need validation"
+                sandboxReady
+                  ? "Validated for portfolio review"
+                  : datasetReady
+                    ? "Weights still require validation"
                     : "Portfolio sandbox locked"
               }
+              detail={
+                sandboxReady
+                  ? "The weighted portfolio layer is unlocked."
+                  : "Portfolio analytics remain gated until the sandbox totals 100%."
+              }
+              tone={sandboxReady ? "ready" : datasetReady ? "active" : "default"}
             />
             <WorkspaceSignal
-              label="Review path"
-              value="Load data, inspect assets, then unlock portfolio analytics"
+              label="Operating rule"
+              value="Load data, inspect assets, then evaluate the weighted portfolio."
+              detail="The sequencing is deliberate so each section inherits a stable analytical base."
             />
           </div>
         </div>
@@ -445,6 +490,8 @@ export function RiskModuleShell() {
 
       <RiskSectionTabs
         activeSection={activeSection}
+        datasetReady={datasetReady}
+        sandboxReady={sandboxReady}
         onChange={setActiveSection}
       />
 
@@ -490,39 +537,82 @@ export function RiskModuleShell() {
   );
 }
 
-function StageChip({
+function StagePanel({
+  step,
   label,
-  active,
+  body,
+  state,
 }: {
+  step: string;
   label: string;
-  active: boolean;
+  body: string;
+  state: "pending" | "active" | "ready";
 }) {
   return (
-    <span
-      className={`rounded-full border px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.18em] ${
-        active
-          ? "border-accent/30 bg-accent/12 text-accent-foreground"
-          : "border-border/80 bg-background-muted/70 text-foreground-subtle"
-      }`}
+    <div
+      className={cn(
+        "rounded-[1.6rem] border px-4 py-4",
+        state === "ready" &&
+          "border-emerald-400/18 bg-emerald-400/[0.06] text-emerald-100",
+        state === "active" &&
+          "border-accent/18 bg-accent/[0.07] text-accent-foreground",
+        state === "pending" &&
+          "border-white/[0.08] bg-[linear-gradient(180deg,rgba(10,16,24,0.72),rgba(10,16,24,0.46))] text-foreground",
+      )}
     >
-      {label}
-    </span>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-foreground-subtle">
+            Step {step}
+          </p>
+          <p className="mt-3 text-sm font-semibold text-current">{label}</p>
+        </div>
+        <span
+          className={cn(
+            "rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em]",
+            state === "ready" &&
+              "border-emerald-300/20 bg-emerald-300/[0.08] text-emerald-200",
+            state === "active" &&
+              "border-accent/25 bg-accent/12 text-accent-foreground",
+            state === "pending" &&
+              "border-white/[0.08] bg-background-muted/80 text-foreground-subtle",
+          )}
+        >
+          {state === "ready" ? "Ready" : state === "active" ? "Current" : "Pending"}
+        </span>
+      </div>
+      <p className="mt-3 text-sm leading-6 text-foreground-soft">{body}</p>
+    </div>
   );
 }
 
 function WorkspaceSignal({
   label,
   value,
+  detail,
+  tone = "default",
 }: {
   label: string;
   value: string;
+  detail: string;
+  tone?: "default" | "active" | "ready";
 }) {
   return (
-    <SurfaceCard padding="sm" className="h-full">
+    <SurfaceCard
+      padding="sm"
+      className={cn(
+        "h-full border-white/[0.08]",
+        tone === "active" && "border-accent/18",
+        tone === "ready" && "border-emerald-400/18",
+      )}
+    >
       <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-foreground-subtle">
         {label}
       </p>
-      <p className="mt-3 text-sm leading-7 text-foreground-soft">{value}</p>
+      <p className="mt-3 text-sm font-semibold leading-6 text-foreground">
+        {value}
+      </p>
+      <p className="mt-3 text-sm leading-6 text-foreground-soft">{detail}</p>
     </SurfaceCard>
   );
 }
