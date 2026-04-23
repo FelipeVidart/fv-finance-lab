@@ -89,7 +89,7 @@ export function BondPricingSection({
                     className={`w-full rounded-2xl border bg-slate-950/70 px-4 py-3 text-sm text-white outline-none transition ${
                       errors[field.name]
                         ? "border-rose-400/70 focus:border-rose-300"
-                        : "border-white/10 focus:border-sky-400/60"
+                        : "border-white/10 focus:border-accent/60"
                     }`}
                   />
                   <div className="min-h-10 space-y-1">
@@ -114,7 +114,7 @@ export function BondPricingSection({
                 className={`w-full rounded-2xl border bg-slate-950/70 px-4 py-3 text-sm text-white outline-none transition ${
                   errors.paymentsPerYear
                     ? "border-rose-400/70 focus:border-rose-300"
-                    : "border-white/10 focus:border-sky-400/60"
+                    : "border-white/10 focus:border-accent/60"
                 }`}
               >
                 {PAYMENT_OPTIONS.map((option) => (
@@ -142,7 +142,7 @@ export function BondPricingSection({
             <div className="flex flex-wrap gap-3">
               <button
                 type="submit"
-                className="rounded-2xl bg-sky-400 px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-sky-300"
+                className="rounded-2xl bg-accent px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-accent-strong"
               >
                 Value bond
               </button>
@@ -163,10 +163,10 @@ export function BondPricingSection({
           description="Primary manual valuation output from the current bond assumptions."
         >
           <div className="space-y-6">
-            <div className="rounded-3xl border border-sky-400/20 bg-sky-400/[0.08] p-5">
+            <div className="rounded-3xl border border-accent/20 bg-accent/10 p-5">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.22em] text-sky-200/80">
+                  <p className="text-xs font-semibold uppercase tracking-[0.22em] text-accent-foreground/80">
                     Bond price
                   </p>
                   <p className="mt-4 text-4xl font-semibold tracking-tight text-white">

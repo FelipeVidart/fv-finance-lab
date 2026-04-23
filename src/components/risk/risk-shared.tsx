@@ -16,7 +16,7 @@ export function RiskStatChip({
     <div
       className={`rounded-3xl border px-5 py-4 shadow-[0_20px_60px_rgba(0,0,0,0.18)] backdrop-blur-sm ${
         accent
-          ? "border-sky-400/25 bg-sky-400/[0.08]"
+          ? "border-accent/25 bg-accent/10"
           : "border-white/10 bg-white/[0.03]"
       }`}
     >

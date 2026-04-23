@@ -1,4 +1,6 @@
 import type { ReactNode } from "react";
+import { SurfaceCard } from "@/components/ui/surface-card";
+import { cn } from "@/lib/utils";
 
 type CardProps = {
   eyebrow?: string;
@@ -7,6 +9,7 @@ type CardProps = {
   children?: ReactNode;
   className?: string;
   actions?: ReactNode;
+  tone?: "default" | "elevated" | "accent";
 };
 
 export function Card({
@@ -16,34 +19,35 @@ export function Card({
   children,
   className = "",
   actions,
+  tone = "default",
 }: CardProps) {
   return (
-    <section
-      className={`rounded-3xl border border-white/10 bg-white/[0.03] p-6 shadow-[0_20px_60px_rgba(0,0,0,0.18)] backdrop-blur-sm ${className}`.trim()}
-    >
+    <SurfaceCard tone={tone} className={cn("h-full", className)}>
       <div
         className={
-          actions ? "flex items-start justify-between gap-4" : undefined
+          actions
+            ? "flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between"
+            : undefined
         }
       >
         <div className="space-y-3">
           {eyebrow ? (
-            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-sky-300/80">
+            <p className="text-[0.72rem] font-semibold uppercase tracking-[0.24em] text-accent-strong/90">
               {eyebrow}
             </p>
           ) : null}
-          <div className="space-y-2">
-            <h2 className="text-xl font-semibold tracking-tight text-white">
+          <div className="space-y-3">
+            <h2 className="text-xl font-semibold tracking-[-0.03em] text-foreground sm:text-[1.4rem]">
               {title}
             </h2>
-            <p className="max-w-2xl text-sm leading-7 text-slate-300">
+            <p className="max-w-2xl text-sm leading-7 text-foreground-soft">
               {description}
             </p>
           </div>
         </div>
         {actions ? <div className="shrink-0">{actions}</div> : null}
       </div>
-      {children ? <div className="mt-6">{children}</div> : null}
-    </section>
+      {children ? <div className="mt-7">{children}</div> : null}
+    </SurfaceCard>
   );
 }

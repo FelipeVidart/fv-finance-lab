@@ -68,7 +68,7 @@ export function ChartDetailModal({
       >
         <div className="flex items-start justify-between gap-4 border-b border-white/10 px-6 py-5 sm:px-8">
           <div className="space-y-2">
-            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-sky-300/80">
+            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-accent-strong/85">
               Chart Detail
             </p>
             <h2 id={titleId} className="text-2xl font-semibold text-white">
@@ -88,7 +88,7 @@ export function ChartDetailModal({
             ref={closeButtonRef}
             type="button"
             onClick={onClose}
-            className="rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-sm font-medium text-slate-200 transition hover:border-white/20 hover:bg-white/[0.08] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/70"
+            className="rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-sm font-medium text-slate-200 transition hover:border-white/20 hover:bg-white/[0.08] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70"
           >
             Close
           </button>

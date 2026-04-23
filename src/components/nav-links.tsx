@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { NavItem } from "@/lib/navigation";
+import { cn } from "@/lib/utils";
 
 type NavLinksProps = {
   items: readonly NavItem[];
@@ -25,11 +26,13 @@ export function NavLinks({
 
   return (
     <nav
-      className={
-        variant === "header"
-          ? "flex flex-wrap items-center justify-end gap-2"
-          : "flex flex-wrap gap-2"
-      }
+      className={cn(
+        "flex flex-wrap gap-2",
+        variant === "header" &&
+          "items-center rounded-full border border-border/80 bg-surface-elevated/75 p-1.5 shadow-[var(--shadow-soft)] backdrop-blur-xl",
+        variant === "tabs" &&
+          "rounded-[var(--radius-lg-value)] border border-border/80 bg-surface/70 p-2 shadow-[var(--shadow-soft)]",
+      )}
       aria-label={variant === "header" ? "Primary navigation" : "Tool navigation"}
     >
       {items.map((item) => {
@@ -40,19 +43,18 @@ export function NavLinks({
             key={item.href}
             href={item.href}
             aria-current={active ? "page" : undefined}
-            className={
-              variant === "header"
-                ? `rounded-full px-4 py-2 text-sm font-medium transition ${
-                    active
-                      ? "bg-white text-slate-950"
-                      : "text-slate-300 hover:bg-white/6 hover:text-white"
-                  }`
-                : `rounded-full border px-4 py-2 text-sm font-medium transition ${
-                    active
-                      ? "border-sky-300/40 bg-sky-300/12 text-sky-100"
-                      : "border-white/10 text-slate-300 hover:border-white/20 hover:bg-white/5 hover:text-white"
-                  }`
-            }
+            className={cn(
+              "inline-flex items-center rounded-full border px-4 py-2.5 text-sm font-medium transition duration-200",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70 focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+              variant === "header" &&
+                (active
+                  ? "border-accent/35 bg-accent text-slate-950 shadow-[0_14px_30px_rgba(196,154,74,0.24)]"
+                  : "border-transparent text-foreground-muted hover:border-border hover:bg-white/[0.04] hover:text-foreground"),
+              variant === "tabs" &&
+                (active
+                  ? "border-accent/30 bg-accent/12 text-accent-foreground"
+                  : "border-transparent text-foreground-muted hover:border-border hover:bg-white/[0.04] hover:text-foreground"),
+            )}
           >
             {item.label}
           </Link>

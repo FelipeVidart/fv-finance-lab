@@ -53,11 +53,11 @@ export function RiskSetupSection({
               value={tickerInput}
               onChange={(event) => onTickerInputChange(event.target.value)}
               placeholder="AAPL, MSFT, NVDA"
-              className={`w-full rounded-2xl border bg-slate-950/70 px-4 py-3 text-sm text-white outline-none transition ${
-                validationError
-                  ? "border-rose-400/70 focus:border-rose-300"
-                  : "border-white/10 focus:border-sky-400/60"
-              }`}
+                className={`w-full rounded-2xl border bg-slate-950/70 px-4 py-3 text-sm text-white outline-none transition ${
+                  validationError
+                    ? "border-rose-400/70 focus:border-rose-300"
+                    : "border-white/10 focus:border-accent/60"
+                }`}
             />
             <div className="space-y-1">
               <p className="text-xs leading-6 text-slate-400">
@@ -85,7 +85,7 @@ export function RiskSetupSection({
                     onClick={() => onPeriodChange(option)}
                     className={`rounded-2xl border px-4 py-3 text-sm font-medium transition ${
                       isActive
-                        ? "border-sky-400/70 bg-sky-400/15 text-sky-100"
+                        ? "border-accent/60 bg-accent/12 text-accent-foreground"
                         : "border-white/10 bg-slate-950/60 text-slate-300 hover:border-white/20 hover:bg-white/[0.05]"
                     }`}
                   >
@@ -97,7 +97,7 @@ export function RiskSetupSection({
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full rounded-2xl bg-sky-400 px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-sky-300 disabled:cursor-wait disabled:bg-sky-400/70"
+              className="w-full rounded-2xl bg-accent px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-accent-strong disabled:cursor-wait disabled:bg-accent/60"
             >
               {isLoading ? "Loading data..." : "Fetch market data"}
             </button>
@@ -188,7 +188,7 @@ export function RiskSetupSection({
                           onChange={(event) =>
                             onWeightInputChange(metric.ticker, event.target.value)
                           }
-                          className="w-full rounded-xl border border-white/10 bg-slate-900/80 px-3 py-2 text-sm text-white outline-none transition focus:border-sky-400/60"
+                          className="w-full rounded-xl border border-white/10 bg-slate-900/80 px-3 py-2 text-sm text-white outline-none transition focus:border-accent/60"
                         />
                         <span className="text-slate-400">
                           {weightInputs[metric.ticker]
@@ -204,7 +204,7 @@ export function RiskSetupSection({
                   <button
                     type="button"
                     onClick={onApplyEqualWeights}
-                    className="rounded-2xl bg-sky-400 px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-sky-300"
+                    className="rounded-2xl bg-accent px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-accent-strong"
                   >
                     Apply equal weights
                   </button>

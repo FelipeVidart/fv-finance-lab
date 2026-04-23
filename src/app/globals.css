@@ -2,25 +2,96 @@
 
 :root {
   color-scheme: dark;
-  --background: #090c10;
-  --foreground: #f3f4f6;
+  --background: #071019;
+  --background-muted: #0b1622;
+  --surface: #0f1a27;
+  --surface-elevated: #142130;
+  --surface-strong: #1a2839;
+  --foreground: #f5f1e8;
+  --foreground-soft: #cad3de;
+  --foreground-muted: #97a3b4;
+  --foreground-subtle: #677286;
+  --accent: #c49a4a;
+  --accent-strong: #e2b86b;
+  --accent-soft: #2e2416;
+  --accent-foreground: #f7eedf;
+  --border: #223041;
+  --border-strong: #33455b;
+  --ring: #d9b06b;
+  --font-display-stack: var(--font-editorial), Georgia, "Times New Roman", serif;
   --font-sans-stack:
-    "Segoe UI", "Inter", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
-    "Helvetica Neue", sans-serif;
+    var(--font-ui), "Segoe UI", ui-sans-serif, system-ui, -apple-system,
+    BlinkMacSystemFont, "Helvetica Neue", sans-serif;
   --font-mono-stack:
     "SFMono-Regular", "Cascadia Code", "JetBrains Mono", ui-monospace, SFMono-Regular,
     Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  --radius-sm-value: 1rem;
+  --radius-md-value: 1.35rem;
+  --radius-lg-value: 1.6rem;
+  --radius-xl-value: 2rem;
+  --shadow-soft: 0 18px 38px rgba(0, 0, 0, 0.18);
+  --shadow-card: 0 28px 70px rgba(0, 0, 0, 0.24);
+  --shadow-elevated: 0 32px 90px rgba(0, 0, 0, 0.32);
 }
 
 @theme inline {
   --color-background: var(--background);
+  --color-background-muted: var(--background-muted);
+  --color-surface: var(--surface);
+  --color-surface-elevated: var(--surface-elevated);
+  --color-surface-strong: var(--surface-strong);
   --color-foreground: var(--foreground);
+  --color-foreground-soft: var(--foreground-soft);
+  --color-foreground-muted: var(--foreground-muted);
+  --color-foreground-subtle: var(--foreground-subtle);
+  --color-accent: var(--accent);
+  --color-accent-strong: var(--accent-strong);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-ring: var(--ring);
   --font-sans: var(--font-sans-stack);
+  --font-display: var(--font-display-stack);
   --font-mono: var(--font-mono-stack);
+  --radius-sm: var(--radius-sm-value);
+  --radius-md: var(--radius-md-value);
+  --radius-lg: var(--radius-lg-value);
+  --radius-xl: var(--radius-xl-value);
+}
+
+* {
+  border-color: color-mix(in srgb, var(--border) 90%, transparent);
+}
+
+html {
+  background: var(--background);
 }
 
 body {
-  background: var(--background);
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at top left, rgba(196, 154, 74, 0.12), transparent 28%),
+    radial-gradient(circle at top right, rgba(83, 110, 146, 0.14), transparent 24%),
+    linear-gradient(180deg, #071019 0%, #050b11 100%);
   color: var(--foreground);
   font-family: var(--font-sans-stack);
+  text-rendering: optimizeLegibility;
+}
+
+::selection {
+  background: rgba(196, 154, 74, 0.28);
+  color: var(--foreground);
+}
+
+a,
+button,
+input,
+textarea,
+select {
+  -webkit-tap-highlight-color: transparent;
+}
+
+.text-balance {
+  text-wrap: balance;
 }

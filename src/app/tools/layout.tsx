@@ -9,7 +9,7 @@ export default function ToolsLayout({
   children: ReactNode;
 }>) {
   return (
-    <PageContainer className="space-y-8">
+    <PageContainer className="space-y-10">
       <PageHero
         eyebrow="Tools"
         title="Finance tools organized around real analytical workflows."
