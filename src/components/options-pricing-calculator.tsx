@@ -4,13 +4,16 @@ import { useMemo, useState } from "react";
 import { Card } from "@/components/card";
 import { ExpandableChartCard } from "@/components/expandable-chart-card";
 import { OptionsPayoffChart } from "@/components/options-payoff-chart";
+import { StrategyPayoffChart } from "@/components/strategy-payoff-chart";
 import { SurfaceCard } from "@/components/ui/surface-card";
 import { cn } from "@/lib/utils";
 import {
+  analyzeStrategy,
   buildCrrBinomialConvergenceSeries,
   buildBinomialConvergenceSeries,
   buildOptionPayoffSeries,
   buildOptionSensitivityScenarios,
+  buildStrategyPreset,
   blackScholesValuation,
   getEuropeanOptionPriceBounds,
   priceCrrBinomial,
@@ -21,9 +24,13 @@ import {
   type BlackScholesValuation,
   type ExerciseStyle,
   type ImpliedVolatilityResult,
+  type OptionLeg,
   type OptionType,
   type SensitivityScenarioResult,
   type SensitivityScenarioType,
+  type StrategyAnalysis,
+  type StrategyDefinition,
+  type StrategyPresetId,
 } from "@/lib/finance/options";
 
 type FormState = {
@@ -56,6 +63,11 @@ type PricingState = {
   convergence: BinomialConvergencePoint[];
   inputs: CalculatorInput;
 };
+type StrategyLegInput = {
+  id: string;
+  strike: string;
+  premium: string;
+};
 type OptionSectionId =
   | "pricing"
   | "comparison"
@@ -86,6 +98,43 @@ const sensitivityScenarioConfig: Array<{
     inputLabel: "Maturity",
     interpretation:
       "Maturity effects can vary with dividends, rates, and moneyness.",
+  },
+];
+
+const strategyPresetConfig: Array<{
+  id: StrategyPresetId;
+  label: string;
+  summary: string;
+}> = [
+  {
+    id: "long-call",
+    label: "Long call",
+    summary: "Bullish upside exposure with limited premium at risk.",
+  },
+  {
+    id: "long-put",
+    label: "Long put",
+    summary: "Bearish downside exposure with limited premium at risk.",
+  },
+  {
+    id: "bull-call-spread",
+    label: "Bull call spread",
+    summary: "Defined-risk bullish call spread with capped upside.",
+  },
+  {
+    id: "bear-put-spread",
+    label: "Bear put spread",
+    summary: "Defined-risk bearish put spread with capped downside profit.",
+  },
+  {
+    id: "long-straddle",
+    label: "Long straddle",
+    summary: "Long ATM call and put for large moves in either direction.",
+  },
+  {
+    id: "long-strangle",
+    label: "Long strangle",
+    summary: "Long OTM put and call with wider breakevens.",
   },
 ];
 
@@ -173,13 +222,13 @@ const optionSections: Array<{
     id: "volatility",
     step: "03",
     label: "Volatility",
-    description: "Reserved for implied-volatility and surface-oriented workflows.",
+    description: "Solve implied volatility and inspect one-input sensitivity scenarios.",
   },
   {
     id: "strategies",
     step: "04",
     label: "Strategies",
-    description: "Reserved for multi-leg structures and scenario comparison workspaces.",
+    description: "Build preset multi-leg payoffs and inspect expiry P/L metrics.",
   },
 ];
 
@@ -349,6 +398,78 @@ function formatScenarioInput(
   return formatNumber(value);
 }
 
+function formatFiniteOrUnlimited(value: number | undefined): string {
+  return value === undefined ? "Unlimited" : formatNumber(value);
+}
+
+function formatBreakevens(values: number[]): string {
+  if (values.length === 0) {
+    return "None in range";
+  }
+
+  return values.map(formatNumber).join(", ");
+}
+
+function strategyContextFromPricing(pricing: PricingState) {
+  return {
+    spot: pricing.inputs.spot,
+    strike: pricing.inputs.strike,
+    maturity: pricing.inputs.maturity,
+    rate: pricing.inputs.rate,
+    volatility: pricing.inputs.volatility,
+    dividendYield: pricing.inputs.dividendYield,
+  };
+}
+
+function buildDefaultStrategy(
+  pricing: PricingState,
+  presetId: StrategyPresetId,
+): StrategyDefinition {
+  return buildStrategyPreset(presetId, strategyContextFromPricing(pricing));
+}
+
+function getLegInputs(legs: OptionLeg[]): StrategyLegInput[] {
+  return legs.map((leg) => ({
+    id: leg.id,
+    strike: formatInputNumber(leg.strike),
+    premium: formatInputNumber(leg.premium),
+  }));
+}
+
+function applyLegInputs(
+  strategy: StrategyDefinition,
+  legInputs: StrategyLegInput[],
+): StrategyDefinition | null {
+  const nextLegs = strategy.legs.map((leg) => {
+    const edited = legInputs.find((entry) => entry.id === leg.id);
+    const strike = Number(edited?.strike);
+    const premium = Number(edited?.premium);
+
+    if (!Number.isFinite(strike) || strike <= 0) {
+      return null;
+    }
+
+    if (!Number.isFinite(premium) || premium < 0) {
+      return null;
+    }
+
+    return {
+      ...leg,
+      strike,
+      premium,
+    };
+  });
+
+  if (nextLegs.some((leg) => leg === null)) {
+    return null;
+  }
+
+  return {
+    ...strategy,
+    legs: nextLegs as OptionLeg[],
+  };
+}
+
 function buildPricingState(values: CalculatorInput): PricingState {
   const blackScholes = blackScholesValuation(values);
   const binomialInput = {
@@ -441,6 +562,15 @@ export function OptionsPricingCalculator() {
   });
   const [activeSensitivityScenario, setActiveSensitivityScenario] =
     useState<SensitivityScenarioType>("volatility");
+  const [activeStrategyId, setActiveStrategyId] =
+    useState<StrategyPresetId>("long-call");
+  const [strategyLegInputs, setStrategyLegInputs] = useState<StrategyLegInput[]>(
+    () => {
+      const initialPricing = createInitialPricingState();
+
+      return getLegInputs(buildDefaultStrategy(initialPricing, "long-call").legs);
+    },
+  );
   const [pricingError, setPricingError] = useState<string | null>(null);
   const [activeSection, setActiveSection] =
     useState<OptionSectionId>("pricing");
@@ -523,6 +653,21 @@ export function OptionsPricingCalculator() {
     sensitivityScenarioConfig.find(
       (entry) => entry.id === activeSensitivityScenario,
     ) ?? sensitivityScenarioConfig[0];
+  const baseStrategy = useMemo(
+    () => buildDefaultStrategy(pricing, activeStrategyId),
+    [activeStrategyId, pricing],
+  );
+  const editedStrategy = useMemo(
+    () => applyLegInputs(baseStrategy, strategyLegInputs),
+    [baseStrategy, strategyLegInputs],
+  );
+  const strategyAnalysis = useMemo<StrategyAnalysis | null>(() => {
+    if (!editedStrategy) {
+      return null;
+    }
+
+    return analyzeStrategy(editedStrategy, pricing.inputs.spot);
+  }, [editedStrategy, pricing.inputs.spot]);
 
   function updateField(name: keyof FormState, value: string) {
     setForm((current) => ({ ...current, [name]: value }));
@@ -549,7 +694,12 @@ export function OptionsPricingCalculator() {
 
     try {
       setErrors({});
-      setPricing(buildPricingState(parsed.values));
+      const nextPricing = buildPricingState(parsed.values);
+
+      setPricing(nextPricing);
+      setStrategyLegInputs(
+        getLegInputs(buildDefaultStrategy(nextPricing, activeStrategyId).legs),
+      );
       setPricingError(null);
     } catch (error) {
       setPricingError(
@@ -565,7 +715,31 @@ export function OptionsPricingCalculator() {
 
     setPricing(nextPricing);
     setMarketPriceInput(formatInputNumber(nextPricing.blackScholes.price));
+    setActiveStrategyId("long-call");
+    setStrategyLegInputs(getLegInputs(buildDefaultStrategy(nextPricing, "long-call").legs));
     setPricingError(null);
+  }
+
+  function handleStrategyChange(presetId: StrategyPresetId) {
+    setActiveStrategyId(presetId);
+    setStrategyLegInputs(getLegInputs(buildDefaultStrategy(pricing, presetId).legs));
+  }
+
+  function updateStrategyLegInput(
+    legId: string,
+    field: keyof Omit<StrategyLegInput, "id">,
+    value: string,
+  ) {
+    setStrategyLegInputs((current) =>
+      current.map((leg) =>
+        leg.id === legId
+          ? {
+              ...leg,
+              [field]: value,
+            }
+          : leg,
+      ),
+    );
   }
 
   const contractSummary = useMemo(
@@ -1606,26 +1780,264 @@ export function OptionsPricingCalculator() {
           id="strategies-panel"
           role="tabpanel"
           aria-labelledby="strategies-tab"
+          className="space-y-6"
         >
-          <ComingNextCard
-            eyebrow="Strategies"
-            title="Strategy analytics will live here"
-            description="This area is being reserved for multi-leg structures, payoff aggregation, and scenario-aware derivatives workflows once the single-option surface is complete."
-            items={[
-              {
-                label: "Planned",
-                value: "Multi-leg payoff builder",
-              },
-              {
-                label: "Planned",
-                value: "Strategy P/L views",
-              },
-              {
-                label: "Planned",
-                value: "Reusable scenario blocks",
-              },
-            ]}
-          />
+          <SurfaceCard tone="elevated" padding="md" className="border-white/[0.08]">
+            <div className="grid gap-5 xl:grid-cols-[minmax(0,1.08fr)_minmax(23rem,0.92fr)]">
+              <div>
+                <p className="text-[0.72rem] font-semibold uppercase tracking-[0.24em] text-accent-strong/85">
+                  Strategies
+                </p>
+                <h3 className="mt-3 text-2xl font-semibold tracking-[-0.03em] text-foreground">
+                  Build a multi-leg payoff and inspect the combined expiry P/L.
+                </h3>
+                <p className="mt-3 max-w-2xl text-sm leading-7 text-foreground-soft">
+                  Presets use the current contract inputs and model-derived
+                  Black-Scholes premiums for each leg. Edit strikes and premiums
+                  to test market quotes or custom structures.
+                </p>
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                <OptionMetricCard
+                  label="Selected strategy"
+                  value={baseStrategy.name}
+                  meta={baseStrategy.bias}
+                  accent
+                />
+                <OptionMetricCard
+                  label="Leg count"
+                  value={`${baseStrategy.legs.length}`}
+                  meta="Editable option legs"
+                />
+                <OptionMetricCard
+                  label="Spot window"
+                  value="50% - 150%"
+                  meta="Expiry grid around spot"
+                />
+                <OptionMetricCard
+                  label="Premium source"
+                  value="Model"
+                  meta="BSM defaults, editable"
+                />
+              </div>
+            </div>
+          </SurfaceCard>
+
+          <div className="grid gap-4 xl:grid-cols-[minmax(340px,0.86fr)_minmax(0,1.14fr)]">
+            <Card
+              eyebrow="Preset"
+              title="Strategy selector"
+              description="Choose a first-pass structure, then adjust leg economics if needed."
+              tone="elevated"
+            >
+              <div className="grid gap-3">
+                {strategyPresetConfig.map((preset) => {
+                  const isActive = activeStrategyId === preset.id;
+
+                  return (
+                    <button
+                      key={preset.id}
+                      type="button"
+                      onClick={() => handleStrategyChange(preset.id)}
+                      className={cn(
+                        "rounded-[1.25rem] border px-4 py-4 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70",
+                        isActive
+                          ? "border-accent/35 bg-accent/12 text-accent-foreground"
+                          : "border-white/[0.08] bg-slate-950/55 text-slate-300 hover:border-border-strong/80 hover:bg-white/[0.04]",
+                      )}
+                    >
+                      <span className="text-sm font-semibold">{preset.label}</span>
+                      <span className="mt-2 block text-xs leading-5 text-foreground-subtle">
+                        {preset.summary}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </Card>
+
+            <Card
+              eyebrow="Legs"
+              title={baseStrategy.name}
+              description={baseStrategy.description}
+              actions={<StepBadge label="Editable legs" tone="ready" />}
+            >
+              <div className="space-y-5">
+                <div className="overflow-x-auto rounded-[1.6rem] border border-white/[0.08] bg-[linear-gradient(180deg,rgba(10,17,26,0.82),rgba(8,13,20,0.72))]">
+                  <div className="min-w-[620px]">
+                    <div className="grid grid-cols-[1.25fr_0.7fr_0.7fr_0.95fr_0.95fr_0.45fr] gap-3 border-b border-white/[0.08] px-5 py-3 text-[11px] font-semibold uppercase tracking-[0.18em] text-foreground-subtle">
+                      <span>Leg</span>
+                      <span>Side</span>
+                      <span>Type</span>
+                      <span>Strike</span>
+                      <span>Premium</span>
+                      <span>Qty</span>
+                    </div>
+                    {baseStrategy.legs.map((leg, index) => {
+                      const editable = strategyLegInputs.find(
+                        (entry) => entry.id === leg.id,
+                      );
+
+                      return (
+                        <div
+                          key={leg.id}
+                          className={cn(
+                            "grid grid-cols-[1.25fr_0.7fr_0.7fr_0.95fr_0.95fr_0.45fr] items-center gap-3 px-5 py-4 text-sm text-foreground-soft not-last:border-b not-last:border-white/[0.08]",
+                            index % 2 === 0 ? "bg-white/[0.015]" : "bg-transparent",
+                          )}
+                        >
+                          <span className="font-semibold text-foreground">
+                            {leg.label}
+                          </span>
+                          <span className="capitalize">{leg.position}</span>
+                          <span className="capitalize">{leg.optionType}</span>
+                          <input
+                            type="number"
+                            inputMode="decimal"
+                            step="0.01"
+                            value={editable?.strike ?? ""}
+                            onChange={(event) =>
+                              updateStrategyLegInput(
+                                leg.id,
+                                "strike",
+                                event.target.value,
+                              )
+                            }
+                            className="w-full rounded-[0.9rem] border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white outline-none transition focus:border-accent/60"
+                          />
+                          <input
+                            type="number"
+                            inputMode="decimal"
+                            min="0"
+                            step="0.0001"
+                            value={editable?.premium ?? ""}
+                            onChange={(event) =>
+                              updateStrategyLegInput(
+                                leg.id,
+                                "premium",
+                                event.target.value,
+                              )
+                            }
+                            className="w-full rounded-[0.9rem] border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white outline-none transition focus:border-accent/60"
+                          />
+                          <span>{leg.quantity}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="rounded-[1.3rem] border border-white/[0.08] bg-[linear-gradient(180deg,rgba(10,17,26,0.78),rgba(10,17,26,0.56))] px-4 py-3 text-xs leading-6 text-foreground-muted">
+                  Net premium is positive for a debit paid and negative for a
+                  credit received. Premium defaults are model estimates, not
+                  live market quotes.
+                </div>
+              </div>
+            </Card>
+          </div>
+
+          {strategyAnalysis ? (
+            <>
+              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+                <OptionMetricCard
+                  label="Net premium"
+                  value={
+                    strategyAnalysis.metrics.netPremium >= 0
+                      ? `Debit ${formatNumber(strategyAnalysis.metrics.netPremium)}`
+                      : `Credit ${formatNumber(
+                          Math.abs(strategyAnalysis.metrics.netPremium),
+                        )}`
+                  }
+                  meta="Positive means paid"
+                  accent
+                />
+                <OptionMetricCard
+                  label="Max profit"
+                  value={formatFiniteOrUnlimited(
+                    strategyAnalysis.metrics.maxProfit,
+                  )}
+                  meta={
+                    strategyAnalysis.metrics.metricSource === "exact"
+                      ? "Exact preset formula"
+                      : "From plotted range"
+                  }
+                />
+                <OptionMetricCard
+                  label="Max loss"
+                  value={formatFiniteOrUnlimited(
+                    strategyAnalysis.metrics.maxLoss,
+                  )}
+                  meta={
+                    strategyAnalysis.metrics.metricSource === "exact"
+                      ? "Exact preset formula"
+                      : "From plotted range"
+                  }
+                />
+                <OptionMetricCard
+                  label="Breakeven"
+                  value={formatBreakevens(
+                    strategyAnalysis.metrics.breakevenPoints,
+                  )}
+                  meta={
+                    strategyAnalysis.metrics.metricSource === "exact"
+                      ? "Exact preset formula"
+                      : "Interpolated on grid"
+                  }
+                />
+                <OptionMetricCard
+                  label="Bias"
+                  value={strategyAnalysis.metrics.bias}
+                  meta="Preset classification"
+                />
+              </div>
+
+              <ExpandableChartCard
+                eyebrow="Payoff"
+                title="Combined strategy profile"
+                description="Aggregated payoff and profit/loss across all legs at expiry."
+                detailDescription="Expanded strategy payoff view with combined payoff, profit/loss, breakeven markers, and current spot marker."
+                renderPreview={() => (
+                  <div className="space-y-5">
+                    <StrategyPayoffChart
+                      data={strategyAnalysis.payoffPoints}
+                      currentSpot={pricing.inputs.spot}
+                      breakevenPoints={strategyAnalysis.metrics.breakevenPoints}
+                    />
+
+                    <div className="grid gap-3 sm:grid-cols-3">
+                      <SummaryCard
+                        label="Current spot"
+                        value={formatNumber(pricing.inputs.spot)}
+                      />
+                      <SummaryCard
+                        label="Base strike"
+                        value={formatNumber(pricing.inputs.strike)}
+                      />
+                      <SummaryCard
+                        label="Model volatility"
+                        value={formatPercent(pricing.inputs.volatility)}
+                      />
+                    </div>
+                  </div>
+                )}
+                detail={
+                  <StrategyPayoffChart
+                    data={strategyAnalysis.payoffPoints}
+                    currentSpot={pricing.inputs.spot}
+                    breakevenPoints={strategyAnalysis.metrics.breakevenPoints}
+                    heightClassName="h-[24rem] sm:h-[32rem] lg:h-[40rem]"
+                    interactive
+                  />
+                }
+              />
+            </>
+          ) : (
+            <div className="rounded-[1.35rem] border border-amber-300/25 bg-amber-300/[0.08] px-4 py-3 text-sm leading-6 text-amber-100">
+              Enter positive strikes and non-negative premiums to calculate the
+              strategy payoff.
+            </div>
+          )}
         </div>
       ) : null}
     </section>
@@ -1720,8 +2132,8 @@ function OptionsSectionTabs({
           <div className="flex flex-wrap gap-2">
             <SectionSignal label="Pricing" value="Live" tone="ready" />
             <SectionSignal label="Comparison" value="Live" tone="ready" />
-            <SectionSignal label="Volatility" value="Reserved" tone="pending" />
-            <SectionSignal label="Strategies" value="Reserved" tone="pending" />
+            <SectionSignal label="Volatility" value="Live" tone="ready" />
+            <SectionSignal label="Strategies" value="Live" tone="ready" />
           </div>
         </div>
 
@@ -1732,8 +2144,6 @@ function OptionsSectionTabs({
         >
           {optionSections.map((section) => {
             const isActive = activeSection === section.id;
-            const reserved =
-              section.id === "volatility" || section.id === "strategies";
 
             return (
               <button
@@ -1761,13 +2171,11 @@ function OptionsSectionTabs({
                         className={cn(
                           "rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em]",
                           isActive && "border-accent/25 bg-accent/10 text-accent-foreground",
-                          !isActive && !reserved &&
+                          !isActive &&
                             "border-emerald-400/20 bg-emerald-400/[0.08] text-emerald-200",
-                          !isActive && reserved &&
-                            "border-white/[0.08] bg-background-muted/80 text-foreground-subtle",
                         )}
                       >
-                        {isActive ? "Current" : reserved ? "Reserved" : "Live"}
+                        {isActive ? "Current" : "Live"}
                       </span>
                     </div>
                     <div>
@@ -1861,50 +2269,6 @@ function NoteCard({ title, body }: { title: string; body: string }) {
       <p className="text-sm font-semibold text-foreground">{title}</p>
       <p className="mt-2 text-sm leading-6 text-foreground-soft">{body}</p>
     </div>
-  );
-}
-
-function ComingNextCard({
-  eyebrow,
-  title,
-  description,
-  items,
-}: {
-  eyebrow: string;
-  title: string;
-  description: string;
-  items: Array<{
-    label: string;
-    value: string;
-  }>;
-}) {
-  return (
-    <Card eyebrow={eyebrow} title={title} description={description} tone="elevated">
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.08fr)_minmax(19rem,0.92fr)]">
-        <div className="rounded-[1.7rem] border border-dashed border-border/80 bg-[linear-gradient(180deg,rgba(10,17,26,0.8),rgba(8,13,20,0.56))] p-6">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-accent-strong/85">
-            Reserved product area
-          </p>
-          <h3 className="mt-4 text-2xl font-semibold tracking-[-0.03em] text-foreground">
-            Intentionally held for the next options workflow layer
-          </h3>
-          <p className="mt-3 max-w-2xl text-sm leading-7 text-foreground-soft">
-            The pricing surface ships first. This section stays structured and
-            intentional so the module can expand without feeling unfinished.
-          </p>
-        </div>
-
-        <div className="space-y-3">
-          {items.map((item) => (
-            <SummaryCard
-              key={`${item.label}-${item.value}`}
-              label={item.label}
-              value={item.value}
-            />
-          ))}
-        </div>
-      </div>
-    </Card>
   );
 }
 
