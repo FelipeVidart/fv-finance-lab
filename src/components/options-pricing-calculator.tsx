@@ -7,12 +7,16 @@ import { OptionsPayoffChart } from "@/components/options-payoff-chart";
 import { SurfaceCard } from "@/components/ui/surface-card";
 import { cn } from "@/lib/utils";
 import {
+  buildCrrBinomialConvergenceSeries,
   buildBinomialConvergenceSeries,
   buildOptionPayoffSeries,
   blackScholesValuation,
-  priceEuropeanBinomial,
+  priceCrrBinomial,
+  type BinomialConvergencePoint,
+  type BinomialPricingResult,
   type BlackScholesInput,
   type BlackScholesValuation,
+  type ExerciseStyle,
   type OptionType,
 } from "@/lib/finance/options";
 
@@ -25,23 +29,25 @@ type FormState = {
   dividendYield: string;
   steps: string;
   optionType: OptionType;
+  exerciseStyle: ExerciseStyle;
 };
 
-type FieldName = keyof Omit<FormState, "optionType">;
+type FieldName = keyof Omit<FormState, "optionType" | "exerciseStyle">;
 type FormErrors = Partial<Record<keyof FormState, string>>;
 type CalculatorInput = BlackScholesInput & {
   steps: number;
+  exerciseStyle: ExerciseStyle;
 };
 type PricingState = {
   blackScholes: BlackScholesValuation;
+  binomial: BinomialPricingResult;
+  europeanBinomial: BinomialPricingResult;
+  primaryPrice: number;
   binomialPrice: number;
   absoluteDifference: number;
   percentageDifference: number;
-  convergence: Array<{
-    steps: number;
-    price: number;
-    absoluteDifference: number;
-  }>;
+  earlyExercisePremium: number;
+  convergence: BinomialConvergencePoint[];
   inputs: CalculatorInput;
 };
 type OptionSectionId =
@@ -52,6 +58,7 @@ type OptionSectionId =
 
 const DEFAULT_FORM: FormState = {
   optionType: "call",
+  exerciseStyle: "european",
   spot: "100",
   strike: "100",
   maturity: "1",
@@ -267,6 +274,7 @@ function parseForm(form: FormState): {
     errors,
     values: {
       optionType: form.optionType,
+      exerciseStyle: form.exerciseStyle,
       spot: spot.value as number,
       strike: strike.value as number,
       maturity: maturity.value as number,
@@ -287,40 +295,70 @@ function formatNumber(value: number): string {
 
 function buildPricingState(values: CalculatorInput): PricingState {
   const blackScholes = blackScholesValuation(values);
-  const binomialPrice = priceEuropeanBinomial({
+  const binomialInput = {
     spot: values.spot,
     strike: values.strike,
     rate: values.rate,
     volatility: values.volatility,
-    maturityYears: values.maturity,
+    maturity: values.maturity,
     steps: values.steps,
     optionType: values.optionType,
     dividendYield: values.dividendYield,
-  });
-  const absoluteDifference = Math.abs(binomialPrice - blackScholes.price);
+    exerciseStyle: values.exerciseStyle,
+  };
+  const binomial = priceCrrBinomial(binomialInput);
+  const europeanBinomial =
+    values.exerciseStyle === "european"
+      ? binomial
+      : priceCrrBinomial({
+          ...binomialInput,
+          exerciseStyle: "european",
+        });
+  const isAmerican = values.exerciseStyle === "american";
+  const primaryPrice = isAmerican ? binomial.price : blackScholes.price;
+  const binomialPrice = binomial.price;
+  const absoluteDifference = isAmerican
+    ? Math.abs(binomial.price - europeanBinomial.price)
+    : Math.abs(europeanBinomial.price - blackScholes.price);
+  const relativeReference = isAmerican
+    ? europeanBinomial.price
+    : blackScholes.price;
   const percentageDifference =
-    blackScholes.price === 0
+    relativeReference === 0
       ? 0
-      : (absoluteDifference / Math.abs(blackScholes.price)) * 100;
-  const convergence = buildBinomialConvergenceSeries(
-    {
-      spot: values.spot,
-      strike: values.strike,
-      rate: values.rate,
-      volatility: values.volatility,
-      maturityYears: values.maturity,
-      optionType: values.optionType,
-      dividendYield: values.dividendYield,
-    },
-    blackScholes.price,
-    [25, 50, 100, 250, 500],
-  );
+      : (absoluteDifference / Math.abs(relativeReference)) * 100;
+  const convergenceSteps = [25, 50, 100, 250, 500];
+  const convergence = isAmerican
+    ? buildCrrBinomialConvergenceSeries(
+        {
+          ...binomialInput,
+          exerciseStyle: "american",
+        },
+        convergenceSteps,
+      )
+    : buildBinomialConvergenceSeries(
+        {
+          spot: values.spot,
+          strike: values.strike,
+          rate: values.rate,
+          volatility: values.volatility,
+          maturityYears: values.maturity,
+          optionType: values.optionType,
+          dividendYield: values.dividendYield,
+        },
+        blackScholes.price,
+        convergenceSteps,
+      );
 
   return {
     blackScholes,
+    binomial,
+    europeanBinomial,
+    primaryPrice,
     binomialPrice,
     absoluteDifference,
     percentageDifference,
+    earlyExercisePremium: isAmerican ? binomial.earlyExercisePremium : 0,
     convergence,
     inputs: values,
   };
@@ -346,8 +384,14 @@ export function OptionsPricingCalculator() {
 
   const payoffData = buildOptionPayoffSeries(
     pricing.inputs,
-    pricing.blackScholes.price,
+    pricing.primaryPrice,
   );
+
+  const isAmerican = pricing.inputs.exerciseStyle === "american";
+  const exerciseStyleLabel = isAmerican ? "American" : "European";
+  const optionTypeLabel =
+    pricing.inputs.optionType === "call" ? "call" : "put";
+  const contractLabel = `${exerciseStyleLabel} ${optionTypeLabel}`;
 
   function updateField(name: keyof FormState, value: string) {
     setForm((current) => ({ ...current, [name]: value }));
@@ -394,8 +438,11 @@ export function OptionsPricingCalculator() {
     () => [
       {
         label: "Instrument",
-        value:
-          pricing.inputs.optionType === "call" ? "European call" : "European put",
+        value: contractLabel,
+      },
+      {
+        label: "Exercise style",
+        value: exerciseStyleLabel,
       },
       {
         label: "Spot / Strike",
@@ -418,7 +465,7 @@ export function OptionsPricingCalculator() {
         value: formatNumber(pricing.inputs.dividendYield),
       },
     ],
-    [pricing.inputs],
+    [contractLabel, exerciseStyleLabel, pricing.inputs],
   );
 
   const activeSectionLabel =
@@ -469,8 +516,12 @@ export function OptionsPricingCalculator() {
               />
               <StagePanel
                 step="02"
-                label="Valuation and Greeks"
-                body="Read the Black-Scholes result as the primary valuation layer, then inspect sensitivities."
+                label="Valuation and model"
+                body={
+                  isAmerican
+                    ? "Read the American CRR result as the primary valuation layer, then compare it with the European tree."
+                    : "Read the Black-Scholes result as the primary valuation layer, then inspect sensitivities."
+                }
                 state="ready"
               />
               <StagePanel
@@ -485,21 +536,31 @@ export function OptionsPricingCalculator() {
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
             <WorkspaceSignal
               label="Primary model"
-              value="Black-Scholes-Merton"
-              detail="The analytical benchmark remains the default pricing lens for the workspace."
+              value={isAmerican ? "American CRR tree" : "Black-Scholes-Merton"}
+              detail={
+                isAmerican
+                  ? "Backward induction allows early exercise at each node in the tree."
+                  : "The analytical benchmark remains the default pricing lens for the workspace."
+              }
               tone="ready"
             />
             <WorkspaceSignal
               label="Cross-check"
-              value={`${pricing.inputs.steps} step CRR tree`}
-              detail="The binomial layer stays visible as a validation benchmark rather than a competing primary surface."
+              value={
+                isAmerican
+                  ? "European CRR baseline"
+                  : `${pricing.inputs.steps} step CRR tree`
+              }
+              detail={
+                isAmerican
+                  ? "The same-step European tree isolates the early exercise premium."
+                  : "The binomial layer stays visible as a validation benchmark rather than a competing primary surface."
+              }
               tone="active"
             />
             <WorkspaceSignal
               label="Current contract"
-              value={
-                pricing.inputs.optionType === "call" ? "European call" : "European put"
-              }
+              value={contractLabel}
               detail={`${formatNumber(pricing.inputs.spot)} spot, ${formatNumber(pricing.inputs.strike)} strike, ${formatNumber(pricing.inputs.maturity)} year maturity.`}
             />
           </div>
@@ -581,6 +642,53 @@ export function OptionsPricingCalculator() {
                   </div>
                 </SurfaceCard>
 
+                <SurfaceCard padding="sm" className="border-white/[0.08]">
+                  <div className="space-y-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-accent-strong/85">
+                          Exercise style
+                        </p>
+                        <p className="mt-2 text-sm leading-6 text-foreground-soft">
+                          Select whether the tree permits early exercise before expiry.
+                        </p>
+                      </div>
+                      <span className="rounded-full border border-white/[0.08] bg-background-muted/80 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-foreground-subtle">
+                        CRR
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      {(["european", "american"] as const).map((style) => {
+                        const isActive = form.exerciseStyle === style;
+
+                        return (
+                          <button
+                            key={style}
+                            type="button"
+                            onClick={() => updateField("exerciseStyle", style)}
+                            className={cn(
+                              "rounded-[1.2rem] border px-4 py-4 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70",
+                              isActive
+                                ? "border-accent/35 bg-accent/12 text-accent-foreground"
+                                : "border-white/[0.08] bg-slate-950/55 text-slate-300 hover:border-border-strong/80 hover:bg-white/[0.04]",
+                            )}
+                          >
+                            <p className="text-sm font-semibold capitalize">
+                              {style}
+                            </p>
+                            <p className="mt-2 text-xs leading-5 text-foreground-subtle">
+                              {style === "european"
+                                ? "Exercise only at expiry; BSM remains the analytical benchmark."
+                                : "Exercise can occur at any tree node through backward induction."}
+                            </p>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </SurfaceCard>
+
                 <div className="grid gap-4">
                   <InputGroup
                     title="Contract terms"
@@ -642,40 +750,72 @@ export function OptionsPricingCalculator() {
             <div className="space-y-4">
               <Card
                 eyebrow="Pricing"
-                title="Analytical valuation block"
-                description="Primary price output and model context for the current European contract."
+                title={
+                  isAmerican
+                    ? "American tree valuation block"
+                    : "Analytical valuation block"
+                }
+                description={
+                  isAmerican
+                    ? "Primary price output and model context for the current American contract."
+                    : "Primary price output and model context for the current European contract."
+                }
                 tone="elevated"
               >
                 <div className="space-y-6">
                   <div className="grid gap-4 xl:grid-cols-[minmax(0,1.06fr)_minmax(20rem,0.94fr)]">
                     <SurfaceCard tone="accent" padding="md" className="border-accent/25">
                       <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-accent-foreground/80">
-                        Black-Scholes value
+                        {isAmerican ? "American CRR value" : "Black-Scholes value"}
                       </p>
                       <p className="mt-5 text-[3rem] font-semibold tracking-[-0.05em] text-foreground">
-                        {formatNumber(pricing.blackScholes.price)}
+                        {formatNumber(pricing.primaryPrice)}
                       </p>
                       <p className="mt-3 text-sm leading-7 text-foreground-soft">
-                        {pricing.inputs.optionType === "call" ? "Call" : "Put"} valuation under continuous dividend treatment. This remains the primary analytical output in the workspace.
+                        {isAmerican
+                          ? `${contractLabel} valuation from a ${pricing.inputs.steps} step CRR tree with early exercise checked at every node.`
+                          : `${pricing.inputs.optionType === "call" ? "Call" : "Put"} valuation under continuous dividend treatment. This remains the primary analytical output in the workspace.`}
                       </p>
                     </SurfaceCard>
 
                     <div className="grid gap-3">
-                      <OptionMetricCard
-                        label="CRR tree benchmark"
-                        value={formatNumber(pricing.binomialPrice)}
-                        meta={`${pricing.inputs.steps} steps`}
-                      />
-                      <OptionMetricCard
-                        label="Absolute difference"
-                        value={formatNumber(pricing.absoluteDifference)}
-                        meta="Analytical vs numerical gap"
-                      />
-                      <OptionMetricCard
-                        label="Percentage difference"
-                        value={`${formatNumber(pricing.percentageDifference)}%`}
-                        meta="Relative to analytical value"
-                      />
+                      {isAmerican ? (
+                        <>
+                          <OptionMetricCard
+                            label="European CRR baseline"
+                            value={formatNumber(pricing.europeanBinomial.price)}
+                            meta={`${pricing.inputs.steps} step same-input tree`}
+                          />
+                          <OptionMetricCard
+                            label="Early exercise premium"
+                            value={formatNumber(pricing.earlyExercisePremium)}
+                            meta="American CRR less European CRR"
+                          />
+                          <OptionMetricCard
+                            label="Root intrinsic value"
+                            value={formatNumber(pricing.binomial.intrinsicValue)}
+                            meta="Immediate exercise value"
+                          />
+                        </>
+                      ) : (
+                        <>
+                          <OptionMetricCard
+                            label="CRR tree benchmark"
+                            value={formatNumber(pricing.binomialPrice)}
+                            meta={`${pricing.inputs.steps} steps`}
+                          />
+                          <OptionMetricCard
+                            label="Absolute difference"
+                            value={formatNumber(pricing.absoluteDifference)}
+                            meta="Analytical vs numerical gap"
+                          />
+                          <OptionMetricCard
+                            label="Percentage difference"
+                            value={`${formatNumber(pricing.percentageDifference)}%`}
+                            meta="Relative to analytical value"
+                          />
+                        </>
+                      )}
                     </div>
                   </div>
 
@@ -703,8 +843,16 @@ export function OptionsPricingCalculator() {
 
               <Card
                 eyebrow="Risk"
-                title="Greeks snapshot"
-                description="Sensitivity measures from the current Black-Scholes run, presented as the immediate risk surface for the option."
+                title={
+                  isAmerican
+                    ? "European Greeks reference"
+                    : "Greeks snapshot"
+                }
+                description={
+                  isAmerican
+                    ? "Analytical Black-Scholes Greeks for the comparable European contract. These are not American option Greeks."
+                    : "Sensitivity measures from the current Black-Scholes run, presented as the immediate risk surface for the option."
+                }
               >
                 <div className="space-y-4">
                   <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
@@ -719,7 +867,9 @@ export function OptionsPricingCalculator() {
                     ))}
                   </div>
                   <p className="text-xs leading-6 text-foreground-muted">
-                    Vega and rho are reported per 1.00 absolute move in volatility and rate. Theta is annualized, so read it as a model sensitivity rather than a daily decay number.
+                    {isAmerican
+                      ? "The American price is tree-based here. These Greeks remain a European analytical reference only; finite-difference American Greeks are outside this branch."
+                      : "Vega and rho are reported per 1.00 absolute move in volatility and rate. Theta is annualized, so read it as a model sensitivity rather than a daily decay number."}
                   </p>
                 </div>
               </Card>
@@ -736,7 +886,7 @@ export function OptionsPricingCalculator() {
                 <OptionsPayoffChart
                   data={payoffData}
                   inputs={pricing.inputs}
-                  optionPrice={pricing.blackScholes.price}
+                  optionPrice={pricing.primaryPrice}
                   onChartClick={open}
                 />
                 <div className="grid gap-3 sm:grid-cols-3">
@@ -749,7 +899,7 @@ export function OptionsPricingCalculator() {
                   />
                   <OptionMetricCard
                     label="Premium basis"
-                    value={formatNumber(pricing.blackScholes.price)}
+                    value={formatNumber(pricing.primaryPrice)}
                     meta="Current model premium used in the profit curve"
                   />
                   <OptionMetricCard
@@ -764,7 +914,7 @@ export function OptionsPricingCalculator() {
               <OptionsPayoffChart
                 data={payoffData}
                 inputs={pricing.inputs}
-                optionPrice={pricing.blackScholes.price}
+                optionPrice={pricing.primaryPrice}
                 interactive
                 showSummary
                 heightClassName="h-[24rem] sm:h-[32rem] lg:h-[40rem]"
@@ -788,36 +938,66 @@ export function OptionsPricingCalculator() {
                   Model comparison
                 </p>
                 <h3 className="mt-3 text-2xl font-semibold tracking-[-0.03em] text-foreground">
-                  Validate the analytical benchmark against the CRR tree.
+                  {isAmerican
+                    ? "Measure the early exercise value against the European tree."
+                    : "Validate the analytical benchmark against the CRR tree."}
                 </h3>
                 <p className="mt-3 max-w-2xl text-sm leading-7 text-foreground-soft">
-                  The comparison layer exists to strengthen pricing confidence,
-                  not to distract from the primary valuation block. Read the gap
-                  and convergence path as quality checks on the current setup.
+                  {isAmerican
+                    ? "The American view uses backward induction to compare continuation value with immediate exercise value at each node. The European tree is the same-input baseline."
+                    : "The comparison layer exists to strengthen pricing confidence, not to distract from the primary valuation block. Read the gap and convergence path as quality checks on the current setup."}
                 </p>
               </div>
               <div className="grid gap-3 sm:grid-cols-2">
-                <OptionMetricCard
-                  label="Black-Scholes"
-                  value={formatNumber(pricing.blackScholes.price)}
-                  meta="Primary analytical benchmark"
-                  accent
-                />
-                <OptionMetricCard
-                  label="CRR tree"
-                  value={formatNumber(pricing.binomialPrice)}
-                  meta={`${pricing.inputs.steps} step numerical price`}
-                />
-                <OptionMetricCard
-                  label="Absolute gap"
-                  value={formatNumber(pricing.absoluteDifference)}
-                  meta="Direct model spread"
-                />
-                <OptionMetricCard
-                  label="Relative gap"
-                  value={`${formatNumber(pricing.percentageDifference)}%`}
-                  meta="Spread as a percentage"
-                />
+                {isAmerican ? (
+                  <>
+                    <OptionMetricCard
+                      label="American CRR"
+                      value={formatNumber(pricing.binomial.price)}
+                      meta="Primary tree price"
+                      accent
+                    />
+                    <OptionMetricCard
+                      label="European CRR"
+                      value={formatNumber(pricing.europeanBinomial.price)}
+                      meta="Same inputs, no early exercise"
+                    />
+                    <OptionMetricCard
+                      label="Early exercise premium"
+                      value={formatNumber(pricing.earlyExercisePremium)}
+                      meta="American less European"
+                    />
+                    <OptionMetricCard
+                      label="Root intrinsic"
+                      value={formatNumber(pricing.binomial.intrinsicValue)}
+                      meta="Immediate exercise value"
+                    />
+                  </>
+                ) : (
+                  <>
+                    <OptionMetricCard
+                      label="Black-Scholes"
+                      value={formatNumber(pricing.blackScholes.price)}
+                      meta="Primary analytical benchmark"
+                      accent
+                    />
+                    <OptionMetricCard
+                      label="CRR tree"
+                      value={formatNumber(pricing.binomialPrice)}
+                      meta={`${pricing.inputs.steps} step numerical price`}
+                    />
+                    <OptionMetricCard
+                      label="Absolute gap"
+                      value={formatNumber(pricing.absoluteDifference)}
+                      meta="Direct model spread"
+                    />
+                    <OptionMetricCard
+                      label="Relative gap"
+                      value={`${formatNumber(pricing.percentageDifference)}%`}
+                      meta="Spread as a percentage"
+                    />
+                  </>
+                )}
               </div>
             </div>
           </SurfaceCard>
@@ -828,12 +1008,14 @@ export function OptionsPricingCalculator() {
               title="Model framing"
               description="Compact context for how the two valuation views relate to each other."
             >
-              <div className="grid gap-3 sm:grid-cols-3">
+              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                 <SummaryCard
                   label="Contract"
-                  value={
-                    pricing.inputs.optionType === "call" ? "European call" : "European put"
-                  }
+                  value={contractLabel}
+                />
+                <SummaryCard
+                  label="Exercise premium"
+                  value={formatNumber(pricing.earlyExercisePremium)}
                 />
                 <SummaryCard
                   label="Dividend treatment"
@@ -853,16 +1035,30 @@ export function OptionsPricingCalculator() {
             >
               <div className="space-y-3">
                 <NoteCard
-                  title="Analytical benchmark"
-                  body="Black-Scholes-Merton provides the primary price and Greeks for the selected European payoff."
+                  title={isAmerican ? "Tree benchmark" : "Analytical benchmark"}
+                  body={
+                    isAmerican
+                      ? "American CRR is the primary price; the European CRR result is shown only as the no-early-exercise baseline."
+                      : "Black-Scholes-Merton provides the primary price and Greeks for the selected European payoff."
+                  }
                 />
                 <NoteCard
-                  title="Numerical cross-check"
-                  body="The CRR tree prices the same contract with backward induction using the selected number of time steps."
+                  title={
+                    isAmerican ? "Early exercise rule" : "Numerical cross-check"
+                  }
+                  body={
+                    isAmerican
+                      ? "At each node, the American tree takes the larger of continuation value and intrinsic value."
+                      : "The CRR tree prices the same contract with backward induction using the selected number of time steps."
+                  }
                 />
                 <NoteCard
-                  title="Read the gap"
-                  body="The comparison is most useful as a validation check and to observe convergence as the tree gets deeper."
+                  title={isAmerican ? "Read the premium" : "Read the gap"}
+                  body={
+                    isAmerican
+                      ? "The early exercise premium is the American CRR price less the same-step European CRR price."
+                      : "The comparison is most useful as a validation check and to observe convergence as the tree gets deeper."
+                  }
                 />
               </div>
             </Card>
@@ -871,27 +1067,53 @@ export function OptionsPricingCalculator() {
           <Card
             eyebrow="Convergence"
             title="Binomial convergence table"
-            description="CRR pricing across increasing tree depths relative to the analytical benchmark."
+            description={
+              isAmerican
+                ? "American CRR pricing across increasing tree depths, with same-step European baselines."
+                : "CRR pricing across increasing tree depths relative to the analytical benchmark."
+            }
           >
             <div className="grid gap-4 xl:grid-cols-[minmax(0,1.14fr)_minmax(18rem,0.86fr)]">
               <div className="overflow-x-auto rounded-[1.6rem] border border-white/[0.08] bg-[linear-gradient(180deg,rgba(10,17,26,0.82),rgba(8,13,20,0.72))]">
-                <div className="min-w-[620px]">
-                  <div className="grid grid-cols-[0.8fr_1.2fr_1fr] gap-3 border-b border-white/[0.08] px-5 py-3 text-[11px] font-semibold uppercase tracking-[0.18em] text-foreground-subtle">
+                <div className={isAmerican ? "min-w-[760px]" : "min-w-[620px]"}>
+                  <div
+                    className={cn(
+                      "grid gap-3 border-b border-white/[0.08] px-5 py-3 text-[11px] font-semibold uppercase tracking-[0.18em] text-foreground-subtle",
+                      isAmerican
+                        ? "grid-cols-[0.7fr_1.1fr_1.1fr_1fr]"
+                        : "grid-cols-[0.8fr_1.2fr_1fr]",
+                    )}
+                  >
                     <span>Steps</span>
-                    <span>Binomial price</span>
-                    <span>Abs diff</span>
+                    <span>
+                      {isAmerican ? "American CRR" : "Binomial price"}
+                    </span>
+                    {isAmerican ? <span>European CRR</span> : null}
+                    <span>{isAmerican ? "Early premium" : "Abs diff"}</span>
                   </div>
                   {pricing.convergence.map((row, index) => (
                     <div
                       key={row.steps}
                       className={cn(
-                        "grid grid-cols-[0.8fr_1.2fr_1fr] gap-3 px-5 py-4 text-sm text-foreground-soft not-last:border-b not-last:border-white/[0.08]",
+                        "grid gap-3 px-5 py-4 text-sm text-foreground-soft not-last:border-b not-last:border-white/[0.08]",
+                        isAmerican
+                          ? "grid-cols-[0.7fr_1.1fr_1.1fr_1fr]"
+                          : "grid-cols-[0.8fr_1.2fr_1fr]",
                         index % 2 === 0 ? "bg-white/[0.015]" : "bg-transparent",
                       )}
                     >
                       <span className="font-semibold text-foreground">{row.steps}</span>
                       <span>{formatNumber(row.price)}</span>
-                      <span>{formatNumber(row.absoluteDifference)}</span>
+                      {isAmerican ? (
+                        <span>{formatNumber(row.europeanPrice ?? 0)}</span>
+                      ) : null}
+                      <span>
+                        {formatNumber(
+                          isAmerican
+                            ? (row.earlyExercisePremium ?? 0)
+                            : (row.absoluteDifference ?? 0),
+                        )}
+                      </span>
                     </div>
                   ))}
                 </div>
@@ -903,12 +1125,26 @@ export function OptionsPricingCalculator() {
                 </p>
                 <div className="mt-4 space-y-3">
                   <NoteCard
-                    title="Convergence direction"
-                    body="For European contracts, the CRR estimate should generally tighten toward the analytical benchmark as depth increases."
+                    title={
+                      isAmerican
+                        ? "Backward induction"
+                        : "Convergence direction"
+                    }
+                    body={
+                      isAmerican
+                        ? "American CRR checks immediate exercise against continuation value while stepping backward through the tree."
+                        : "For European contracts, the CRR estimate should generally tighten toward the analytical benchmark as depth increases."
+                    }
                   />
                   <NoteCard
-                    title="Numerical discipline"
-                    body="Large residual gaps at high depth usually point back to assumptions, not presentation."
+                    title={
+                      isAmerican ? "No BSM benchmark" : "Numerical discipline"
+                    }
+                    body={
+                      isAmerican
+                        ? "Black-Scholes is not used as an American benchmark here; the European CRR column isolates early exercise value."
+                        : "Large residual gaps at high depth usually point back to assumptions, not presentation."
+                    }
                   />
                 </div>
               </SurfaceCard>

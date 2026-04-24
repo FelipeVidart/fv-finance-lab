@@ -13,8 +13,13 @@ import { searchNavigationEntries } from "@/lib/search-index";
 import { cn } from "@/lib/utils";
 
 export function SearchShell() {
-  const router = useRouter();
   const pathname = usePathname();
+
+  return <SearchShellInner key={pathname} />;
+}
+
+function SearchShellInner() {
+  const router = useRouter();
   const listboxId = useId();
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -24,12 +29,6 @@ export function SearchShell() {
 
   const results = useMemo(() => searchNavigationEntries(query), [query]);
   const showPanel = isOpen && (query.trim().length > 0 || results.length > 0);
-
-  useEffect(() => {
-    setQuery("");
-    setIsOpen(false);
-    setActiveIndex(0);
-  }, [pathname]);
 
   useEffect(() => {
     function handlePointerDown(event: MouseEvent) {
@@ -44,10 +43,6 @@ export function SearchShell() {
       document.removeEventListener("mousedown", handlePointerDown);
     };
   }, []);
-
-  useEffect(() => {
-    setActiveIndex(0);
-  }, [query]);
 
   function handleNavigate(index: number) {
     const target = results[index];
@@ -139,6 +134,7 @@ export function SearchShell() {
           onChange={(event) => {
             setQuery(event.target.value);
             setIsOpen(true);
+            setActiveIndex(0);
           }}
           onFocus={() => setIsOpen(true)}
           onKeyDown={handleKeyDown}
