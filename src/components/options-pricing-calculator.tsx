@@ -10,6 +10,7 @@ import {
   buildCrrBinomialConvergenceSeries,
   buildBinomialConvergenceSeries,
   buildOptionPayoffSeries,
+  buildOptionSensitivityScenarios,
   blackScholesValuation,
   getEuropeanOptionPriceBounds,
   priceCrrBinomial,
@@ -21,6 +22,8 @@ import {
   type ExerciseStyle,
   type ImpliedVolatilityResult,
   type OptionType,
+  type SensitivityScenarioResult,
+  type SensitivityScenarioType,
 } from "@/lib/finance/options";
 
 type FormState = {
@@ -58,6 +61,33 @@ type OptionSectionId =
   | "comparison"
   | "volatility"
   | "strategies";
+
+const sensitivityScenarioConfig: Array<{
+  id: SensitivityScenarioType;
+  label: string;
+  inputLabel: string;
+  interpretation: string;
+}> = [
+  {
+    id: "volatility",
+    label: "Volatility",
+    inputLabel: "Volatility",
+    interpretation: "Higher volatility generally increases vanilla option value.",
+  },
+  {
+    id: "spot",
+    label: "Spot",
+    inputLabel: "Spot",
+    interpretation: "Spot sensitivity depends on call or put direction.",
+  },
+  {
+    id: "maturity",
+    label: "Maturity",
+    inputLabel: "Maturity",
+    interpretation:
+      "Maturity effects can vary with dividends, rates, and moneyness.",
+  },
+];
 
 const DEFAULT_FORM: FormState = {
   optionType: "call",
@@ -304,6 +334,21 @@ function formatPercent(value: number): string {
   return `${formatNumber(value * 100)}%`;
 }
 
+function formatScenarioInput(
+  scenarioType: SensitivityScenarioType,
+  value: number,
+): string {
+  if (scenarioType === "volatility") {
+    return formatPercent(value);
+  }
+
+  if (scenarioType === "maturity") {
+    return `${formatNumber(value)} years`;
+  }
+
+  return formatNumber(value);
+}
+
 function buildPricingState(values: CalculatorInput): PricingState {
   const blackScholes = blackScholesValuation(values);
   const binomialInput = {
@@ -394,6 +439,8 @@ export function OptionsPricingCalculator() {
 
     return formatInputNumber(initialPricing.blackScholes.price);
   });
+  const [activeSensitivityScenario, setActiveSensitivityScenario] =
+    useState<SensitivityScenarioType>("volatility");
   const [pricingError, setPricingError] = useState<string | null>(null);
   const [activeSection, setActiveSection] =
     useState<OptionSectionId>("pricing");
@@ -454,6 +501,28 @@ export function OptionsPricingCalculator() {
       };
     }
   }, [marketPriceInput, parsedMarketPrice, pricing.inputs]);
+  const sensitivityScenarios = useMemo<SensitivityScenarioResult>(
+    () =>
+      buildOptionSensitivityScenarios(
+        {
+          spot: pricing.inputs.spot,
+          strike: pricing.inputs.strike,
+          maturity: pricing.inputs.maturity,
+          rate: pricing.inputs.rate,
+          volatility: pricing.inputs.volatility,
+          dividendYield: pricing.inputs.dividendYield,
+          optionType: pricing.inputs.optionType,
+          exerciseStyle: pricing.inputs.exerciseStyle,
+          steps: pricing.inputs.steps,
+        },
+        activeSensitivityScenario,
+      ),
+    [activeSensitivityScenario, pricing.inputs],
+  );
+  const activeSensitivityConfig =
+    sensitivityScenarioConfig.find(
+      (entry) => entry.id === activeSensitivityScenario,
+    ) ?? sensitivityScenarioConfig[0];
 
   function updateField(name: keyof FormState, value: string) {
     setForm((current) => ({ ...current, [name]: value }));
@@ -1399,6 +1468,136 @@ export function OptionsPricingCalculator() {
               </div>
             </Card>
           </div>
+
+          <Card
+            eyebrow="Sensitivity"
+            title="Scenario price table"
+            description="Stress one input at a time and compare each option value with the current base case."
+            actions={
+              <StepBadge
+                label={
+                  isAmerican ? "American CRR scenarios" : "BSM scenarios"
+                }
+                tone="ready"
+              />
+            }
+          >
+            <div className="space-y-5">
+              <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(20rem,0.62fr)]">
+                <div>
+                  <div
+                    className="grid gap-3 sm:grid-cols-3"
+                    role="tablist"
+                    aria-label="Sensitivity scenario type"
+                  >
+                    {sensitivityScenarioConfig.map((scenario) => {
+                      const isActive =
+                        activeSensitivityScenario === scenario.id;
+
+                      return (
+                        <button
+                          key={scenario.id}
+                          type="button"
+                          role="tab"
+                          aria-selected={isActive}
+                          onClick={() => setActiveSensitivityScenario(scenario.id)}
+                          className={cn(
+                            "rounded-[1.2rem] border px-4 py-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70",
+                            isActive
+                              ? "border-accent/35 bg-accent/12 text-accent-foreground"
+                              : "border-white/[0.08] bg-slate-950/55 text-slate-300 hover:border-border-strong/80 hover:bg-white/[0.04]",
+                          )}
+                        >
+                          <span className="text-sm font-semibold">
+                            {scenario.label}
+                          </span>
+                          <span className="mt-1 block text-xs leading-5 text-foreground-subtle">
+                            {scenario.inputLabel} shocks
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
+                  <OptionMetricCard
+                    label="Base price"
+                    value={formatNumber(sensitivityScenarios.basePrice)}
+                    meta={
+                      isAmerican
+                        ? `${pricing.inputs.steps} step American CRR`
+                        : "Black-Scholes-Merton"
+                    }
+                    accent
+                  />
+                  <NoteCard
+                    title={activeSensitivityConfig.label}
+                    body={activeSensitivityConfig.interpretation}
+                  />
+                </div>
+              </div>
+
+              <div className="overflow-x-auto rounded-[1.6rem] border border-white/[0.08] bg-[linear-gradient(180deg,rgba(10,17,26,0.82),rgba(8,13,20,0.72))]">
+                <div className="min-w-[720px]">
+                  <div className="grid grid-cols-[1fr_1fr_1fr_1fr_1fr] gap-3 border-b border-white/[0.08] px-5 py-3 text-[11px] font-semibold uppercase tracking-[0.18em] text-foreground-subtle">
+                    <span>Scenario</span>
+                    <span>{activeSensitivityConfig.inputLabel}</span>
+                    <span>Option price</span>
+                    <span>Price change</span>
+                    <span>% change</span>
+                  </div>
+                  {sensitivityScenarios.rows.map((row, index) => (
+                    <div
+                      key={`${activeSensitivityScenario}-${row.inputValue}`}
+                      className={cn(
+                        "grid grid-cols-[1fr_1fr_1fr_1fr_1fr] gap-3 px-5 py-4 text-sm text-foreground-soft not-last:border-b not-last:border-white/[0.08]",
+                        row.isBase
+                          ? "bg-accent/[0.07] text-accent-foreground"
+                          : index % 2 === 0
+                            ? "bg-white/[0.015]"
+                            : "bg-transparent",
+                      )}
+                    >
+                      <span className="font-semibold text-foreground">
+                        {row.label}
+                      </span>
+                      <span>
+                        {formatScenarioInput(
+                          activeSensitivityScenario,
+                          row.inputValue,
+                        )}
+                      </span>
+                      <span>{formatNumber(row.price)}</span>
+                      <span
+                        className={cn(
+                          row.priceDifference > 0 && "text-emerald-200",
+                          row.priceDifference < 0 && "text-rose-200",
+                        )}
+                      >
+                        {formatNumber(row.priceDifference)}
+                      </span>
+                      <span
+                        className={cn(
+                          row.percentageDifference > 0 && "text-emerald-200",
+                          row.percentageDifference < 0 && "text-rose-200",
+                        )}
+                      >
+                        {formatNumber(row.percentageDifference)}%
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {isAmerican ? (
+                <div className="rounded-[1.35rem] border border-white/[0.08] bg-[linear-gradient(180deg,rgba(10,17,26,0.78),rgba(10,17,26,0.56))] px-4 py-3 text-xs leading-6 text-foreground-muted">
+                  American scenarios use the same CRR tree depth as the current
+                  pricing run. European scenarios use Black-Scholes-Merton.
+                </div>
+              ) : null}
+            </div>
+          </Card>
         </div>
       ) : null}
 
