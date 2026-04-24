@@ -6,3 +6,4 @@ export * from "@/lib/finance/options/payoff";
 export * from "@/lib/finance/options/impliedVolatility";
 export * from "@/lib/finance/options/sensitivity";
 export * from "@/lib/finance/options/strategies";
+export * from "@/lib/finance/options/strategyScreener";
