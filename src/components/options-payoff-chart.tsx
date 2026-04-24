@@ -403,7 +403,7 @@ export function OptionsPayoffChart({
               fontSize="11"
               fill="rgba(148, 163, 184, 0.78)"
             >
-              Payoff / Profit
+              Payoff and profit/loss
             </text>
             <text
               x={CHART_WIDTH - PADDING.right}
