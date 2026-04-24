@@ -78,6 +78,29 @@ export type ImpliedVolatilityResult = {
   warning?: string;
 };
 
+export type SensitivityScenarioType = "volatility" | "spot" | "maturity";
+
+export type SensitivityPricingInput = OptionPricingInput & {
+  exerciseStyle?: ExerciseStyle;
+  steps?: number;
+};
+
+export type SensitivityScenarioRow = {
+  label: string;
+  inputValue: number;
+  price: number;
+  priceDifference: number;
+  percentageDifference: number;
+  isBase: boolean;
+};
+
+export type SensitivityScenarioResult = {
+  scenarioType: SensitivityScenarioType;
+  basePrice: number;
+  exerciseStyle: ExerciseStyle;
+  rows: SensitivityScenarioRow[];
+};
+
 export type PayoffPoint = {
   spot: number;
   payoff: number;
