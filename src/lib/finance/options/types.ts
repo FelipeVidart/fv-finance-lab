@@ -54,6 +54,32 @@ export type BinomialConvergencePoint = {
   earlyExercisePremium?: number;
 };
 
+export type FiniteDifferenceInput = {
+  optionType: OptionType;
+  spot: number;
+  strike: number;
+  riskFreeRate: number;
+  dividendYield: number;
+  volatility: number;
+  maturity: number;
+  sMax?: number;
+  spaceSteps?: number;
+  timeSteps?: number;
+};
+
+export type FiniteDifferenceResult = {
+  price: number;
+  gridSpotValues: number[];
+  gridOptionValues: number[];
+  metadata: {
+    sMax: number;
+    spaceSteps: number;
+    timeSteps: number;
+    dS: number;
+    dt: number;
+  };
+};
+
 export type ImpliedVolatilityInput = {
   marketPrice: number;
   optionType: OptionType;

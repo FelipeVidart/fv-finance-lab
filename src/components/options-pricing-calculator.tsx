@@ -17,6 +17,7 @@ import {
   blackScholesValuation,
   getEuropeanOptionPriceBounds,
   priceCrrBinomial,
+  priceEuropeanOptionCrankNicolson,
   screenOptionStrategies,
   solveImpliedVolatility,
   type BinomialConvergencePoint,
@@ -25,6 +26,7 @@ import {
   type DirectionalView,
   type BlackScholesValuation,
   type ExerciseStyle,
+  type FiniteDifferenceResult,
   type ImpliedVolatilityResult,
   type OwnershipStatus,
   type OptionLeg,
@@ -64,6 +66,9 @@ type PricingState = {
   binomialPrice: number;
   absoluteDifference: number;
   percentageDifference: number;
+  finiteDifference?: FiniteDifferenceResult;
+  finiteDifferenceAbsoluteDifference?: number;
+  finiteDifferencePercentageDifference?: number;
   earlyExercisePremium: number;
   convergence: BinomialConvergencePoint[];
   inputs: CalculatorInput;
@@ -587,6 +592,26 @@ function buildPricingState(values: CalculatorInput): PricingState {
     relativeReference === 0
       ? 0
       : (absoluteDifference / Math.abs(relativeReference)) * 100;
+  const finiteDifference = isAmerican
+    ? undefined
+    : priceEuropeanOptionCrankNicolson({
+        optionType: values.optionType,
+        spot: values.spot,
+        strike: values.strike,
+        riskFreeRate: values.rate,
+        dividendYield: values.dividendYield,
+        volatility: values.volatility,
+        maturity: values.maturity,
+      });
+  const finiteDifferenceAbsoluteDifference = finiteDifference
+    ? Math.abs(finiteDifference.price - blackScholes.price)
+    : undefined;
+  const finiteDifferencePercentageDifference =
+    finiteDifference &&
+    finiteDifferenceAbsoluteDifference !== undefined &&
+    blackScholes.price !== 0
+      ? (finiteDifferenceAbsoluteDifference / Math.abs(blackScholes.price)) * 100
+      : undefined;
   const convergenceSteps = [25, 50, 100, 250, 500];
   const convergence = isAmerican
     ? buildCrrBinomialConvergenceSeries(
@@ -618,6 +643,9 @@ function buildPricingState(values: CalculatorInput): PricingState {
     binomialPrice,
     absoluteDifference,
     percentageDifference,
+    finiteDifference,
+    finiteDifferenceAbsoluteDifference,
+    finiteDifferencePercentageDifference,
     earlyExercisePremium: isAmerican ? binomial.earlyExercisePremium : 0,
     convergence,
     inputs: values,
@@ -1413,15 +1441,15 @@ export function OptionsPricingCalculator() {
                 <h3 className="mt-3 text-2xl font-semibold tracking-[-0.03em] text-foreground">
                   {isAmerican
                     ? "Measure the early exercise value against the European tree."
-                    : "Validate the analytical benchmark against the CRR tree."}
+                    : "Validate the analytical benchmark against CRR and Crank-Nicolson."}
                 </h3>
                 <p className="mt-3 max-w-2xl text-sm leading-7 text-foreground-soft">
                   {isAmerican
                     ? "The American view uses backward induction to compare continuation value with immediate exercise value at each node. The European tree is the same-input baseline."
-                    : "The comparison layer exists to strengthen pricing confidence, not to distract from the primary valuation block. Read the gap and convergence path as quality checks on the current setup."}
+                    : "The comparison layer exists to strengthen pricing confidence, not to distract from the primary valuation block. Read the CRR tree and finite-difference gaps as quality checks on the current setup."}
                 </p>
               </div>
-              <div className="grid gap-3 sm:grid-cols-2">
+              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                 {isAmerican ? (
                   <>
                     <OptionMetricCard
@@ -1460,14 +1488,45 @@ export function OptionsPricingCalculator() {
                       meta={`${pricing.inputs.steps} step numerical price`}
                     />
                     <OptionMetricCard
-                      label="Absolute gap"
-                      value={formatNumber(pricing.absoluteDifference)}
-                      meta="Direct model spread"
+                      label="Crank-Nicolson"
+                      value={
+                        pricing.finiteDifference
+                          ? formatNumber(pricing.finiteDifference.price)
+                          : "--"
+                      }
+                      meta="Finite-difference PDE"
                     />
                     <OptionMetricCard
-                      label="Relative gap"
+                      label="CRR absolute gap"
+                      value={formatNumber(pricing.absoluteDifference)}
+                      meta="Versus Black-Scholes"
+                    />
+                    <OptionMetricCard
+                      label="CN absolute gap"
+                      value={
+                        pricing.finiteDifferenceAbsoluteDifference !== undefined
+                          ? formatNumber(
+                              pricing.finiteDifferenceAbsoluteDifference,
+                            )
+                          : "--"
+                      }
+                      meta="Versus Black-Scholes"
+                    />
+                    <OptionMetricCard
+                      label="CN relative gap"
+                      value={
+                        pricing.finiteDifferencePercentageDifference !== undefined
+                          ? `${formatNumber(
+                              pricing.finiteDifferencePercentageDifference,
+                            )}%`
+                          : "--"
+                      }
+                      meta="Finite-difference error"
+                    />
+                    <OptionMetricCard
+                      label="CRR relative gap"
                       value={`${formatNumber(pricing.percentageDifference)}%`}
-                      meta="Spread as a percentage"
+                      meta="Tree error"
                     />
                   </>
                 )}
@@ -1479,24 +1538,41 @@ export function OptionsPricingCalculator() {
             <Card
               eyebrow="Comparison"
               title="Model framing"
-              description="Compact context for how the two valuation views relate to each other."
+              description="Compact context for how the valuation methods relate to each other."
             >
               <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                 <SummaryCard
                   label="Contract"
                   value={contractLabel}
                 />
-                <SummaryCard
-                  label="Exercise premium"
-                  value={formatNumber(pricing.earlyExercisePremium)}
-                />
+                {isAmerican ? (
+                  <SummaryCard
+                    label="Exercise premium"
+                    value={formatNumber(pricing.earlyExercisePremium)}
+                  />
+                ) : (
+                  <SummaryCard
+                    label="PDE grid"
+                    value={
+                      pricing.finiteDifference
+                        ? `${pricing.finiteDifference.metadata.spaceSteps} x ${pricing.finiteDifference.metadata.timeSteps}`
+                        : "--"
+                    }
+                  />
+                )}
                 <SummaryCard
                   label="Dividend treatment"
                   value={`q = ${formatNumber(pricing.inputs.dividendYield)}`}
                 />
                 <SummaryCard
-                  label="Tree depth"
-                  value={`${pricing.inputs.steps} steps`}
+                  label={isAmerican ? "Tree depth" : "S max"}
+                  value={
+                    isAmerican
+                      ? `${pricing.inputs.steps} steps`
+                      : pricing.finiteDifference
+                        ? formatNumber(pricing.finiteDifference.metadata.sMax)
+                        : "--"
+                  }
                 />
               </div>
             </Card>
@@ -1531,6 +1607,14 @@ export function OptionsPricingCalculator() {
                     isAmerican
                       ? "The early exercise premium is the American CRR price less the same-step European CRR price."
                       : "The comparison is most useful as a validation check and to observe convergence as the tree gets deeper."
+                  }
+                />
+                <NoteCard
+                  title={isAmerican ? "European PDE only" : "Crank-Nicolson"}
+                  body={
+                    isAmerican
+                      ? "Crank-Nicolson comparison is currently available for European contracts only."
+                      : "Crank-Nicolson solves the Black-Scholes PDE numerically on a spot/time grid. Grid choices affect approximation error."
                   }
                 />
               </div>
