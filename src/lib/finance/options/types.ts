@@ -101,6 +101,62 @@ export type SensitivityScenarioResult = {
   rows: SensitivityScenarioRow[];
 };
 
+export type OptionLegPosition = "long" | "short";
+
+export type OptionLeg = {
+  id: string;
+  label: string;
+  optionType: OptionType;
+  position: OptionLegPosition;
+  strike: number;
+  premium: number;
+  quantity: number;
+};
+
+export type StrategyBias =
+  | "bullish"
+  | "bearish"
+  | "neutral"
+  | "volatility expansion"
+  | "income / premium collection";
+
+export type StrategyPresetId =
+  | "long-call"
+  | "long-put"
+  | "bull-call-spread"
+  | "bear-put-spread"
+  | "long-straddle"
+  | "long-strangle";
+
+export type StrategyDefinition = {
+  id: StrategyPresetId;
+  name: string;
+  description: string;
+  bias: StrategyBias;
+  legs: OptionLeg[];
+};
+
+export type StrategyPayoffPoint = {
+  spot: number;
+  payoff: number;
+  profit: number;
+};
+
+export type StrategyMetrics = {
+  netPremium: number;
+  maxProfit?: number;
+  maxLoss?: number;
+  breakevenPoints: number[];
+  bias: StrategyBias;
+  metricSource: "exact" | "plotted range";
+};
+
+export type StrategyAnalysis = {
+  strategy: StrategyDefinition;
+  payoffPoints: StrategyPayoffPoint[];
+  metrics: StrategyMetrics;
+};
+
 export type PayoffPoint = {
   spot: number;
   payoff: number;
