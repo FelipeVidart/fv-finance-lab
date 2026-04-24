@@ -7,16 +7,14 @@ import { OptionsPayoffChart } from "@/components/options-payoff-chart";
 import { SurfaceCard } from "@/components/ui/surface-card";
 import { cn } from "@/lib/utils";
 import {
+  buildBinomialConvergenceSeries,
+  buildOptionPayoffSeries,
   blackScholesValuation,
+  priceEuropeanBinomial,
   type BlackScholesInput,
   type BlackScholesValuation,
   type OptionType,
-} from "@/lib/finance/black-scholes";
-import {
-  buildBinomialConvergenceSeries,
-  priceEuropeanBinomial,
-} from "@/lib/finance/binomial";
-import { buildOptionPayoffSeries } from "@/lib/finance/option-payoff";
+} from "@/lib/finance/options";
 
 type FormState = {
   spot: string;
