@@ -38,14 +38,20 @@ export type BinomialPricingInput = {
 
 export type BinomialPricingResult = {
   price: number;
+  optionType: OptionType;
   steps: number;
-  exerciseStyle: "european";
+  exerciseStyle: ExerciseStyle;
+  intrinsicValue: number;
+  earlyExercisePremium: number;
+  europeanPrice?: number;
 };
 
 export type BinomialConvergencePoint = {
   steps: number;
   price: number;
-  absoluteDifference: number;
+  absoluteDifference?: number;
+  europeanPrice?: number;
+  earlyExercisePremium?: number;
 };
 
 export type PayoffPoint = {
