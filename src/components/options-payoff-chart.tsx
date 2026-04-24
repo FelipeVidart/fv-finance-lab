@@ -9,8 +9,10 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from "react";
 import { cn } from "@/lib/utils";
-import type { BlackScholesInput } from "@/lib/finance/black-scholes";
-import type { OptionPayoffPoint } from "@/lib/finance/option-payoff";
+import type {
+  BlackScholesInput,
+  OptionPayoffPoint,
+} from "@/lib/finance/options";
 
 type OptionsPayoffChartProps = {
   data: OptionPayoffPoint[];
