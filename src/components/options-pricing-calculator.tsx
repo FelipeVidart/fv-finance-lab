@@ -297,7 +297,7 @@ const optionSections: Array<{
     id: "comparison",
     step: "02",
     label: "Model comparison",
-    description: "Cross-check Black-Scholes against the CRR tree and convergence path.",
+    description: "Compare analytical and numerical valuation methods.",
   },
   {
     id: "volatility",
@@ -309,7 +309,7 @@ const optionSections: Array<{
     id: "strategies",
     step: "04",
     label: "Strategies",
-    description: "Build preset multi-leg payoffs and inspect expiry P/L metrics.",
+    description: "Build preset multi-leg payoffs and inspect expiry profit/loss metrics.",
   },
 ];
 
@@ -989,15 +989,15 @@ export function OptionsPricingCalculator() {
       },
       {
         label: "Risk-free rate",
-        value: formatNumber(pricing.inputs.rate),
+        value: formatPercent(pricing.inputs.rate),
       },
       {
         label: "Volatility",
-        value: formatNumber(pricing.inputs.volatility),
+        value: formatPercent(pricing.inputs.volatility),
       },
       {
         label: "Dividend yield",
-        value: formatNumber(pricing.inputs.dividendYield),
+        value: formatPercent(pricing.inputs.dividendYield),
       },
     ],
     [contractLabel, exerciseStyleLabel, pricing.inputs],
@@ -1062,7 +1062,7 @@ export function OptionsPricingCalculator() {
               <StagePanel
                 step="03"
                 label="Payoff and validation"
-                body="Review expiry behavior and compare the analytical model against the CRR tree."
+                body="Review expiry behavior and compare the primary model against numerical cross-checks."
                 state="ready"
               />
             </div>
@@ -1214,7 +1214,7 @@ export function OptionsPricingCalculator() {
                             </p>
                             <p className="mt-2 text-xs leading-5 text-foreground-subtle">
                               {style === "european"
-                                ? "Exercise only at expiry; BSM remains the analytical benchmark."
+                                ? "Exercise only at expiry; Black-Scholes-Merton remains the analytical benchmark."
                                 : "Exercise can occur at any tree node through backward induction."}
                             </p>
                           </button>
@@ -1301,7 +1301,9 @@ export function OptionsPricingCalculator() {
                   <div className="grid gap-4 xl:grid-cols-[minmax(0,1.06fr)_minmax(20rem,0.94fr)]">
                     <SurfaceCard tone="accent" padding="md" className="border-accent/25">
                       <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-accent-foreground/80">
-                        {isAmerican ? "American CRR value" : "Black-Scholes value"}
+                        {isAmerican
+                          ? "American CRR value"
+                          : "Black-Scholes-Merton value"}
                       </p>
                       <p className="mt-5 text-[3rem] font-semibold tracking-[-0.05em] text-foreground">
                         {formatNumber(pricing.primaryPrice)}
@@ -1558,15 +1560,15 @@ export function OptionsPricingCalculator() {
                     </p>
                     <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                       <SummaryCard
-                        label="CRR abs gap"
+                        label="CRR absolute gap"
                         value={formatNumber(pricing.absoluteDifference)}
                       />
                       <SummaryCard
-                        label="CRR rel gap"
+                        label="CRR relative gap"
                         value={`${formatNumber(pricing.percentageDifference)}%`}
                       />
                       <SummaryCard
-                        label="CN abs gap"
+                        label="Crank-Nicolson gap"
                         value={
                           pricing.finiteDifferenceAbsoluteDifference !== undefined
                             ? formatNumber(
@@ -1576,7 +1578,7 @@ export function OptionsPricingCalculator() {
                         }
                       />
                       <SummaryCard
-                        label="CN rel gap"
+                        label="Crank-Nicolson relative gap"
                         value={
                           pricing.finiteDifferencePercentageDifference !==
                           undefined
@@ -1587,7 +1589,7 @@ export function OptionsPricingCalculator() {
                         }
                       />
                       <SummaryCard
-                        label="MC abs gap"
+                        label="Monte Carlo gap"
                         value={
                           pricing.monteCarloAbsoluteDifference !== undefined
                             ? formatNumber(pricing.monteCarloAbsoluteDifference)
@@ -1595,7 +1597,7 @@ export function OptionsPricingCalculator() {
                         }
                       />
                       <SummaryCard
-                        label="MC rel gap"
+                        label="Monte Carlo relative gap"
                         value={
                           pricing.monteCarloPercentageDifference !== undefined
                             ? `${formatNumber(
@@ -1605,7 +1607,7 @@ export function OptionsPricingCalculator() {
                         }
                       />
                       <SummaryCard
-                        label="MC standard error"
+                        label="Standard error"
                         value={
                           pricing.monteCarlo
                             ? formatNumber(pricing.monteCarlo.standardError)
@@ -1613,7 +1615,7 @@ export function OptionsPricingCalculator() {
                         }
                       />
                       <SummaryCard
-                        label="MC 95% interval"
+                        label="95% confidence interval"
                         value={
                           pricing.monteCarlo
                             ? `${formatNumber(
@@ -1659,7 +1661,7 @@ export function OptionsPricingCalculator() {
                 )}
                 {!isAmerican ? (
                   <SummaryCard
-                    label="MC paths"
+                    label="Monte Carlo paths"
                     value={
                       pricing.monteCarlo
                         ? formatInteger(pricing.monteCarlo.simulations)
@@ -1741,7 +1743,9 @@ export function OptionsPricingCalculator() {
                   }
                 />
                 <NoteCard
-                  title={isAmerican ? "No MC benchmark" : "Monte Carlo"}
+                  title={
+                    isAmerican ? "No Monte Carlo benchmark" : "Monte Carlo"
+                  }
                   body={
                     isAmerican
                       ? "Monte Carlo is not shown as an American method here; this branch only prices European vanilla payoffs."
@@ -1774,10 +1778,10 @@ export function OptionsPricingCalculator() {
                   >
                     <span>Steps</span>
                     <span>
-                      {isAmerican ? "American CRR" : "Binomial price"}
+                      {isAmerican ? "American CRR" : "CRR price"}
                     </span>
                     {isAmerican ? <span>European CRR</span> : null}
-                    <span>{isAmerican ? "Early premium" : "Abs diff"}</span>
+                    <span>{isAmerican ? "Early exercise premium" : "Abs gap"}</span>
                   </div>
                   {pricing.convergence.map((row, index) => (
                     <div
@@ -1826,7 +1830,9 @@ export function OptionsPricingCalculator() {
                   />
                   <NoteCard
                     title={
-                      isAmerican ? "No BSM benchmark" : "Numerical discipline"
+                      isAmerican
+                        ? "No Black-Scholes benchmark"
+                        : "Numerical discipline"
                     }
                     body={
                       isAmerican
@@ -1855,13 +1861,13 @@ export function OptionsPricingCalculator() {
                   Volatility
                 </p>
                 <h3 className="mt-3 text-2xl font-semibold tracking-[-0.03em] text-foreground">
-                  Solve Black-Scholes implied volatility from an observed option price.
+                  Solve Black-Scholes-Merton implied volatility from an observed option price.
                 </h3>
                 <p className="mt-3 max-w-2xl text-sm leading-7 text-foreground-soft">
                   The solver uses bisection against the European
                   Black-Scholes-Merton price with continuous dividend yield.
                   {isAmerican
-                    ? " The selected contract is American, so this panel is a European BSM reference rather than an American implied-volatility model."
+                    ? " The selected contract is American, so this panel is a European Black-Scholes-Merton reference rather than an American implied-volatility model."
                     : ""}
                 </p>
               </div>
@@ -1873,24 +1879,28 @@ export function OptionsPricingCalculator() {
                   meta={
                     isAmerican
                       ? "American CRR premium"
-                      : "European BSM premium"
+                      : "European Black-Scholes-Merton premium"
                   }
                   accent
                 />
                 <OptionMetricCard
-                  label="Current input vol"
+                  label="Input volatility"
                   value={formatPercent(pricing.inputs.volatility)}
                   meta="Annualized sigma"
                 />
                 <OptionMetricCard
-                  label="BSM reference"
+                  label="Black-Scholes-Merton reference"
                   value={formatNumber(pricing.blackScholes.price)}
                   meta="European model price"
                 />
                 <OptionMetricCard
                   label="Exercise style"
                   value={exerciseStyleLabel}
-                  meta={isAmerican ? "IV uses European BSM" : "BSM aligned"}
+                  meta={
+                    isAmerican
+                      ? "IV uses European Black-Scholes-Merton"
+                      : "Aligned with Black-Scholes-Merton"
+                  }
                 />
               </div>
             </div>
@@ -1965,7 +1975,7 @@ export function OptionsPricingCalculator() {
                           )
                         : "--"
                     }
-                    meta="Annualized BSM sigma"
+                    meta="Annualized Black-Scholes-Merton sigma"
                     accent
                   />
                   <OptionMetricCard
@@ -2009,14 +2019,14 @@ export function OptionsPricingCalculator() {
                 ) : (
                   <div className="rounded-[1.35rem] border border-emerald-400/20 bg-emerald-400/[0.08] px-4 py-3 text-sm leading-6 text-emerald-100">
                     Market price is inside the European no-arbitrage bounds and
-                    the bisection solver matched the BSM price within tolerance.
+                    the bisection solver matched the Black-Scholes-Merton price within tolerance.
                   </div>
                 )}
 
                 {isAmerican ? (
                   <NoteCard
                     title="European reference"
-                    body="American exercise changes the pricing model. This implied volatility is the European BSM volatility that matches the entered market price under the same contract inputs."
+                    body="American exercise changes the pricing model. This implied volatility is the European Black-Scholes-Merton volatility that matches the entered market price under the same contract inputs."
                   />
                 ) : null}
               </div>
@@ -2030,7 +2040,9 @@ export function OptionsPricingCalculator() {
             actions={
               <StepBadge
                 label={
-                  isAmerican ? "American CRR scenarios" : "BSM scenarios"
+                  isAmerican
+                    ? "American CRR scenarios"
+                    : "Black-Scholes-Merton scenarios"
                 }
                 tone="ready"
               />
@@ -2169,11 +2181,11 @@ export function OptionsPricingCalculator() {
                   Strategies
                 </p>
                 <h3 className="mt-3 text-2xl font-semibold tracking-[-0.03em] text-foreground">
-                  Build a multi-leg payoff and inspect the combined expiry P/L.
+                  Build a multi-leg payoff and inspect the combined expiry profit/loss.
                 </h3>
                 <p className="mt-3 max-w-2xl text-sm leading-7 text-foreground-soft">
                   Presets use the current contract inputs and model-derived
-                  Black-Scholes premiums for each leg. Edit strikes and premiums
+                  Black-Scholes-Merton premiums for each leg. Edit strikes and premiums
                   to test market quotes or custom structures.
                 </p>
               </div>
@@ -2198,7 +2210,7 @@ export function OptionsPricingCalculator() {
                 <OptionMetricCard
                   label="Premium source"
                   value="Model"
-                  meta="BSM defaults, editable"
+                  meta="Black-Scholes-Merton defaults, editable"
                 />
               </div>
             </div>
@@ -2381,13 +2393,13 @@ export function OptionsPricingCalculator() {
                   <>
                     <div className="grid gap-3 sm:grid-cols-3">
                       <SummaryCard
-                        label="Vol view"
+                        label="Volatility view"
                         value={formatVolatilityView(
                           strategyScreener.result.volatilityView,
                         )}
                       />
                       <SummaryCard
-                        label="Vol spread"
+                        label="Volatility spread"
                         value={formatPercent(
                           strategyScreener.result.volatilitySpread,
                         )}
@@ -2490,7 +2502,7 @@ export function OptionsPricingCalculator() {
                 </p>
                 <p className="mt-2 text-sm leading-6 text-foreground-soft">
                   Select or load a structure, edit legs, and inspect the payoff
-                  and P/L profile.
+                  and profit/loss profile.
                 </p>
               </div>
               <StepBadge label="Analysis workspace" tone="ready" />
@@ -2886,12 +2898,16 @@ function OptionMetricCard({
   value,
   meta,
   accent = false,
+  badgeLabel,
 }: {
   label: string;
   value: string;
   meta?: string;
   accent?: boolean;
+  badgeLabel?: string;
 }) {
+  const resolvedBadgeLabel = badgeLabel ?? (accent ? "Primary" : undefined);
+
   return (
     <SurfaceCard
       tone={accent ? "accent" : "elevated"}
@@ -2907,16 +2923,18 @@ function OptionMetricCard({
             {value}
           </p>
         </div>
-        <span
-          className={cn(
-            "rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em]",
-            accent
-              ? "border-accent/25 bg-accent/12 text-accent-foreground"
-              : "border-white/[0.08] bg-background-muted/80 text-foreground-subtle",
-          )}
-        >
-          Metric
-        </span>
+        {resolvedBadgeLabel ? (
+          <span
+            className={cn(
+              "shrink-0 rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em]",
+              accent
+                ? "border-accent/25 bg-accent/12 text-accent-foreground"
+                : "border-white/[0.08] bg-background-muted/80 text-foreground-subtle",
+            )}
+          >
+            {resolvedBadgeLabel}
+          </span>
+        ) : null}
       </div>
       {meta ? (
         <p className="mt-3 text-sm leading-6 text-foreground-soft">{meta}</p>

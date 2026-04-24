@@ -159,7 +159,7 @@ export function StrategyPayoffChart({
     <div className="space-y-4">
       <div className="flex flex-wrap gap-2.5">
         <LegendPill label="Payoff at expiry" color="border-sky-300" />
-        <LegendPill label="Profit / loss" color="border-emerald-300" />
+        <LegendPill label="Profit/loss" color="border-emerald-300" />
         <LegendPill label="Breakeven" color="border-amber-300" dashed />
         <LegendPill label="Current spot" color="border-slate-300" dashed />
       </div>
@@ -337,7 +337,7 @@ export function StrategyPayoffChart({
                       letterSpacing="0.12em"
                       fill="rgba(226, 184, 107, 0.92)"
                     >
-                      INSPECTION
+                      CHART VALUE
                     </text>
                     <text
                       x={tooltipX + 14}
@@ -361,7 +361,7 @@ export function StrategyPayoffChart({
                       fontSize="12"
                       fill="rgba(110, 231, 183, 0.96)"
                     >
-                      P/L: {formatSeriesValue(hoveredPoint.profit)}
+                      Profit/loss: {formatSeriesValue(hoveredPoint.profit)}
                     </text>
                     {distanceToBreakeven !== null ? (
                       <text
@@ -383,7 +383,7 @@ export function StrategyPayoffChart({
                 fontSize="11"
                 fill="rgba(148, 163, 184, 0.78)"
               >
-                Payoff / Profit
+                Payoff and profit/loss
               </text>
               <text
                 x={CHART_WIDTH - PADDING.right}
