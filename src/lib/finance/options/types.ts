@@ -80,6 +80,32 @@ export type FiniteDifferenceResult = {
   };
 };
 
+export type MonteCarloPricingInput = {
+  optionType: OptionType;
+  spot: number;
+  strike: number;
+  riskFreeRate: number;
+  dividendYield: number;
+  volatility: number;
+  maturity: number;
+  simulations?: number;
+  seed?: number;
+  useAntithetic?: boolean;
+};
+
+export type MonteCarloPricingResult = {
+  monteCarloPrice: number;
+  standardError: number;
+  confidenceInterval95: {
+    lower: number;
+    upper: number;
+  };
+  discountedPayoffMean: number;
+  simulations: number;
+  seed: number;
+  antitheticUsed: boolean;
+};
+
 export type ImpliedVolatilityInput = {
   marketPrice: number;
   optionType: OptionType;

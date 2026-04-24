@@ -18,6 +18,7 @@ import {
   getEuropeanOptionPriceBounds,
   priceCrrBinomial,
   priceEuropeanOptionCrankNicolson,
+  priceEuropeanOptionMonteCarlo,
   screenOptionStrategies,
   solveImpliedVolatility,
   type BinomialConvergencePoint,
@@ -28,6 +29,7 @@ import {
   type ExerciseStyle,
   type FiniteDifferenceResult,
   type ImpliedVolatilityResult,
+  type MonteCarloPricingResult,
   type OwnershipStatus,
   type OptionLeg,
   type OptionType,
@@ -69,6 +71,9 @@ type PricingState = {
   finiteDifference?: FiniteDifferenceResult;
   finiteDifferenceAbsoluteDifference?: number;
   finiteDifferencePercentageDifference?: number;
+  monteCarlo?: MonteCarloPricingResult;
+  monteCarloAbsoluteDifference?: number;
+  monteCarloPercentageDifference?: number;
   earlyExercisePremium: number;
   convergence: BinomialConvergencePoint[];
   inputs: CalculatorInput;
@@ -451,6 +456,12 @@ function formatNumber(value: number): string {
   }).format(value);
 }
 
+function formatInteger(value: number): string {
+  return new Intl.NumberFormat("en-US", {
+    maximumFractionDigits: 0,
+  }).format(value);
+}
+
 function formatInputNumber(value: number): string {
   return Number(value.toFixed(6)).toString();
 }
@@ -612,6 +623,26 @@ function buildPricingState(values: CalculatorInput): PricingState {
     blackScholes.price !== 0
       ? (finiteDifferenceAbsoluteDifference / Math.abs(blackScholes.price)) * 100
       : undefined;
+  const monteCarlo = isAmerican
+    ? undefined
+    : priceEuropeanOptionMonteCarlo({
+        optionType: values.optionType,
+        spot: values.spot,
+        strike: values.strike,
+        riskFreeRate: values.rate,
+        dividendYield: values.dividendYield,
+        volatility: values.volatility,
+        maturity: values.maturity,
+      });
+  const monteCarloAbsoluteDifference = monteCarlo
+    ? Math.abs(monteCarlo.monteCarloPrice - blackScholes.price)
+    : undefined;
+  const monteCarloPercentageDifference =
+    monteCarlo &&
+    monteCarloAbsoluteDifference !== undefined &&
+    blackScholes.price !== 0
+      ? (monteCarloAbsoluteDifference / Math.abs(blackScholes.price)) * 100
+      : undefined;
   const convergenceSteps = [25, 50, 100, 250, 500];
   const convergence = isAmerican
     ? buildCrrBinomialConvergenceSeries(
@@ -646,6 +677,9 @@ function buildPricingState(values: CalculatorInput): PricingState {
     finiteDifference,
     finiteDifferenceAbsoluteDifference,
     finiteDifferencePercentageDifference,
+    monteCarlo,
+    monteCarloAbsoluteDifference,
+    monteCarloPercentageDifference,
     earlyExercisePremium: isAmerican ? binomial.earlyExercisePremium : 0,
     convergence,
     inputs: values,
@@ -1433,25 +1467,29 @@ export function OptionsPricingCalculator() {
           className="space-y-6"
         >
           <SurfaceCard tone="elevated" padding="md" className="border-white/[0.08]">
-            <div className="grid gap-4 xl:grid-cols-[minmax(0,1.16fr)_minmax(23rem,0.84fr)]">
-              <div>
+            <div className="space-y-6">
+              <div className="max-w-4xl">
                 <p className="text-[0.72rem] font-semibold uppercase tracking-[0.24em] text-accent-strong/85">
                   Model comparison
                 </p>
                 <h3 className="mt-3 text-2xl font-semibold tracking-[-0.03em] text-foreground">
                   {isAmerican
                     ? "Measure the early exercise value against the European tree."
-                    : "Validate the analytical benchmark against CRR and Crank-Nicolson."}
+                    : "Validate the analytical benchmark against CRR, Crank-Nicolson, and Monte Carlo."}
                 </h3>
                 <p className="mt-3 max-w-2xl text-sm leading-7 text-foreground-soft">
                   {isAmerican
                     ? "The American view uses backward induction to compare continuation value with immediate exercise value at each node. The European tree is the same-input baseline."
-                    : "The comparison layer exists to strengthen pricing confidence, not to distract from the primary valuation block. Read the CRR tree and finite-difference gaps as quality checks on the current setup."}
+                    : "The comparison layer exists to strengthen pricing confidence, not to distract from the primary valuation block. Read the numerical gaps and Monte Carlo sampling error as quality checks on the current setup."}
                 </p>
               </div>
-              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                {isAmerican ? (
-                  <>
+
+              {isAmerican ? (
+                <div className="space-y-3">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-foreground-subtle">
+                    Tree comparison
+                  </p>
+                  <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                     <OptionMetricCard
                       label="American CRR"
                       value={formatNumber(pricing.binomial.price)}
@@ -1473,64 +1511,123 @@ export function OptionsPricingCalculator() {
                       value={formatNumber(pricing.binomial.intrinsicValue)}
                       meta="Immediate exercise value"
                     />
-                  </>
-                ) : (
-                  <>
-                    <OptionMetricCard
-                      label="Black-Scholes"
-                      value={formatNumber(pricing.blackScholes.price)}
-                      meta="Primary analytical benchmark"
-                      accent
-                    />
-                    <OptionMetricCard
-                      label="CRR tree"
-                      value={formatNumber(pricing.binomialPrice)}
-                      meta={`${pricing.inputs.steps} step numerical price`}
-                    />
-                    <OptionMetricCard
-                      label="Crank-Nicolson"
-                      value={
-                        pricing.finiteDifference
-                          ? formatNumber(pricing.finiteDifference.price)
-                          : "--"
-                      }
-                      meta="Finite-difference PDE"
-                    />
-                    <OptionMetricCard
-                      label="CRR absolute gap"
-                      value={formatNumber(pricing.absoluteDifference)}
-                      meta="Versus Black-Scholes"
-                    />
-                    <OptionMetricCard
-                      label="CN absolute gap"
-                      value={
-                        pricing.finiteDifferenceAbsoluteDifference !== undefined
-                          ? formatNumber(
-                              pricing.finiteDifferenceAbsoluteDifference,
-                            )
-                          : "--"
-                      }
-                      meta="Versus Black-Scholes"
-                    />
-                    <OptionMetricCard
-                      label="CN relative gap"
-                      value={
-                        pricing.finiteDifferencePercentageDifference !== undefined
-                          ? `${formatNumber(
-                              pricing.finiteDifferencePercentageDifference,
-                            )}%`
-                          : "--"
-                      }
-                      meta="Finite-difference error"
-                    />
-                    <OptionMetricCard
-                      label="CRR relative gap"
-                      value={`${formatNumber(pricing.percentageDifference)}%`}
-                      meta="Tree error"
-                    />
-                  </>
-                )}
-              </div>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div className="space-y-3">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-foreground-subtle">
+                      Main prices
+                    </p>
+                    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                      <OptionMetricCard
+                        label="Black-Scholes"
+                        value={formatNumber(pricing.blackScholes.price)}
+                        meta="Primary analytical benchmark"
+                        accent
+                      />
+                      <OptionMetricCard
+                        label="CRR tree"
+                        value={formatNumber(pricing.binomialPrice)}
+                        meta={`${pricing.inputs.steps} step numerical price`}
+                      />
+                      <OptionMetricCard
+                        label="Crank-Nicolson"
+                        value={
+                          pricing.finiteDifference
+                            ? formatNumber(pricing.finiteDifference.price)
+                            : "--"
+                        }
+                        meta="Finite-difference PDE"
+                      />
+                      <OptionMetricCard
+                        label="Monte Carlo"
+                        value={
+                          pricing.monteCarlo
+                            ? formatNumber(pricing.monteCarlo.monteCarloPrice)
+                            : "--"
+                        }
+                        meta="Risk-neutral GBM"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-foreground-subtle">
+                      Diagnostics
+                    </p>
+                    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                      <SummaryCard
+                        label="CRR abs gap"
+                        value={formatNumber(pricing.absoluteDifference)}
+                      />
+                      <SummaryCard
+                        label="CRR rel gap"
+                        value={`${formatNumber(pricing.percentageDifference)}%`}
+                      />
+                      <SummaryCard
+                        label="CN abs gap"
+                        value={
+                          pricing.finiteDifferenceAbsoluteDifference !== undefined
+                            ? formatNumber(
+                                pricing.finiteDifferenceAbsoluteDifference,
+                              )
+                            : "--"
+                        }
+                      />
+                      <SummaryCard
+                        label="CN rel gap"
+                        value={
+                          pricing.finiteDifferencePercentageDifference !==
+                          undefined
+                            ? `${formatNumber(
+                                pricing.finiteDifferencePercentageDifference,
+                              )}%`
+                            : "--"
+                        }
+                      />
+                      <SummaryCard
+                        label="MC abs gap"
+                        value={
+                          pricing.monteCarloAbsoluteDifference !== undefined
+                            ? formatNumber(pricing.monteCarloAbsoluteDifference)
+                            : "--"
+                        }
+                      />
+                      <SummaryCard
+                        label="MC rel gap"
+                        value={
+                          pricing.monteCarloPercentageDifference !== undefined
+                            ? `${formatNumber(
+                                pricing.monteCarloPercentageDifference,
+                              )}%`
+                            : "--"
+                        }
+                      />
+                      <SummaryCard
+                        label="MC standard error"
+                        value={
+                          pricing.monteCarlo
+                            ? formatNumber(pricing.monteCarlo.standardError)
+                            : "--"
+                        }
+                      />
+                      <SummaryCard
+                        label="MC 95% interval"
+                        value={
+                          pricing.monteCarlo
+                            ? `${formatNumber(
+                                pricing.monteCarlo.confidenceInterval95.lower,
+                              )} - ${formatNumber(
+                                pricing.monteCarlo.confidenceInterval95.upper,
+                              )}`
+                            : "--"
+                        }
+                      />
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
           </SurfaceCard>
 
@@ -1540,7 +1637,7 @@ export function OptionsPricingCalculator() {
               title="Model framing"
               description="Compact context for how the valuation methods relate to each other."
             >
-              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                 <SummaryCard
                   label="Contract"
                   value={contractLabel}
@@ -1560,6 +1657,16 @@ export function OptionsPricingCalculator() {
                     }
                   />
                 )}
+                {!isAmerican ? (
+                  <SummaryCard
+                    label="MC paths"
+                    value={
+                      pricing.monteCarlo
+                        ? formatInteger(pricing.monteCarlo.simulations)
+                        : "--"
+                    }
+                  />
+                ) : null}
                 <SummaryCard
                   label="Dividend treatment"
                   value={`q = ${formatNumber(pricing.inputs.dividendYield)}`}
@@ -1574,6 +1681,18 @@ export function OptionsPricingCalculator() {
                         : "--"
                   }
                 />
+                {!isAmerican ? (
+                  <SummaryCard
+                    label="Variance control"
+                    value={
+                      pricing.monteCarlo?.antitheticUsed
+                        ? `Antithetic, seed ${pricing.monteCarlo.seed}`
+                        : pricing.monteCarlo
+                          ? `Seed ${pricing.monteCarlo.seed}`
+                          : "--"
+                    }
+                  />
+                ) : null}
               </div>
             </Card>
 
@@ -1598,7 +1717,7 @@ export function OptionsPricingCalculator() {
                   body={
                     isAmerican
                       ? "At each node, the American tree takes the larger of continuation value and intrinsic value."
-                      : "The CRR tree prices the same contract with backward induction using the selected number of time steps."
+                      : "CRR and Crank-Nicolson price the same European payoff with discrete numerical methods."
                   }
                 />
                 <NoteCard
@@ -1610,11 +1729,23 @@ export function OptionsPricingCalculator() {
                   }
                 />
                 <NoteCard
-                  title={isAmerican ? "European PDE only" : "Crank-Nicolson"}
+                  title={
+                    isAmerican
+                      ? "European numerical methods only"
+                      : "Crank-Nicolson"
+                  }
                   body={
                     isAmerican
-                      ? "Crank-Nicolson comparison is currently available for European contracts only."
+                      ? "Crank-Nicolson and Monte Carlo comparisons are currently available for European contracts only."
                       : "Crank-Nicolson solves the Black-Scholes PDE numerically on a spot/time grid. Grid choices affect approximation error."
+                  }
+                />
+                <NoteCard
+                  title={isAmerican ? "No MC benchmark" : "Monte Carlo"}
+                  body={
+                    isAmerican
+                      ? "Monte Carlo is not shown as an American method here; this branch only prices European vanilla payoffs."
+                      : "Monte Carlo estimates the discounted expected payoff under risk-neutral dynamics. The interval shows sampling error, and antithetic variates reduce variance."
                   }
                 />
               </div>
