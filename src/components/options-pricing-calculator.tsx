@@ -17,20 +17,25 @@ import {
   blackScholesValuation,
   getEuropeanOptionPriceBounds,
   priceCrrBinomial,
+  screenOptionStrategies,
   solveImpliedVolatility,
   type BinomialConvergencePoint,
   type BinomialPricingResult,
   type BlackScholesInput,
+  type DirectionalView,
   type BlackScholesValuation,
   type ExerciseStyle,
   type ImpliedVolatilityResult,
+  type OwnershipStatus,
   type OptionLeg,
   type OptionType,
+  type RiskPreference,
   type SensitivityScenarioResult,
   type SensitivityScenarioType,
   type StrategyAnalysis,
   type StrategyDefinition,
   type StrategyPresetId,
+  type StrategyScreenerResult,
 } from "@/lib/finance/options";
 
 type FormState = {
@@ -135,6 +140,72 @@ const strategyPresetConfig: Array<{
     id: "long-strangle",
     label: "Long strangle",
     summary: "Long OTM put and call with wider breakevens.",
+  },
+];
+
+const directionalViewConfig: Array<{
+  id: DirectionalView;
+  label: string;
+  description: string;
+}> = [
+  {
+    id: "bullish",
+    label: "Bullish",
+    description: "Upside directional view",
+  },
+  {
+    id: "bearish",
+    label: "Bearish",
+    description: "Downside directional view",
+  },
+  {
+    id: "neutral",
+    label: "Neutral",
+    description: "No strong direction",
+  },
+  {
+    id: "large-move",
+    label: "Large move",
+    description: "Movement matters more than direction",
+  },
+];
+
+const riskPreferenceConfig: Array<{
+  id: RiskPreference;
+  label: string;
+  description: string;
+}> = [
+  {
+    id: "defined-risk",
+    label: "Defined risk",
+    description: "Prefer capped loss structures",
+  },
+  {
+    id: "willing-to-own-underlying",
+    label: "Willing to own",
+    description: "Open to future ownership",
+  },
+  {
+    id: "willing-to-cap-upside",
+    label: "Cap upside",
+    description: "Open to limiting upside",
+  },
+];
+
+const ownershipStatusConfig: Array<{
+  id: OwnershipStatus;
+  label: string;
+  description: string;
+}> = [
+  {
+    id: "does-not-own-underlying",
+    label: "No underlying",
+    description: "Options-only structure",
+  },
+  {
+    id: "owns-underlying",
+    label: "Owns underlying",
+    description: "Underlying position exists",
   },
 ];
 
@@ -410,6 +481,18 @@ function formatBreakevens(values: number[]): string {
   return values.map(formatNumber).join(", ");
 }
 
+function formatVolatilityView(value: StrategyScreenerResult["volatilityView"]) {
+  if (value === "cheap") {
+    return "Cheap";
+  }
+
+  if (value === "expensive") {
+    return "Expensive";
+  }
+
+  return "Fair";
+}
+
 function strategyContextFromPricing(pricing: PricingState) {
   return {
     spot: pricing.inputs.spot,
@@ -571,6 +654,17 @@ export function OptionsPricingCalculator() {
       return getLegInputs(buildDefaultStrategy(initialPricing, "long-call").legs);
     },
   );
+  const [expectedVolatilityInput, setExpectedVolatilityInput] = useState(
+    DEFAULT_FORM.volatility,
+  );
+  const [impliedVolatilityReferenceInput, setImpliedVolatilityReferenceInput] =
+    useState(DEFAULT_FORM.volatility);
+  const [directionalView, setDirectionalView] =
+    useState<DirectionalView>("bullish");
+  const [riskPreference, setRiskPreference] =
+    useState<RiskPreference>("defined-risk");
+  const [ownershipStatus, setOwnershipStatus] =
+    useState<OwnershipStatus>("does-not-own-underlying");
   const [pricingError, setPricingError] = useState<string | null>(null);
   const [activeSection, setActiveSection] =
     useState<OptionSectionId>("pricing");
@@ -631,6 +725,72 @@ export function OptionsPricingCalculator() {
       };
     }
   }, [marketPriceInput, parsedMarketPrice, pricing.inputs]);
+  const solvedImpliedVolatility =
+    impliedVolatility.result?.converged &&
+    impliedVolatility.result.impliedVolatility !== undefined
+      ? impliedVolatility.result.impliedVolatility
+      : pricing.inputs.volatility;
+  const parsedExpectedVolatility = Number(expectedVolatilityInput);
+  const parsedImpliedVolatilityReference = Number(
+    impliedVolatilityReferenceInput,
+  );
+  const strategyScreener = useMemo<{
+    result?: StrategyScreenerResult;
+    warning?: string;
+  }>(() => {
+    if (
+      expectedVolatilityInput.trim() === "" ||
+      impliedVolatilityReferenceInput.trim() === ""
+    ) {
+      return {
+        warning:
+          "Enter expected volatility and implied volatility reference to screen compatible structures.",
+      };
+    }
+
+    if (
+      !Number.isFinite(parsedExpectedVolatility) ||
+      parsedExpectedVolatility <= 0
+    ) {
+      return { warning: "Expected volatility must be a positive number." };
+    }
+
+    if (
+      !Number.isFinite(parsedImpliedVolatilityReference) ||
+      parsedImpliedVolatilityReference <= 0
+    ) {
+      return {
+        warning: "Implied volatility reference must be a positive number.",
+      };
+    }
+
+    try {
+      return {
+        result: screenOptionStrategies({
+          expectedVolatility: parsedExpectedVolatility,
+          impliedVolatility: parsedImpliedVolatilityReference,
+          directionalView,
+          riskPreference,
+          ownershipStatus,
+        }),
+      };
+    } catch (error) {
+      return {
+        warning:
+          error instanceof Error
+            ? error.message
+            : "Unable to screen strategies.",
+      };
+    }
+  }, [
+    directionalView,
+    expectedVolatilityInput,
+    impliedVolatilityReferenceInput,
+    ownershipStatus,
+    parsedExpectedVolatility,
+    parsedImpliedVolatilityReference,
+    riskPreference,
+  ]);
   const sensitivityScenarios = useMemo<SensitivityScenarioResult>(
     () =>
       buildOptionSensitivityScenarios(
@@ -715,6 +875,11 @@ export function OptionsPricingCalculator() {
 
     setPricing(nextPricing);
     setMarketPriceInput(formatInputNumber(nextPricing.blackScholes.price));
+    setExpectedVolatilityInput(DEFAULT_FORM.volatility);
+    setImpliedVolatilityReferenceInput(DEFAULT_FORM.volatility);
+    setDirectionalView("bullish");
+    setRiskPreference("defined-risk");
+    setOwnershipStatus("does-not-own-underlying");
     setActiveStrategyId("long-call");
     setStrategyLegInputs(getLegInputs(buildDefaultStrategy(nextPricing, "long-call").legs));
     setPricingError(null);
@@ -1821,6 +1986,299 @@ export function OptionsPricingCalculator() {
                   meta="BSM defaults, editable"
                 />
               </div>
+            </div>
+          </SurfaceCard>
+
+          <div className="grid gap-4 xl:grid-cols-[minmax(340px,0.88fr)_minmax(0,1.12fr)]">
+            <Card
+              eyebrow="Scenario screener"
+              title="Market view inputs"
+              description="Map scenario assumptions to compatible structures for analysis."
+              tone="elevated"
+              actions={<StepBadge label="Not advice" />}
+            >
+              <div className="space-y-5">
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <label className="space-y-2">
+                    <span className="block text-sm font-semibold text-foreground">
+                      Expected volatility
+                    </span>
+                    <input
+                      type="number"
+                      inputMode="decimal"
+                      step="0.0001"
+                      min="0"
+                      value={expectedVolatilityInput}
+                      onChange={(event) =>
+                        setExpectedVolatilityInput(event.target.value)
+                      }
+                      className="w-full rounded-[1.15rem] border border-white/10 bg-slate-950/70 px-4 py-3 text-sm text-white outline-none transition focus:border-accent/60"
+                    />
+                    <p className="text-xs leading-5 text-foreground-muted">
+                      Decimal form, e.g. 0.25 for 25%.
+                    </p>
+                  </label>
+
+                  <label className="space-y-2">
+                    <span className="block text-sm font-semibold text-foreground">
+                      Implied vol reference
+                    </span>
+                    <input
+                      type="number"
+                      inputMode="decimal"
+                      step="0.0001"
+                      min="0"
+                      value={impliedVolatilityReferenceInput}
+                      onChange={(event) =>
+                        setImpliedVolatilityReferenceInput(event.target.value)
+                      }
+                      className="w-full rounded-[1.15rem] border border-white/10 bg-slate-950/70 px-4 py-3 text-sm text-white outline-none transition focus:border-accent/60"
+                    />
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setImpliedVolatilityReferenceInput(
+                          formatInputNumber(solvedImpliedVolatility),
+                        )
+                      }
+                      className="text-xs font-semibold text-accent-foreground transition hover:text-accent-strong"
+                    >
+                      Use current IV reference
+                    </button>
+                  </label>
+                </div>
+
+                <div className="space-y-3">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-accent-strong/85">
+                    Directional view
+                  </p>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {directionalViewConfig.map((item) => {
+                      const isActive = directionalView === item.id;
+
+                      return (
+                        <button
+                          key={item.id}
+                          type="button"
+                          onClick={() => setDirectionalView(item.id)}
+                          className={cn(
+                            "rounded-[1.1rem] border px-3 py-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70",
+                            isActive
+                              ? "border-accent/35 bg-accent/12 text-accent-foreground"
+                              : "border-white/[0.08] bg-slate-950/55 text-slate-300 hover:border-border-strong/80 hover:bg-white/[0.04]",
+                          )}
+                        >
+                          <span className="text-sm font-semibold">
+                            {item.label}
+                          </span>
+                          <span className="mt-1 block text-xs leading-5 text-foreground-subtle">
+                            {item.description}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-accent-strong/85">
+                    Risk preference
+                  </p>
+                  <div className="grid gap-2">
+                    {riskPreferenceConfig.map((item) => {
+                      const isActive = riskPreference === item.id;
+
+                      return (
+                        <button
+                          key={item.id}
+                          type="button"
+                          onClick={() => setRiskPreference(item.id)}
+                          className={cn(
+                            "rounded-[1.1rem] border px-3 py-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70",
+                            isActive
+                              ? "border-accent/35 bg-accent/12 text-accent-foreground"
+                              : "border-white/[0.08] bg-slate-950/55 text-slate-300 hover:border-border-strong/80 hover:bg-white/[0.04]",
+                          )}
+                        >
+                          <span className="text-sm font-semibold">
+                            {item.label}
+                          </span>
+                          <span className="mt-1 block text-xs leading-5 text-foreground-subtle">
+                            {item.description}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-accent-strong/85">
+                    Underlying ownership
+                  </p>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {ownershipStatusConfig.map((item) => {
+                      const isActive = ownershipStatus === item.id;
+
+                      return (
+                        <button
+                          key={item.id}
+                          type="button"
+                          onClick={() => setOwnershipStatus(item.id)}
+                          className={cn(
+                            "rounded-[1.1rem] border px-3 py-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70",
+                            isActive
+                              ? "border-accent/35 bg-accent/12 text-accent-foreground"
+                              : "border-white/[0.08] bg-slate-950/55 text-slate-300 hover:border-border-strong/80 hover:bg-white/[0.04]",
+                          )}
+                        >
+                          <span className="text-sm font-semibold">
+                            {item.label}
+                          </span>
+                          <span className="mt-1 block text-xs leading-5 text-foreground-subtle">
+                            {item.description}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            </Card>
+
+            <Card
+              eyebrow="Compatible structures"
+              title="Strategies to analyze"
+              description="Rule-based mappings from scenario assumptions to existing builder presets."
+              actions={
+                <StepBadge
+                  label={
+                    strategyScreener.result
+                      ? formatVolatilityView(strategyScreener.result.volatilityView)
+                      : "Check inputs"
+                  }
+                  tone={strategyScreener.result ? "ready" : "default"}
+                />
+              }
+            >
+              <div className="space-y-5">
+                {strategyScreener.result ? (
+                  <>
+                    <div className="grid gap-3 sm:grid-cols-3">
+                      <SummaryCard
+                        label="Vol view"
+                        value={formatVolatilityView(
+                          strategyScreener.result.volatilityView,
+                        )}
+                      />
+                      <SummaryCard
+                        label="Vol spread"
+                        value={formatPercent(
+                          strategyScreener.result.volatilitySpread,
+                        )}
+                      />
+                      <SummaryCard
+                        label="Relative spread"
+                        value={`${formatNumber(
+                          strategyScreener.result.volatilitySpreadPercent * 100,
+                        )}%`}
+                      />
+                    </div>
+
+                    <div className="rounded-[1.3rem] border border-white/[0.08] bg-[linear-gradient(180deg,rgba(10,17,26,0.78),rgba(10,17,26,0.56))] px-4 py-3 text-sm leading-6 text-foreground-soft">
+                      {strategyScreener.result.volatilityInterpretation}
+                    </div>
+
+                    <div className="grid gap-3">
+                      {strategyScreener.result.suggestions.map((suggestion) => (
+                        <div
+                          key={suggestion.strategyId}
+                          className="rounded-[1.35rem] border border-white/[0.08] bg-[linear-gradient(180deg,rgba(10,17,26,0.78),rgba(10,17,26,0.56))] px-4 py-4"
+                        >
+                          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                            <div>
+                              <p className="text-sm font-semibold text-foreground">
+                                {suggestion.strategyName}
+                              </p>
+                              <p className="mt-2 text-sm leading-6 text-foreground-soft">
+                                {suggestion.scenarioFit}
+                              </p>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                handleStrategyChange(suggestion.strategyId)
+                              }
+                              className="rounded-[1.05rem] border border-accent/20 bg-accent/10 px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-accent-foreground transition hover:border-accent/35 hover:bg-accent/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70"
+                            >
+                              Load in builder
+                            </button>
+                          </div>
+                          <div className="mt-4 grid gap-3 lg:grid-cols-4">
+                            <NoteCard
+                              title="Scenario fit"
+                              body={suggestion.explanation}
+                            />
+                            <NoteCard
+                              title="Direction"
+                              body={suggestion.directionalLogic}
+                            />
+                            <NoteCard
+                              title="Volatility logic"
+                              body={suggestion.volatilityLogic}
+                            />
+                            <NoteCard
+                              title="Risk note"
+                              body={suggestion.riskNote}
+                            />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {strategyScreener.result.futureCandidates.length > 0 ? (
+                      <div className="space-y-3">
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-foreground-subtle">
+                          Future candidates
+                        </p>
+                        {strategyScreener.result.futureCandidates.map(
+                          (candidate) => (
+                            <NoteCard
+                              key={candidate.name}
+                              title={candidate.name}
+                              body={candidate.note}
+                            />
+                          ),
+                        )}
+                      </div>
+                    ) : null}
+                  </>
+                ) : (
+                  <div className="rounded-[1.35rem] border border-amber-300/25 bg-amber-300/[0.08] px-4 py-3 text-sm leading-6 text-amber-100">
+                    {strategyScreener.warning}
+                  </div>
+                )}
+
+                <div className="rounded-[1.35rem] border border-white/[0.08] bg-background-muted/80 px-4 py-3 text-xs leading-6 text-foreground-muted">
+                  This tool maps scenario assumptions to option structures for
+                  analysis. It does not provide investment advice.
+                </div>
+              </div>
+            </Card>
+          </div>
+
+          <SurfaceCard tone="elevated" padding="sm" className="border-white/[0.08]">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+              <div>
+                <p className="text-[0.72rem] font-semibold uppercase tracking-[0.24em] text-accent-strong/85">
+                  Strategy builder
+                </p>
+                <p className="mt-2 text-sm leading-6 text-foreground-soft">
+                  Select or load a structure, edit legs, and inspect the payoff
+                  and P/L profile.
+                </p>
+              </div>
+              <StepBadge label="Analysis workspace" tone="ready" />
             </div>
           </SurfaceCard>
 

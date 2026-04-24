@@ -157,6 +157,49 @@ export type StrategyAnalysis = {
   metrics: StrategyMetrics;
 };
 
+export type DirectionalView = "bullish" | "bearish" | "neutral" | "large-move";
+
+export type VolatilityView = "cheap" | "fair" | "expensive";
+
+export type RiskPreference =
+  | "defined-risk"
+  | "willing-to-own-underlying"
+  | "willing-to-cap-upside";
+
+export type OwnershipStatus = "owns-underlying" | "does-not-own-underlying";
+
+export type StrategySuggestion = {
+  strategyId: StrategyPresetId;
+  strategyName: string;
+  scenarioFit: string;
+  explanation: string;
+  riskNote: string;
+  volatilityLogic: string;
+  directionalLogic: string;
+};
+
+export type FutureStrategyCandidate = {
+  name: string;
+  note: string;
+};
+
+export type StrategyScreenerInput = {
+  expectedVolatility: number;
+  impliedVolatility: number;
+  directionalView: DirectionalView;
+  riskPreference: RiskPreference;
+  ownershipStatus: OwnershipStatus;
+};
+
+export type StrategyScreenerResult = {
+  volatilityView: VolatilityView;
+  volatilitySpread: number;
+  volatilitySpreadPercent: number;
+  volatilityInterpretation: string;
+  suggestions: StrategySuggestion[];
+  futureCandidates: FutureStrategyCandidate[];
+};
+
 export type PayoffPoint = {
   spot: number;
   payoff: number;
