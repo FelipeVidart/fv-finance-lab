@@ -54,6 +54,30 @@ export type BinomialConvergencePoint = {
   earlyExercisePremium?: number;
 };
 
+export type ImpliedVolatilityInput = {
+  marketPrice: number;
+  optionType: OptionType;
+  spot: number;
+  strike: number;
+  riskFreeRate: number;
+  dividendYield: number;
+  maturity: number;
+  minVol?: number;
+  maxVol?: number;
+  tolerance?: number;
+  maxIterations?: number;
+};
+
+export type ImpliedVolatilityResult = {
+  impliedVolatility?: number;
+  iterations: number;
+  converged: boolean;
+  priceError: number;
+  lowerBound: number;
+  upperBound: number;
+  warning?: string;
+};
+
 export type PayoffPoint = {
   spot: number;
   payoff: number;

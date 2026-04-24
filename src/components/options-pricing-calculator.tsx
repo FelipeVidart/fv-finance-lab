@@ -11,12 +11,15 @@ import {
   buildBinomialConvergenceSeries,
   buildOptionPayoffSeries,
   blackScholesValuation,
+  getEuropeanOptionPriceBounds,
   priceCrrBinomial,
+  solveImpliedVolatility,
   type BinomialConvergencePoint,
   type BinomialPricingResult,
   type BlackScholesInput,
   type BlackScholesValuation,
   type ExerciseStyle,
+  type ImpliedVolatilityResult,
   type OptionType,
 } from "@/lib/finance/options";
 
@@ -293,6 +296,14 @@ function formatNumber(value: number): string {
   }).format(value);
 }
 
+function formatInputNumber(value: number): string {
+  return Number(value.toFixed(6)).toString();
+}
+
+function formatPercent(value: number): string {
+  return `${formatNumber(value * 100)}%`;
+}
+
 function buildPricingState(values: CalculatorInput): PricingState {
   const blackScholes = blackScholesValuation(values);
   const binomialInput = {
@@ -378,6 +389,11 @@ export function OptionsPricingCalculator() {
   const [form, setForm] = useState<FormState>(DEFAULT_FORM);
   const [errors, setErrors] = useState<FormErrors>({});
   const [pricing, setPricing] = useState<PricingState>(createInitialPricingState);
+  const [marketPriceInput, setMarketPriceInput] = useState(() => {
+    const initialPricing = createInitialPricingState();
+
+    return formatInputNumber(initialPricing.blackScholes.price);
+  });
   const [pricingError, setPricingError] = useState<string | null>(null);
   const [activeSection, setActiveSection] =
     useState<OptionSectionId>("pricing");
@@ -392,6 +408,52 @@ export function OptionsPricingCalculator() {
   const optionTypeLabel =
     pricing.inputs.optionType === "call" ? "call" : "put";
   const contractLabel = `${exerciseStyleLabel} ${optionTypeLabel}`;
+  const parsedMarketPrice = Number(marketPriceInput);
+  const impliedVolatilityBounds = useMemo(
+    () =>
+      getEuropeanOptionPriceBounds({
+        optionType: pricing.inputs.optionType,
+        spot: pricing.inputs.spot,
+        strike: pricing.inputs.strike,
+        riskFreeRate: pricing.inputs.rate,
+        dividendYield: pricing.inputs.dividendYield,
+        maturity: pricing.inputs.maturity,
+      }),
+    [pricing.inputs],
+  );
+  const impliedVolatility = useMemo<{
+    result?: ImpliedVolatilityResult;
+    warning?: string;
+  }>(() => {
+    if (marketPriceInput.trim() === "") {
+      return { warning: "Enter a market option price to solve implied volatility." };
+    }
+
+    if (!Number.isFinite(parsedMarketPrice)) {
+      return { warning: "Market option price must be a valid number." };
+    }
+
+    try {
+      return {
+        result: solveImpliedVolatility({
+          marketPrice: parsedMarketPrice,
+          optionType: pricing.inputs.optionType,
+          spot: pricing.inputs.spot,
+          strike: pricing.inputs.strike,
+          riskFreeRate: pricing.inputs.rate,
+          dividendYield: pricing.inputs.dividendYield,
+          maturity: pricing.inputs.maturity,
+        }),
+      };
+    } catch (error) {
+      return {
+        warning:
+          error instanceof Error
+            ? error.message
+            : "Unable to solve implied volatility.",
+      };
+    }
+  }, [marketPriceInput, parsedMarketPrice, pricing.inputs]);
 
   function updateField(name: keyof FormState, value: string) {
     setForm((current) => ({ ...current, [name]: value }));
@@ -430,7 +492,10 @@ export function OptionsPricingCalculator() {
   function handleReset() {
     setForm(DEFAULT_FORM);
     setErrors({});
-    setPricing(createInitialPricingState());
+    const nextPricing = createInitialPricingState();
+
+    setPricing(nextPricing);
+    setMarketPriceInput(formatInputNumber(nextPricing.blackScholes.price));
     setPricingError(null);
   }
 
@@ -1158,26 +1223,182 @@ export function OptionsPricingCalculator() {
           id="volatility-panel"
           role="tabpanel"
           aria-labelledby="volatility-tab"
+          className="space-y-6"
         >
-          <ComingNextCard
-            eyebrow="Volatility"
-            title="Volatility workflows are planned next"
-            description="This area is being reserved for implied-volatility and volatility-term-structure work once the core pricing workflow is fully settled."
-            items={[
-              {
-                label: "Planned",
-                value: "Implied vol solver",
-              },
-              {
-                label: "Planned",
-                value: "Sensitivity sweeps",
-              },
-              {
-                label: "Planned",
-                value: "Surface-ready layout",
-              },
-            ]}
-          />
+          <SurfaceCard tone="elevated" padding="md" className="border-white/[0.08]">
+            <div className="grid gap-5 xl:grid-cols-[minmax(0,1.08fr)_minmax(23rem,0.92fr)]">
+              <div>
+                <p className="text-[0.72rem] font-semibold uppercase tracking-[0.24em] text-accent-strong/85">
+                  Volatility
+                </p>
+                <h3 className="mt-3 text-2xl font-semibold tracking-[-0.03em] text-foreground">
+                  Solve Black-Scholes implied volatility from an observed option price.
+                </h3>
+                <p className="mt-3 max-w-2xl text-sm leading-7 text-foreground-soft">
+                  The solver uses bisection against the European
+                  Black-Scholes-Merton price with continuous dividend yield.
+                  {isAmerican
+                    ? " The selected contract is American, so this panel is a European BSM reference rather than an American implied-volatility model."
+                    : ""}
+                </p>
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                <OptionMetricCard
+                  label="Current model price"
+                  value={formatNumber(pricing.primaryPrice)}
+                  meta={
+                    isAmerican
+                      ? "American CRR premium"
+                      : "European BSM premium"
+                  }
+                  accent
+                />
+                <OptionMetricCard
+                  label="Current input vol"
+                  value={formatPercent(pricing.inputs.volatility)}
+                  meta="Annualized sigma"
+                />
+                <OptionMetricCard
+                  label="BSM reference"
+                  value={formatNumber(pricing.blackScholes.price)}
+                  meta="European model price"
+                />
+                <OptionMetricCard
+                  label="Exercise style"
+                  value={exerciseStyleLabel}
+                  meta={isAmerican ? "IV uses European BSM" : "BSM aligned"}
+                />
+              </div>
+            </div>
+          </SurfaceCard>
+
+          <div className="grid gap-4 xl:grid-cols-[minmax(340px,0.82fr)_minmax(0,1.18fr)]">
+            <Card
+              eyebrow="Input"
+              title="Market price"
+              description="Enter an observed European option premium to invert the Black-Scholes-Merton model."
+              tone="elevated"
+            >
+              <div className="space-y-5">
+                <label className="space-y-2">
+                  <span className="block text-sm font-semibold text-foreground">
+                    Market option price
+                  </span>
+                  <input
+                    type="number"
+                    inputMode="decimal"
+                    min="0"
+                    step="0.0001"
+                    value={marketPriceInput}
+                    onChange={(event) => setMarketPriceInput(event.target.value)}
+                    className="w-full rounded-[1.15rem] border border-white/10 bg-slate-950/70 px-4 py-3 text-sm text-white outline-none transition focus:border-accent/60"
+                  />
+                  <p className="text-xs leading-5 text-foreground-muted">
+                    Use the same contract terms shown in the current pricing run.
+                  </p>
+                </label>
+
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <SummaryCard
+                    label="Lower bound"
+                    value={formatNumber(impliedVolatilityBounds.lowerBound)}
+                  />
+                  <SummaryCard
+                    label="Upper bound"
+                    value={formatNumber(impliedVolatilityBounds.upperBound)}
+                  />
+                </div>
+
+                <div className="rounded-[1.3rem] border border-white/[0.08] bg-[linear-gradient(180deg,rgba(10,17,26,0.78),rgba(10,17,26,0.56))] px-4 py-3 text-xs leading-6 text-foreground-muted">
+                  No-arbitrage bounds use discounted spot and strike:
+                  continuous dividend yield for the underlying and continuous
+                  risk-free discounting for the strike.
+                </div>
+              </div>
+            </Card>
+
+            <Card
+              eyebrow="Implied volatility"
+              title="Bisection solver result"
+              description="The result is computed with a stable bounded search over volatility."
+              actions={
+                <StepBadge
+                  label={
+                    impliedVolatility.result?.converged ? "Converged" : "Check"
+                  }
+                  tone={impliedVolatility.result?.converged ? "ready" : "default"}
+                />
+              }
+            >
+              <div className="space-y-5">
+                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                  <OptionMetricCard
+                    label="Implied volatility"
+                    value={
+                      impliedVolatility.result?.impliedVolatility !== undefined
+                        ? formatPercent(
+                            impliedVolatility.result.impliedVolatility,
+                          )
+                        : "--"
+                    }
+                    meta="Annualized BSM sigma"
+                    accent
+                  />
+                  <OptionMetricCard
+                    label="Vol difference"
+                    value={
+                      impliedVolatility.result?.impliedVolatility !== undefined
+                        ? formatPercent(
+                            impliedVolatility.result.impliedVolatility -
+                              pricing.inputs.volatility,
+                          )
+                        : "--"
+                    }
+                    meta="Implied less input vol"
+                  />
+                  <OptionMetricCard
+                    label="Price error"
+                    value={
+                      impliedVolatility.result
+                        ? formatNumber(Math.abs(impliedVolatility.result.priceError))
+                        : "--"
+                    }
+                    meta="Absolute model gap"
+                  />
+                  <OptionMetricCard
+                    label="Iterations"
+                    value={
+                      impliedVolatility.result
+                        ? `${impliedVolatility.result.iterations}`
+                        : "--"
+                    }
+                    meta="Bisection steps"
+                  />
+                </div>
+
+                {impliedVolatility.warning ||
+                impliedVolatility.result?.warning ? (
+                  <div className="rounded-[1.35rem] border border-amber-300/25 bg-amber-300/[0.08] px-4 py-3 text-sm leading-6 text-amber-100">
+                    {impliedVolatility.warning ??
+                      impliedVolatility.result?.warning}
+                  </div>
+                ) : (
+                  <div className="rounded-[1.35rem] border border-emerald-400/20 bg-emerald-400/[0.08] px-4 py-3 text-sm leading-6 text-emerald-100">
+                    Market price is inside the European no-arbitrage bounds and
+                    the bisection solver matched the BSM price within tolerance.
+                  </div>
+                )}
+
+                {isAmerican ? (
+                  <NoteCard
+                    title="European reference"
+                    body="American exercise changes the pricing model. This implied volatility is the European BSM volatility that matches the entered market price under the same contract inputs."
+                  />
+                ) : null}
+              </div>
+            </Card>
+          </div>
         </div>
       ) : null}
 
