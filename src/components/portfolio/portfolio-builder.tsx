@@ -2,11 +2,13 @@
 
 import { useMemo, useState, type FormEvent } from "react";
 import { Card } from "@/components/card";
+import { PortfolioAllocationSummary } from "@/components/portfolio/portfolio-allocation-summary";
 import { PortfolioAssetsTable } from "@/components/portfolio/portfolio-assets-table";
 import { PortfolioDrawdownChart } from "@/components/portfolio/portfolio-drawdown-chart";
 import { PortfolioGrowthChart } from "@/components/portfolio/portfolio-growth-chart";
 import { PortfolioSummary } from "@/components/portfolio/portfolio-summary";
 import { SurfaceCard } from "@/components/ui/surface-card";
+import { buildAssetClassAllocation } from "@/lib/finance/portfolio/allocation";
 import { buildPortfolioDrawdownPoints } from "@/lib/finance/portfolio/drawdowns";
 import { calculatePortfolioMetrics } from "@/lib/finance/portfolio/metrics";
 import {
@@ -50,7 +52,7 @@ export function PortfolioBuilder() {
     MODERATE_GROWTH_ATHLETE_PORTFOLIO.period,
   );
   const [assetRows, setAssetRows] = useState<EditableAssetRow[]>(
-    createRowsFromAssets(MODERATE_GROWTH_ATHLETE_PORTFOLIO.assets),
+    createRowsFromAssets(MODERATE_GROWTH_ATHLETE_PORTFOLIO.holdings),
   );
   const [analysis, setAnalysis] = useState<PortfolioAnalysis | null>(null);
   const [validationMessage, setValidationMessage] = useState<string | null>(null);
@@ -75,6 +77,10 @@ export function PortfolioBuilder() {
       }),
     [initialCapital, portfolioAssets],
   );
+  const allocation = useMemo(
+    () => buildAssetClassAllocation(portfolioAssets),
+    [portfolioAssets],
+  );
 
   function applyPreset() {
     setPortfolioName(MODERATE_GROWTH_ATHLETE_PORTFOLIO.name);
@@ -82,7 +88,8 @@ export function PortfolioBuilder() {
       MODERATE_GROWTH_ATHLETE_PORTFOLIO.initialCapital.toString(),
     );
     setPeriod(MODERATE_GROWTH_ATHLETE_PORTFOLIO.period);
-    setAssetRows(createRowsFromAssets(MODERATE_GROWTH_ATHLETE_PORTFOLIO.assets));
+    setAssetRows(createRowsFromAssets(MODERATE_GROWTH_ATHLETE_PORTFOLIO.holdings));
+    setAnalysis(null);
     setValidationMessage(null);
     setRequestMessage(null);
   }
@@ -112,6 +119,7 @@ export function PortfolioBuilder() {
         return nextRow;
       }),
     );
+    setAnalysis(null);
     setValidationMessage(null);
   }
 
@@ -132,10 +140,12 @@ export function PortfolioBuilder() {
         weight: "",
       },
     ]);
+    setAnalysis(null);
   }
 
   function removeAssetRow(id: string) {
     setAssetRows((current) => current.filter((row) => row.id !== id));
+    setAnalysis(null);
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -227,7 +237,7 @@ export function PortfolioBuilder() {
       <Card
         eyebrow="Portfolio setup"
         title="Build a weighted ETF portfolio"
-        description="Define one ETF portfolio, validate the weights, then fetch aligned market history through the same market-data route used by the risk workspace."
+        description="Start from the preset allocation, then edit tickers, asset classes or weights to test custom portfolios."
         tone="elevated"
         actions={
           <span
@@ -256,7 +266,10 @@ export function PortfolioBuilder() {
                   <input
                     type="text"
                     value={portfolioName}
-                    onChange={(event) => setPortfolioName(event.target.value)}
+                    onChange={(event) => {
+                      setPortfolioName(event.target.value);
+                      setAnalysis(null);
+                    }}
                     className="mt-3 w-full rounded-[1.15rem] border border-white/10 bg-slate-950/75 px-4 py-3 text-sm text-white outline-none transition focus:border-accent/60"
                   />
                 </label>
@@ -273,6 +286,7 @@ export function PortfolioBuilder() {
                     onChange={(event) => {
                       setInitialCapital(event.target.value);
                       setValidationMessage(null);
+                      setAnalysis(null);
                     }}
                     className="mt-3 w-full rounded-[1.15rem] border border-white/10 bg-slate-950/75 px-4 py-3 text-sm text-white outline-none transition focus:border-accent/60"
                   />
@@ -289,7 +303,10 @@ export function PortfolioBuilder() {
                       <button
                         key={option}
                         type="button"
-                        onClick={() => setPeriod(option)}
+                        onClick={() => {
+                          setPeriod(option);
+                          setAnalysis(null);
+                        }}
                         className={cn(
                           "rounded-[1.05rem] border px-3 py-2.5 text-sm font-semibold transition",
                           period === option
@@ -307,9 +324,14 @@ export function PortfolioBuilder() {
                   onClick={applyPreset}
                   className="rounded-[1.15rem] border border-accent/25 bg-accent/10 px-4 py-3 text-sm font-semibold text-accent-foreground transition hover:border-accent/40 hover:bg-accent/15"
                 >
-                  Moderate Growth Athlete Portfolio
+                  Reset to Moderate Growth Athlete Portfolio
                 </button>
               </div>
+
+              <p className="mt-4 rounded-[1.15rem] border border-white/[0.08] bg-background-muted/75 px-4 py-3 text-sm leading-7 text-foreground-soft">
+                Start from the preset allocation, then edit tickers, asset
+                classes or weights to test custom portfolios.
+              </p>
             </SurfaceCard>
 
             <div className="overflow-x-auto rounded-[1.6rem] border border-white/[0.08] bg-[linear-gradient(180deg,rgba(10,17,26,0.82),rgba(8,13,20,0.72))]">
@@ -424,9 +446,21 @@ export function PortfolioBuilder() {
                 will be added later.
               </p>
             </SurfaceCard>
+
+            <SurfaceCard padding="sm" className="border-white/[0.08]">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-accent-strong/85">
+                Preset posture
+              </p>
+              <p className="mt-3 text-sm leading-7 text-foreground-soft">
+                The page opens with a complete professional model portfolio, but
+                every row remains editable for custom ETF tests.
+              </p>
+            </SurfaceCard>
           </div>
         </form>
       </Card>
+
+      <PortfolioAllocationSummary allocation={allocation} />
 
       <PortfolioSummary analysis={analysis} />
 

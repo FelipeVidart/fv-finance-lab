@@ -32,7 +32,7 @@ export function validatePortfolioInputs(input: {
   const normalizedAssets = input.assets.map((asset) => ({
     ...asset,
     ticker: asset.ticker.trim().toUpperCase(),
-    assetClass: asset.assetClass.trim() || "Unclassified",
+    assetClass: asset.assetClass.trim(),
   }));
 
   const invalidTicker = normalizedAssets.find((asset) => asset.ticker === "");
@@ -42,6 +42,18 @@ export function validatePortfolioInputs(input: {
       isValid: false,
       totalWeight: sumWeights(normalizedAssets),
       error: "Every ETF row needs a ticker.",
+    };
+  }
+
+  const invalidAssetClass = normalizedAssets.find(
+    (asset) => asset.assetClass === "",
+  );
+
+  if (invalidAssetClass) {
+    return {
+      isValid: false,
+      totalWeight: sumWeights(normalizedAssets),
+      error: "Every ETF row needs an asset class label.",
     };
   }
 

@@ -10,7 +10,37 @@ export type PortfolioPreset = {
   name: string;
   initialCapital: number;
   period: MarketDataPeriod;
-  assets: PortfolioAssetInput[];
+  holdings: PortfolioAssetInput[];
+};
+
+export type BroadAssetCategory =
+  | "Equity"
+  | "Fixed Income"
+  | "Alternatives"
+  | "Cash"
+  | "Other";
+
+export type AssetClassAllocationRow = {
+  assetClass: string;
+  broadCategory: BroadAssetCategory;
+  weight: number;
+  holdingCount: number;
+  tickers: string[];
+};
+
+export type BroadAllocationRow = {
+  category: BroadAssetCategory;
+  weight: number;
+  holdingCount: number;
+  assetClassCount: number;
+};
+
+export type AssetClassAllocationSummary = {
+  assetClasses: AssetClassAllocationRow[];
+  broadCategories: BroadAllocationRow[];
+  totalWeight: number;
+  groupedWeight: number;
+  isWeightConsistent: boolean;
 };
 
 export type PortfolioValidationResult =

@@ -4,7 +4,7 @@ export const MODERATE_GROWTH_ATHLETE_PORTFOLIO: PortfolioPreset = {
   name: "Moderate Growth Athlete Portfolio",
   initialCapital: 100000,
   period: "1Y",
-  assets: [
+  holdings: [
     { ticker: "IVV", assetClass: "US Large Cap Equity", weight: 30 },
     { ticker: "IJR", assetClass: "US Small Cap Equity", weight: 14 },
     { ticker: "IEV", assetClass: "Developed Markets ex-US Equity", weight: 8 },
@@ -19,7 +19,7 @@ export const MODERATE_GROWTH_ATHLETE_PORTFOLIO: PortfolioPreset = {
 };
 
 export const PORTFOLIO_ASSET_CLASS_BY_TICKER = Object.fromEntries(
-  MODERATE_GROWTH_ATHLETE_PORTFOLIO.assets.map((asset) => [
+  MODERATE_GROWTH_ATHLETE_PORTFOLIO.holdings.map((asset) => [
     asset.ticker,
     asset.assetClass,
   ]),
