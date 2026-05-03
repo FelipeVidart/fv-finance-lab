@@ -5,6 +5,7 @@ import { Card } from "@/components/card";
 import { PortfolioAllocationSummary } from "@/components/portfolio/portfolio-allocation-summary";
 import { PortfolioAssetsTable } from "@/components/portfolio/portfolio-assets-table";
 import { PortfolioBenchmarkComparison } from "@/components/portfolio/portfolio-benchmark-comparison";
+import { PortfolioDrawdownAnalysis } from "@/components/portfolio/portfolio-drawdown-analysis";
 import { PortfolioDrawdownChart } from "@/components/portfolio/portfolio-drawdown-chart";
 import { PortfolioGrowthChart } from "@/components/portfolio/portfolio-growth-chart";
 import { PortfolioSummary } from "@/components/portfolio/portfolio-summary";
@@ -17,6 +18,7 @@ import {
   resolveBenchmarkDefinition,
   validateBenchmarkDefinition,
 } from "@/lib/finance/portfolio/benchmark";
+import { buildDrawdownAnalysis } from "@/lib/finance/portfolio/drawdown-periods";
 import { buildPortfolioDrawdownPoints } from "@/lib/finance/portfolio/drawdowns";
 import { calculatePortfolioMetrics } from "@/lib/finance/portfolio/metrics";
 import {
@@ -229,6 +231,7 @@ export function PortfolioBuilder() {
         initialCapital: Number(initialCapital),
       });
       const drawdownPoints = buildPortfolioDrawdownPoints(performancePoints);
+      const drawdownAnalysis = buildDrawdownAnalysis(performancePoints);
       const metrics = calculatePortfolioMetrics({
         performancePoints,
         dailyReturns,
@@ -256,6 +259,7 @@ export function PortfolioBuilder() {
         assets: assetAnalytics,
         performancePoints,
         drawdownPoints,
+        drawdownAnalysis,
         dailyReturns,
         metrics,
         benchmarkComparison: benchmarkResult.comparison,
@@ -656,18 +660,22 @@ export function PortfolioBuilder() {
         </form>
       </Card>
 
-      <PortfolioAllocationSummary allocation={allocation} />
-
       <PortfolioSummary analysis={analysis} />
 
       {analysis ? (
-        <div className="grid gap-4 xl:grid-cols-2">
-          <PortfolioGrowthChart analysis={analysis} />
-          <PortfolioDrawdownChart analysis={analysis} />
-        </div>
+        <>
+          <div className="grid gap-4 xl:grid-cols-2">
+            <PortfolioGrowthChart analysis={analysis} />
+            <PortfolioDrawdownChart analysis={analysis} />
+          </div>
+
+          <PortfolioDrawdownAnalysis analysis={analysis} />
+        </>
       ) : null}
 
       <PortfolioBenchmarkComparison analysis={analysis} />
+
+      <PortfolioAllocationSummary allocation={allocation} />
 
       <PortfolioAssetsTable analysis={analysis} />
     </div>
