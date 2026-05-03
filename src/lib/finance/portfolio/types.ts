@@ -6,8 +6,17 @@ export type PortfolioAssetInput = {
   weight: number;
 };
 
+export type PortfolioRiskLevel =
+  | "Conservative"
+  | "Balanced"
+  | "Growth"
+  | "Aggressive";
+
 export type PortfolioPreset = {
+  id: string;
   name: string;
+  description: string;
+  riskLevel: PortfolioRiskLevel;
   initialCapital: number;
   period: MarketDataPeriod;
   holdings: PortfolioAssetInput[];
