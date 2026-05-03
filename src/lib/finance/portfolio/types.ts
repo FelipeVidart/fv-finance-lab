@@ -43,6 +43,66 @@ export type AssetClassAllocationSummary = {
   isWeightConsistent: boolean;
 };
 
+export type BenchmarkSelectionId =
+  | "none"
+  | "spy"
+  | "acwi"
+  | "agg"
+  | "sixtyForty"
+  | "custom";
+
+export type BenchmarkDefinition = {
+  id: BenchmarkSelectionId;
+  label: string;
+  description: string;
+} & (
+  | {
+      type: "none";
+    }
+  | {
+      type: "singleTicker";
+      ticker: string;
+    }
+  | {
+      type: "customTicker";
+      ticker: string;
+    }
+  | {
+      type: "weightedPortfolio";
+      holdings: Array<{
+        ticker: string;
+        weight: number;
+      }>;
+    }
+);
+
+export type BenchmarkComparisonMetrics = {
+  portfolioCagr: number;
+  benchmarkCagr: number;
+  activeReturn: number;
+  portfolioAnnualizedVolatility: number;
+  benchmarkAnnualizedVolatility: number;
+  portfolioMaxDrawdown: number;
+  benchmarkMaxDrawdown: number;
+  trackingError: number | null;
+  informationRatio: number | null;
+  correlation: number | null;
+  beta: number | null;
+  alpha: number | null;
+};
+
+export type BenchmarkComparison = {
+  benchmark: BenchmarkDefinition;
+  comparisonStartDate: string;
+  comparisonEndDate: string;
+  observations: number;
+  portfolioGrowthPoints: PortfolioPerformancePoint[];
+  benchmarkGrowthPoints: PortfolioPerformancePoint[];
+  portfolioDrawdownPoints: PortfolioDrawdownPoint[];
+  benchmarkDrawdownPoints: PortfolioDrawdownPoint[];
+  metrics: BenchmarkComparisonMetrics;
+};
+
 export type PortfolioValidationResult =
   | {
       isValid: true;
@@ -104,4 +164,6 @@ export type PortfolioAnalysis = {
   drawdownPoints: PortfolioDrawdownPoint[];
   dailyReturns: number[];
   metrics: PortfolioMetrics;
+  benchmarkComparison?: BenchmarkComparison;
+  benchmarkWarning?: string;
 };
