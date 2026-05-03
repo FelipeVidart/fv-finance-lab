@@ -20,7 +20,9 @@ import {
 import { buildPortfolioDrawdownPoints } from "@/lib/finance/portfolio/drawdowns";
 import { calculatePortfolioMetrics } from "@/lib/finance/portfolio/metrics";
 import {
-  MODERATE_GROWTH_ATHLETE_PORTFOLIO,
+  DEFAULT_PORTFOLIO_PRESET,
+  DEFAULT_PORTFOLIO_PRESET_ID,
+  PORTFOLIO_PRESETS,
   PORTFOLIO_ASSET_CLASS_BY_TICKER,
 } from "@/lib/finance/portfolio/presets";
 import {
@@ -33,6 +35,7 @@ import type {
   BenchmarkSelectionId,
   PortfolioAnalysis,
   PortfolioAssetInput,
+  PortfolioPreset,
 } from "@/lib/finance/portfolio/types";
 import type {
   MarketDataExplorerPayload,
@@ -53,17 +56,20 @@ const MAX_PORTFOLIO_TICKERS = 10;
 const DEFAULT_BENCHMARK_ID: BenchmarkSelectionId = "sixtyForty";
 
 export function PortfolioBuilder() {
+  const [selectedPresetId, setSelectedPresetId] = useState(
+    DEFAULT_PORTFOLIO_PRESET_ID,
+  );
   const [portfolioName, setPortfolioName] = useState(
-    MODERATE_GROWTH_ATHLETE_PORTFOLIO.name,
+    DEFAULT_PORTFOLIO_PRESET.name,
   );
   const [initialCapital, setInitialCapital] = useState(
-    MODERATE_GROWTH_ATHLETE_PORTFOLIO.initialCapital.toString(),
+    DEFAULT_PORTFOLIO_PRESET.initialCapital.toString(),
   );
   const [period, setPeriod] = useState<MarketDataPeriod>(
-    MODERATE_GROWTH_ATHLETE_PORTFOLIO.period,
+    DEFAULT_PORTFOLIO_PRESET.period,
   );
   const [assetRows, setAssetRows] = useState<EditableAssetRow[]>(
-    createRowsFromAssets(MODERATE_GROWTH_ATHLETE_PORTFOLIO.holdings),
+    createRowsFromAssets(DEFAULT_PORTFOLIO_PRESET.holdings),
   );
   const [benchmarkId, setBenchmarkId] =
     useState<BenchmarkSelectionId>(DEFAULT_BENCHMARK_ID);
@@ -103,16 +109,19 @@ export function PortfolioBuilder() {
       }),
     [benchmarkId, customBenchmarkTicker],
   );
+  const selectedPreset = useMemo(
+    () =>
+      PORTFOLIO_PRESETS.find((preset) => preset.id === selectedPresetId) ??
+      DEFAULT_PORTFOLIO_PRESET,
+    [selectedPresetId],
+  );
 
-  function applyPreset() {
-    setPortfolioName(MODERATE_GROWTH_ATHLETE_PORTFOLIO.name);
-    setInitialCapital(
-      MODERATE_GROWTH_ATHLETE_PORTFOLIO.initialCapital.toString(),
-    );
-    setPeriod(MODERATE_GROWTH_ATHLETE_PORTFOLIO.period);
-    setAssetRows(createRowsFromAssets(MODERATE_GROWTH_ATHLETE_PORTFOLIO.holdings));
-    setBenchmarkId(DEFAULT_BENCHMARK_ID);
-    setCustomBenchmarkTicker("");
+  function loadPortfolioPreset(preset: PortfolioPreset) {
+    setSelectedPresetId(preset.id);
+    setPortfolioName(preset.name);
+    setInitialCapital(preset.initialCapital.toString());
+    setPeriod(preset.period);
+    setAssetRows(createRowsFromAssets(preset.holdings));
     setAnalysis(null);
     setValidationMessage(null);
     setRequestMessage(null);
@@ -325,7 +334,7 @@ export function PortfolioBuilder() {
       <Card
         eyebrow="Portfolio setup"
         title="Build a weighted ETF portfolio"
-        description="Start from the preset allocation, then edit tickers, asset classes or weights to test custom portfolios."
+        description="Start from a model portfolio by risk level, then customize the allocation."
         tone="elevated"
         actions={
           <span
@@ -345,6 +354,57 @@ export function PortfolioBuilder() {
           className="grid gap-4 xl:grid-cols-[minmax(0,1.25fr)_minmax(21rem,0.75fr)]"
         >
           <div className="space-y-4">
+            <SurfaceCard padding="sm" className="border-white/[0.08]">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-accent-strong/85">
+                    Model portfolio
+                  </p>
+                  <p className="mt-2 text-sm leading-7 text-foreground-soft">
+                    Choose a risk-profile preset, then edit tickers, asset
+                    classes, or weights to test custom allocations.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => loadPortfolioPreset(selectedPreset)}
+                  className="rounded-[1.15rem] border border-accent/25 bg-accent/10 px-4 py-3 text-sm font-semibold text-accent-foreground transition hover:border-accent/40 hover:bg-accent/15"
+                >
+                  Reset selected preset
+                </button>
+              </div>
+
+              <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                {PORTFOLIO_PRESETS.map((preset) => {
+                  const isActive = selectedPresetId === preset.id;
+
+                  return (
+                    <button
+                      key={preset.id}
+                      type="button"
+                      onClick={() => loadPortfolioPreset(preset)}
+                      className={cn(
+                        "rounded-[1.3rem] border px-4 py-4 text-left transition",
+                        isActive
+                          ? "border-accent/35 bg-accent/10 text-accent-foreground"
+                          : "border-white/[0.08] bg-background-muted/75 text-foreground hover:border-accent/25 hover:bg-accent/10",
+                      )}
+                    >
+                      <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-foreground-subtle">
+                        {preset.riskLevel}
+                      </span>
+                      <span className="mt-3 block text-sm font-semibold text-foreground">
+                        {preset.name}
+                      </span>
+                      <span className="mt-2 block text-xs leading-6 text-foreground-muted">
+                        {preset.description}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </SurfaceCard>
+
             <SurfaceCard padding="sm" className="border-white/[0.08]">
               <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_13rem]">
                 <label className="block">
@@ -381,7 +441,7 @@ export function PortfolioBuilder() {
                 </label>
               </div>
 
-              <div className="mt-5 grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
+              <div className="mt-5 grid gap-4 lg:grid-cols-[minmax(0,1fr)] lg:items-end">
                 <div>
                   <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-accent-strong/85">
                     Lookback window
@@ -407,18 +467,11 @@ export function PortfolioBuilder() {
                     ))}
                   </div>
                 </div>
-                <button
-                  type="button"
-                  onClick={applyPreset}
-                  className="rounded-[1.15rem] border border-accent/25 bg-accent/10 px-4 py-3 text-sm font-semibold text-accent-foreground transition hover:border-accent/40 hover:bg-accent/15"
-                >
-                  Reset to Moderate Growth Athlete Portfolio
-                </button>
               </div>
 
               <p className="mt-4 rounded-[1.15rem] border border-white/[0.08] bg-background-muted/75 px-4 py-3 text-sm leading-7 text-foreground-soft">
-                Start from the preset allocation, then edit tickers, asset
-                classes or weights to test custom portfolios.
+                Analyze allocation, risk, return, and drawdowns over the
+                available historical period.
               </p>
             </SurfaceCard>
 
@@ -595,8 +648,8 @@ export function PortfolioBuilder() {
                 Preset posture
               </p>
               <p className="mt-3 text-sm leading-7 text-foreground-soft">
-                The page opens with a complete professional model portfolio, but
-                every row remains editable for custom ETF tests.
+                The page opens with the Balanced 60/40 Portfolio, and every row
+                remains editable for custom ETF tests.
               </p>
             </SurfaceCard>
           </div>
