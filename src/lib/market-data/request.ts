@@ -2,6 +2,7 @@ import type { MarketDataPeriod } from "@/lib/market-data/types";
 
 const PERIODS = ["1M", "3M", "6M", "1Y"] as const satisfies readonly MarketDataPeriod[];
 const TICKER_PATTERN = /^[A-Z][A-Z0-9.-]{0,9}$/;
+const DEFAULT_MAX_TICKERS = 5;
 
 const PERIOD_MONTHS: Record<MarketDataPeriod, number> = {
   "1M": 1,
@@ -14,14 +15,15 @@ export function isMarketDataPeriod(value: string): value is MarketDataPeriod {
   return PERIODS.includes(value as MarketDataPeriod);
 }
 
-export function parseTickerInput(rawValue: string): {
+export function parseTickerInput(rawValue: string, options?: { maxTickers?: number }): {
   tickers?: string[];
   error?: string;
 } {
+  const maxTickers = options?.maxTickers ?? DEFAULT_MAX_TICKERS;
   const trimmed = rawValue.trim();
 
   if (!trimmed) {
-    return { error: "Enter between 1 and 5 tickers." };
+    return { error: `Enter between 1 and ${maxTickers} tickers.` };
   }
 
   const candidates = trimmed
@@ -30,13 +32,13 @@ export function parseTickerInput(rawValue: string): {
     .filter(Boolean);
 
   if (candidates.length === 0) {
-    return { error: "Enter between 1 and 5 tickers." };
+    return { error: `Enter between 1 and ${maxTickers} tickers.` };
   }
 
   const uniqueTickers = [...new Set(candidates)];
 
-  if (uniqueTickers.length > 5) {
-    return { error: "Use at most 5 unique tickers." };
+  if (uniqueTickers.length > maxTickers) {
+    return { error: `Use at most ${maxTickers} unique tickers.` };
   }
 
   const invalidTicker = uniqueTickers.find(

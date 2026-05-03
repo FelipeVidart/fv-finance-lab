@@ -23,8 +23,8 @@ export default function ToolsLayout({
               <p className="max-w-2xl text-lg leading-8 text-foreground-soft">
                 The tools layer is the operational side of FV Finance Lab. It
                 groups workflows by what a user is actually trying to do, from
-                derivatives pricing to portfolio risk review and fixed-income
-                analysis.
+                derivatives pricing to portfolio risk review, ETF portfolio
+                management, and fixed-income analysis.
               </p>
             </div>
           </div>
@@ -53,8 +53,8 @@ export default function ToolsLayout({
                 Current scope
               </p>
               <p className="mt-4 text-sm leading-7 text-foreground-soft">
-                Options, risk, and bonds define the first layer of the working
-                platform.
+                Options, risk, portfolio, and bonds define the first layer of
+                the working platform.
               </p>
             </SurfaceCard>
           </div>
@@ -84,6 +84,10 @@ export default function ToolsLayout({
               <WorkspaceNote
                 title="Risk"
                 body="Market data setup, asset analytics, portfolio construction, and portfolio review."
+              />
+              <WorkspaceNote
+                title="Portfolio"
+                body="ETF allocation, aligned historical backtests, and portfolio-level risk/return metrics."
               />
               <WorkspaceNote
                 title="Bonds"

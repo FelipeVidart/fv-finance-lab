@@ -16,13 +16,18 @@ export async function GET(
   const { searchParams } = new URL(request.url);
   const tickersParam = searchParams.get("tickers") ?? "";
   const periodParam = searchParams.get("period") ?? "6M";
-  const parsedTickers = parseTickerInput(tickersParam);
+  const maxTickersParam = Number(searchParams.get("maxTickers") ?? "5");
+  const maxTickers =
+    Number.isInteger(maxTickersParam) && maxTickersParam >= 1
+      ? Math.min(maxTickersParam, 10)
+      : 5;
+  const parsedTickers = parseTickerInput(tickersParam, { maxTickers });
 
   if (!parsedTickers.tickers) {
     return NextResponse.json(
       {
         ok: false,
-        error: parsedTickers.error ?? "Enter between 1 and 5 tickers.",
+        error: parsedTickers.error ?? `Enter between 1 and ${maxTickers} tickers.`,
       },
       { status: 400 },
     );
