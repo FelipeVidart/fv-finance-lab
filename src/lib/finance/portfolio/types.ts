@@ -112,6 +112,35 @@ export type BenchmarkComparison = {
   metrics: BenchmarkComparisonMetrics;
 };
 
+export type DrawdownEpisode = {
+  rank: number;
+  startDate: string;
+  troughDate: string;
+  endDate: string;
+  recoveryDate: string | null;
+  lengthDays: number;
+  recoveryDays: number | null;
+  underwaterDays: number;
+  maxDrawdown: number;
+  startBalance: number;
+  troughBalance: number;
+  recoveryBalance: number | null;
+};
+
+export type CurrentDrawdownStatus = {
+  isRecovered: boolean;
+  currentDrawdown: number;
+  underwaterDays: number;
+  startDate: string | null;
+};
+
+export type DrawdownAnalysis = {
+  episodes: DrawdownEpisode[];
+  worstDrawdown: DrawdownEpisode | null;
+  longestUnderwater: DrawdownEpisode | null;
+  currentStatus: CurrentDrawdownStatus;
+};
+
 export type PortfolioValidationResult =
   | {
       isValid: true;
@@ -171,6 +200,7 @@ export type PortfolioAnalysis = {
   assets: PortfolioAssetAnalytics[];
   performancePoints: PortfolioPerformancePoint[];
   drawdownPoints: PortfolioDrawdownPoint[];
+  drawdownAnalysis: DrawdownAnalysis;
   dailyReturns: number[];
   metrics: PortfolioMetrics;
   benchmarkComparison?: BenchmarkComparison;
