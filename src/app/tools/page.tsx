@@ -33,6 +33,21 @@ const toolCards = [
     gridClassName: "xl:col-span-4",
   },
   {
+    key: "portfolio",
+    href: "/tools/portfolio",
+    eyebrow: "Portfolio",
+    title: "ETF portfolio construction and backtesting",
+    description:
+      "A focused workspace for building weighted ETF portfolios, aligning market history, and reading portfolio-level performance and risk outputs.",
+    summary:
+      "Starts with one portfolio, fixed target weights, aligned historical returns, and core risk/return metrics.",
+    tags: ["ETF Allocation", "Backtest", "CAGR", "Drawdown"],
+    action: "Open portfolio lab",
+    icon: "portfolio" as const,
+    tone: "default" as const,
+    gridClassName: "xl:col-span-5",
+  },
+  {
     key: "bonds",
     href: "/tools/bonds",
     eyebrow: "Bonds",
@@ -75,7 +90,7 @@ const workspacePrinciples = [
 const bottomStrip = [
   {
     label: "Workspace modules",
-    value: "Options, Risk, Bonds",
+    value: "Options, Risk, Portfolio, Bonds",
   },
   {
     label: "Navigation model",
@@ -87,7 +102,7 @@ const bottomStrip = [
   },
   {
     label: "Next depth",
-    value: "Richer internal module refinement",
+    value: "Deeper portfolio and fixed-income workflows",
   },
 ] as const;
 
@@ -119,7 +134,7 @@ export default function ToolsPage() {
               />
               <WorkspaceStat
                 label="Current scope"
-                value="Derivatives, risk, and fixed income"
+                value="Derivatives, risk, portfolio, and fixed income"
               />
               <WorkspaceStat
                 label="Product direction"
@@ -298,7 +313,11 @@ function BottomStripCell({
   );
 }
 
-function ToolIcon({ kind }: { kind: "options" | "risk" | "bonds" }) {
+function ToolIcon({
+  kind,
+}: {
+  kind: "options" | "risk" | "portfolio" | "bonds";
+}) {
   if (kind === "options") {
     return (
       <svg viewBox="0 0 20 20" fill="none" className="h-4.5 w-4.5">
@@ -318,6 +337,20 @@ function ToolIcon({ kind }: { kind: "options" | "risk" | "bonds" }) {
       <svg viewBox="0 0 20 20" fill="none" className="h-4.5 w-4.5">
         <path
           d="M4.25 14.75V10m3.75 4.75V6.75m3.75 8V9m3.75 5.75V4.75M3.5 15.25h13"
+          stroke="currentColor"
+          strokeWidth="1.3"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
+    );
+  }
+
+  if (kind === "portfolio") {
+    return (
+      <svg viewBox="0 0 20 20" fill="none" className="h-4.5 w-4.5">
+        <path
+          d="M4.25 14.75 8 11l2.75 2.75 5-6M4.25 5.5h11.5M4.25 9.25h3.25"
           stroke="currentColor"
           strokeWidth="1.3"
           strokeLinecap="round"
