@@ -4,11 +4,19 @@ import { useMemo, useState, type FormEvent } from "react";
 import { Card } from "@/components/card";
 import { PortfolioAllocationSummary } from "@/components/portfolio/portfolio-allocation-summary";
 import { PortfolioAssetsTable } from "@/components/portfolio/portfolio-assets-table";
+import { PortfolioBenchmarkComparison } from "@/components/portfolio/portfolio-benchmark-comparison";
 import { PortfolioDrawdownChart } from "@/components/portfolio/portfolio-drawdown-chart";
 import { PortfolioGrowthChart } from "@/components/portfolio/portfolio-growth-chart";
 import { PortfolioSummary } from "@/components/portfolio/portfolio-summary";
 import { SurfaceCard } from "@/components/ui/surface-card";
 import { buildAssetClassAllocation } from "@/lib/finance/portfolio/allocation";
+import {
+  BENCHMARK_DEFINITIONS,
+  buildBenchmarkComparison,
+  getBenchmarkTickers,
+  resolveBenchmarkDefinition,
+  validateBenchmarkDefinition,
+} from "@/lib/finance/portfolio/benchmark";
 import { buildPortfolioDrawdownPoints } from "@/lib/finance/portfolio/drawdowns";
 import { calculatePortfolioMetrics } from "@/lib/finance/portfolio/metrics";
 import {
@@ -22,10 +30,12 @@ import {
   validatePortfolioInputs,
 } from "@/lib/finance/portfolio/returns";
 import type {
+  BenchmarkSelectionId,
   PortfolioAnalysis,
   PortfolioAssetInput,
 } from "@/lib/finance/portfolio/types";
 import type {
+  MarketDataExplorerPayload,
   MarketDataPeriod,
   MarketDataRouteResponse,
 } from "@/lib/market-data/types";
@@ -40,6 +50,7 @@ type EditableAssetRow = {
 
 const PERIOD_OPTIONS: MarketDataPeriod[] = ["1M", "3M", "6M", "1Y"];
 const MAX_PORTFOLIO_TICKERS = 10;
+const DEFAULT_BENCHMARK_ID: BenchmarkSelectionId = "sixtyForty";
 
 export function PortfolioBuilder() {
   const [portfolioName, setPortfolioName] = useState(
@@ -54,6 +65,9 @@ export function PortfolioBuilder() {
   const [assetRows, setAssetRows] = useState<EditableAssetRow[]>(
     createRowsFromAssets(MODERATE_GROWTH_ATHLETE_PORTFOLIO.holdings),
   );
+  const [benchmarkId, setBenchmarkId] =
+    useState<BenchmarkSelectionId>(DEFAULT_BENCHMARK_ID);
+  const [customBenchmarkTicker, setCustomBenchmarkTicker] = useState("");
   const [analysis, setAnalysis] = useState<PortfolioAnalysis | null>(null);
   const [validationMessage, setValidationMessage] = useState<string | null>(null);
   const [requestMessage, setRequestMessage] = useState<string | null>(null);
@@ -81,6 +95,14 @@ export function PortfolioBuilder() {
     () => buildAssetClassAllocation(portfolioAssets),
     [portfolioAssets],
   );
+  const benchmarkDefinition = useMemo(
+    () =>
+      resolveBenchmarkDefinition({
+        selectionId: benchmarkId,
+        customTicker: customBenchmarkTicker,
+      }),
+    [benchmarkId, customBenchmarkTicker],
+  );
 
   function applyPreset() {
     setPortfolioName(MODERATE_GROWTH_ATHLETE_PORTFOLIO.name);
@@ -89,6 +111,8 @@ export function PortfolioBuilder() {
     );
     setPeriod(MODERATE_GROWTH_ATHLETE_PORTFOLIO.period);
     setAssetRows(createRowsFromAssets(MODERATE_GROWTH_ATHLETE_PORTFOLIO.holdings));
+    setBenchmarkId(DEFAULT_BENCHMARK_ID);
+    setCustomBenchmarkTicker("");
     setAnalysis(null);
     setValidationMessage(null);
     setRequestMessage(null);
@@ -206,6 +230,12 @@ export function PortfolioBuilder() {
         data: payload.data,
         assets: validation.assets,
       });
+      const benchmarkResult = await loadBenchmarkComparison({
+        definition: benchmarkDefinition,
+        portfolioData: payload.data,
+        portfolioDailyReturns: dailyReturns,
+        initialCapital: Number(initialCapital),
+      });
 
       setAnalysis({
         name: portfolioName.trim() || "ETF Portfolio",
@@ -219,6 +249,8 @@ export function PortfolioBuilder() {
         drawdownPoints,
         dailyReturns,
         metrics,
+        benchmarkComparison: benchmarkResult.comparison,
+        benchmarkWarning: benchmarkResult.warning,
       });
     } catch (error) {
       setAnalysis(null);
@@ -229,6 +261,62 @@ export function PortfolioBuilder() {
       );
     } finally {
       setIsLoading(false);
+    }
+  }
+
+  async function loadBenchmarkComparison(input: {
+    definition: typeof benchmarkDefinition;
+    portfolioData: MarketDataExplorerPayload;
+    portfolioDailyReturns: number[];
+    initialCapital: number;
+  }): Promise<{
+    comparison?: PortfolioAnalysis["benchmarkComparison"];
+    warning?: string;
+  }> {
+    if (input.definition.type === "none") {
+      return {};
+    }
+
+    const validationResult = validateBenchmarkDefinition(input.definition);
+
+    if (!validationResult.isValid) {
+      return { warning: validationResult.error };
+    }
+
+    try {
+      const benchmarkTickers = getBenchmarkTickers(input.definition);
+      const url = new URL("/api/market-data", window.location.origin);
+
+      url.searchParams.set("tickers", benchmarkTickers.join(","));
+      url.searchParams.set("period", period);
+      url.searchParams.set("maxTickers", benchmarkTickers.length.toString());
+
+      const response = await fetch(url.toString(), {
+        method: "GET",
+        cache: "no-store",
+      });
+      const payload = (await response.json()) as MarketDataRouteResponse;
+
+      if (!payload.ok) {
+        throw new Error(payload.error);
+      }
+
+      const comparison = buildBenchmarkComparison({
+        benchmark: input.definition,
+        benchmarkData: payload.data,
+        portfolioDates: input.portfolioData.points.map((point) => point.date),
+        portfolioDailyReturns: input.portfolioDailyReturns,
+        initialCapital: input.initialCapital,
+      });
+
+      return { comparison };
+    } catch (error) {
+      return {
+        warning:
+          error instanceof Error
+            ? error.message
+            : "Benchmark data could not be loaded. Portfolio-only results are still available.",
+      };
     }
   }
 
@@ -394,6 +482,61 @@ export function PortfolioBuilder() {
           </div>
 
           <div className="space-y-4">
+            <SurfaceCard padding="sm" className="border-white/[0.08]">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-accent-strong/85">
+                Benchmark
+              </p>
+              <label className="mt-4 block">
+                <span className="text-sm font-semibold text-foreground">
+                  Reference selection
+                </span>
+                <select
+                  value={benchmarkId}
+                  onChange={(event) => {
+                    setBenchmarkId(event.target.value as BenchmarkSelectionId);
+                    setAnalysis(null);
+                    setValidationMessage(null);
+                    setRequestMessage(null);
+                  }}
+                  className="mt-3 w-full rounded-[1.15rem] border border-white/10 bg-slate-950/75 px-4 py-3 text-sm text-white outline-none transition focus:border-accent/60"
+                >
+                  {BENCHMARK_DEFINITIONS.map((definition) => (
+                    <option key={definition.id} value={definition.id}>
+                      {definition.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              {benchmarkId === "custom" ? (
+                <label className="mt-4 block">
+                  <span className="text-sm font-semibold text-foreground">
+                    Custom benchmark ticker
+                  </span>
+                  <input
+                    type="text"
+                    value={customBenchmarkTicker}
+                    onChange={(event) => {
+                      setCustomBenchmarkTicker(event.target.value);
+                      setAnalysis(null);
+                      setValidationMessage(null);
+                      setRequestMessage(null);
+                    }}
+                    placeholder="SPY"
+                    className="mt-3 w-full rounded-[1.15rem] border border-white/10 bg-slate-950/75 px-4 py-3 text-sm text-white outline-none transition focus:border-accent/60"
+                  />
+                </label>
+              ) : null}
+
+              <p className="mt-4 text-sm leading-7 text-foreground-soft">
+                {benchmarkDefinition.description}
+              </p>
+              <p className="mt-3 rounded-[1.15rem] border border-white/[0.08] bg-background-muted/75 px-4 py-3 text-sm leading-7 text-foreground-soft">
+                Benchmark comparison is calculated over the overlapping period
+                shared by the portfolio and benchmark.
+              </p>
+            </SurfaceCard>
+
             <SurfaceCard
               tone={validation.isValid ? "accent" : "elevated"}
               padding="sm"
@@ -470,6 +613,8 @@ export function PortfolioBuilder() {
           <PortfolioDrawdownChart analysis={analysis} />
         </div>
       ) : null}
+
+      <PortfolioBenchmarkComparison analysis={analysis} />
 
       <PortfolioAssetsTable analysis={analysis} />
     </div>
