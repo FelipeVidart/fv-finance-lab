@@ -4,9 +4,11 @@ import {
   setCachedHistoricalPriceResponse,
 } from "@/lib/market-data/cache";
 import {
-  isStooqConfigured,
-  StooqMarketDataProvider,
-} from "@/lib/market-data/providers/stooq";
+  getAutoProviderPriority,
+  getProviderAvailability,
+} from "@/lib/market-data/provider-config";
+import { createMarketDataWarning } from "@/lib/market-data/errors";
+import { StooqMarketDataProvider } from "@/lib/market-data/providers/stooq";
 import { TwelveDataHistoricalPriceProvider } from "@/lib/market-data/providers/twelve-data";
 import { YahooMarketDataProvider } from "@/lib/market-data/providers/yahoo";
 import type { MarketDataProvider } from "@/lib/market-data/providers/types";
@@ -27,12 +29,6 @@ const providers: Record<MarketDataProviderId, MarketDataProvider> = {
   stooq: new StooqMarketDataProvider(),
   twelveData: new TwelveDataHistoricalPriceProvider(),
 };
-
-const AUTO_PROVIDER_ORDER: MarketDataProviderId[] = [
-  "yahoo",
-  "twelveData",
-  "stooq",
-];
 
 export async function getBatchHistoricalPrices(
   request: BatchHistoricalPriceRequest,
@@ -121,11 +117,35 @@ async function getHistoricalPricesForSymbol(input: {
   }
 
   const providerOrder =
-    input.provider === "auto" ? getAutoProviderOrder() : [input.provider];
+    input.provider === "auto" ? getAutoProviderPriority() : [input.provider];
   const warnings: MarketDataWarning[] = [];
   const diagnostics: MarketDataProviderDiagnostic[] = [];
 
   for (const providerId of providerOrder) {
+    const availability = getProviderAvailability(providerId);
+
+    if (!availability?.available) {
+      const warning = createMarketDataWarning({
+        symbol: input.symbol,
+        provider: providerId,
+        code: availability?.requiresApiKey ? "missing_api_key" : "provider_unavailable",
+        message: buildUnavailableProviderMessage(providerId),
+      });
+
+      warnings.push(warning);
+      diagnostics.push({
+        symbol: input.symbol,
+        requestedProvider: input.provider,
+        provider: providerId,
+        sourceSymbol: input.symbol,
+        status: "failure",
+        message: warning.message,
+        observations: 0,
+        cacheHit: false,
+      });
+      continue;
+    }
+
     const provider = providers[providerId];
     const response = await provider.getHistoricalPrices({
       symbol: input.symbol,
@@ -187,12 +207,6 @@ async function getHistoricalPricesForSymbol(input: {
   };
 }
 
-function getAutoProviderOrder(): MarketDataProviderId[] {
-  return AUTO_PROVIDER_ORDER.filter(
-    (providerId) => providerId !== "stooq" || isStooqConfigured(),
-  );
-}
-
 function isValidHistoricalResponse(response: HistoricalPriceResponse): boolean {
   if (response.prices.length < 2) {
     return false;
@@ -204,4 +218,22 @@ function isValidHistoricalResponse(response: HistoricalPriceResponse): boolean {
       Number.isFinite(price.close) &&
       price.close > 0,
   );
+}
+
+function buildUnavailableProviderMessage(providerId: MarketDataProviderId): string {
+  const availability = getProviderAvailability(providerId);
+
+  if (!availability) {
+    return `Provider ${providerId} is not registered.`;
+  }
+
+  if (!availability.implemented) {
+    return `${availability.label} is not implemented yet.`;
+  }
+
+  if (availability.requiresApiKey) {
+    return `${availability.label} requires an API key.`;
+  }
+
+  return `${availability.label} is not available.`;
 }

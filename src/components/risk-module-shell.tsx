@@ -21,6 +21,10 @@ import type {
   MarketDataProviderMode,
   MarketDataRouteResponse,
 } from "@/lib/market-data/types";
+import type {
+  ProviderSelectorOption,
+  SafeProviderConfig,
+} from "@/lib/market-data/provider-config";
 
 const SERIES_COLORS = ["#d2ab67", "#7f95b3", "#608aa7", "#7f709d", "#5f8b7e"];
 const PORTFOLIO_COLOR = "#e2b86b";
@@ -29,9 +33,11 @@ const DEFAULT_PERIOD: MarketDataPeriod = "6M";
 const DEFAULT_PROVIDER: MarketDataProviderMode = "auto";
 
 export function RiskModuleShell({
-  stooqConfigured = false,
+  providerConfigs,
+  providerSelectorOptions,
 }: {
-  stooqConfigured?: boolean;
+  providerConfigs: SafeProviderConfig[];
+  providerSelectorOptions: ProviderSelectorOption[];
 }) {
   const [tickerInput, setTickerInput] = useState(DEFAULT_TICKER_INPUT);
   const [period, setPeriod] = useState<MarketDataPeriod>(DEFAULT_PERIOD);
@@ -526,7 +532,8 @@ export function RiskModuleShell({
           isLoading={isLoading}
           period={period}
           provider={provider}
-          stooqConfigured={stooqConfigured}
+          providerConfigs={providerConfigs}
+          providerSelectorOptions={providerSelectorOptions}
           requestError={requestError}
           statusItems={datasetStatusItems}
           tickerInput={tickerInput}

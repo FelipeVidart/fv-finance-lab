@@ -1,6 +1,18 @@
 export type MarketDataPeriod = "1M" | "3M" | "6M" | "1Y";
 
-export type MarketDataProviderId = "yahoo" | "stooq" | "twelveData";
+export type RegisteredMarketDataProviderId =
+  | "yahoo"
+  | "twelveData"
+  | "stooq"
+  | "fmp"
+  | "tiingo"
+  | "polygon"
+  | "refinitiv";
+
+export type MarketDataProviderId = Extract<
+  RegisteredMarketDataProviderId,
+  "yahoo" | "twelveData" | "stooq"
+>;
 
 export type MarketDataProviderMode = "auto" | MarketDataProviderId;
 

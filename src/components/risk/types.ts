@@ -5,6 +5,10 @@ import type {
   MarketDataPeriod,
   MarketDataProviderMode,
 } from "@/lib/market-data/types";
+import type {
+  ProviderSelectorOption,
+  SafeProviderConfig,
+} from "@/lib/market-data/provider-config";
 import type { LineChartSeries } from "@/components/line-chart-panel";
 
 export type RiskSectionId = "setup" | "asset-analytics" | "portfolio-analytics";
@@ -54,7 +58,8 @@ export type RiskSetupSectionProps = {
   isLoading: boolean;
   period: MarketDataPeriod;
   provider: MarketDataProviderMode;
-  stooqConfigured: boolean;
+  providerConfigs: SafeProviderConfig[];
+  providerSelectorOptions: ProviderSelectorOption[];
   requestError: string | null;
   statusItems: DatasetStatusItem[];
   tickerInput: string;

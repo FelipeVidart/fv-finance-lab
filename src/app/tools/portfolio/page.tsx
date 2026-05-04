@@ -1,5 +1,9 @@
 import { PortfolioBuilder } from "@/components/portfolio/portfolio-builder";
 import { SurfaceCard } from "@/components/ui/surface-card";
+import {
+  getProviderConfigs,
+  getProviderSelectorOptions,
+} from "@/lib/market-data/provider-config";
 
 export const dynamic = "force-dynamic";
 
@@ -36,7 +40,10 @@ export default function PortfolioPage() {
         </div>
       </SurfaceCard>
 
-      <PortfolioBuilder stooqConfigured={Boolean(process.env.STOOQ_API_KEY)} />
+      <PortfolioBuilder
+        providerConfigs={getProviderConfigs()}
+        providerSelectorOptions={getProviderSelectorOptions()}
+      />
     </section>
   );
 }
