@@ -8,12 +8,17 @@ import type {
   HistoricalPriceSeries,
   MarketDataExplorerPayload,
   MarketDataPeriod,
+  MarketDataProviderDiagnostic,
+  MarketDataProviderId,
+  MarketDataWarning,
 } from "@/lib/market-data/types";
 
 export function buildExplorerPayload(input: {
   period: MarketDataPeriod;
   series: HistoricalPriceSeries[];
   provider: string;
+  warnings?: MarketDataWarning[];
+  providerDiagnostics?: MarketDataProviderDiagnostic[];
 }): MarketDataExplorerPayload {
   if (input.series.length === 0) {
     throw new Error("No price series were returned.");
@@ -72,7 +77,43 @@ export function buildExplorerPayload(input: {
       observations: sharedDates.length,
       commonStartDate: sharedDates[0],
       commonEndDate: sharedDates[sharedDates.length - 1],
+      ...(input.warnings ? { warnings: input.warnings } : {}),
+      ...(input.providerDiagnostics
+        ? {
+            providerDiagnostics: input.providerDiagnostics,
+            providers: getResolvedProviders(input.providerDiagnostics),
+            cache: summarizeCache(input.providerDiagnostics),
+          }
+        : {}),
     },
+  };
+}
+
+function getResolvedProviders(
+  diagnostics: MarketDataProviderDiagnostic[],
+): MarketDataProviderId[] {
+  return [
+    ...new Set(
+      diagnostics
+        .filter((diagnostic) =>
+          diagnostic.status === "success" || diagnostic.status === "cache-hit",
+        )
+        .map((diagnostic) => diagnostic.provider),
+    ),
+  ];
+}
+
+function summarizeCache(
+  diagnostics: MarketDataProviderDiagnostic[],
+): { hits: number; misses: number } {
+  const hits = diagnostics.filter((diagnostic) => diagnostic.cacheHit).length;
+  const resolved = diagnostics.filter((diagnostic) =>
+    diagnostic.status === "success" || diagnostic.status === "cache-hit",
+  ).length;
+
+  return {
+    hits,
+    misses: Math.max(0, resolved - hits),
   };
 }
 

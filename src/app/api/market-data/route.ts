@@ -1,11 +1,16 @@
 import { NextResponse } from "next/server";
+import { buildMissingSymbolsMessage } from "@/lib/market-data/errors";
+import {
+  convertBatchToHistoricalSeries,
+  getBatchHistoricalPrices,
+} from "@/lib/market-data/market-data-service";
 import { buildExplorerPayload } from "@/lib/market-data/normalize";
 import {
   isMarketDataPeriod,
+  isMarketDataProviderMode,
   parseTickerInput,
   resolvePeriodDateRange,
 } from "@/lib/market-data/request";
-import { getMarketDataProvider } from "@/lib/market-data/provider";
 import type { MarketDataRouteResponse } from "@/lib/market-data/types";
 
 export const runtime = "nodejs";
@@ -16,6 +21,7 @@ export async function GET(
   const { searchParams } = new URL(request.url);
   const tickersParam = searchParams.get("tickers") ?? "";
   const periodParam = searchParams.get("period") ?? "6M";
+  const providerParam = searchParams.get("provider") ?? "auto";
   const maxTickersParam = Number(searchParams.get("maxTickers") ?? "5");
   const maxTickers =
     Number.isInteger(maxTickersParam) && maxTickersParam >= 1
@@ -43,18 +49,43 @@ export async function GET(
     );
   }
 
+  if (!isMarketDataProviderMode(providerParam)) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error: "Select a supported provider: auto, yahoo, stooq, or twelveData.",
+      },
+      { status: 400 },
+    );
+  }
+
   try {
-    const provider = getMarketDataProvider();
     const { startDate, endDate } = resolvePeriodDateRange(periodParam);
-    const series = await provider.getDailySeries({
-      tickers: parsedTickers.tickers,
+    const batch = await getBatchHistoricalPrices({
+      symbols: parsedTickers.tickers,
       startDate,
       endDate,
+      interval: "1day",
+      provider: providerParam,
     });
+
+    if (batch.missingSymbols.length > 0) {
+      throw new Error(
+        buildMissingSymbolsMessage({
+          symbols: batch.missingSymbols,
+          warnings: batch.warnings,
+          noun: "ticker",
+        }),
+      );
+    }
+
+    const series = convertBatchToHistoricalSeries(batch);
     const payload = buildExplorerPayload({
       period: periodParam,
       series,
-      provider: provider.id,
+      provider: summarizeResolvedProviders(batch.providerDiagnostics),
+      warnings: batch.warnings,
+      providerDiagnostics: batch.providerDiagnostics,
     });
 
     return NextResponse.json({
@@ -75,4 +106,21 @@ export async function GET(
       { status: 502 },
     );
   }
+}
+
+function summarizeResolvedProviders(
+  diagnostics: Array<{ status: string; provider: string }>,
+): string {
+  const providers = [
+    ...new Set(
+      diagnostics
+        .filter(
+          (diagnostic) =>
+            diagnostic.status === "success" || diagnostic.status === "cache-hit",
+        )
+        .map((diagnostic) => diagnostic.provider),
+    ),
+  ];
+
+  return providers.length > 0 ? providers.join(" + ") : "unavailable";
 }

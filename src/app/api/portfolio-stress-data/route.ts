@@ -1,13 +1,17 @@
 import { NextResponse } from "next/server";
-import { getMarketDataProvider } from "@/lib/market-data/provider";
-import { parseTickerInput } from "@/lib/market-data/request";
+import {
+  convertBatchToHistoricalSeries,
+  getBatchHistoricalPrices,
+} from "@/lib/market-data/market-data-service";
+import {
+  isMarketDataProviderMode,
+  isValidDateRange,
+  parseTickerInput,
+} from "@/lib/market-data/request";
 import type {
   StressMarketDataPayload,
   StressMarketDataRouteResponse,
 } from "@/lib/finance/portfolio/types";
-import type { HistoricalPriceSeries } from "@/lib/market-data/types";
-
-const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
 export const runtime = "nodejs";
 
@@ -18,6 +22,7 @@ export async function GET(
   const tickersParam = searchParams.get("tickers") ?? "";
   const startDate = searchParams.get("startDate") ?? "";
   const endDate = searchParams.get("endDate") ?? "";
+  const providerParam = searchParams.get("provider") ?? "auto";
   const maxTickersParam = Number(searchParams.get("maxTickers") ?? "10");
   const maxTickers =
     Number.isInteger(maxTickersParam) && maxTickersParam >= 1
@@ -45,43 +50,38 @@ export async function GET(
     );
   }
 
-  try {
-    const provider = getMarketDataProvider();
-    const results = await Promise.allSettled(
-      parsedTickers.tickers.map(async (ticker) => {
-        const [series] = await provider.getDailySeries({
-          tickers: [ticker],
-          startDate,
-          endDate,
-        });
-
-        return series;
-      }),
+  if (!isMarketDataProviderMode(providerParam)) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error: "Select a supported provider: auto, yahoo, stooq, or twelveData.",
+      },
+      { status: 400 },
     );
-    const series: HistoricalPriceSeries[] = [];
-    const missing: StressMarketDataPayload["missing"] = [];
+  }
 
-    results.forEach((result, index) => {
-      const ticker = parsedTickers.tickers?.[index] ?? "UNKNOWN";
-
-      if (result.status === "fulfilled") {
-        series.push(result.value);
-        return;
-      }
-
-      missing.push({
+  try {
+    const batch = await getBatchHistoricalPrices({
+      symbols: parsedTickers.tickers,
+      startDate,
+      endDate,
+      interval: "1day",
+      provider: providerParam,
+    });
+    const series = convertBatchToHistoricalSeries(batch);
+    const missing: StressMarketDataPayload["missing"] = batch.missingSymbols.map(
+      (ticker) => ({
         ticker,
         error:
-          result.reason instanceof Error
-            ? result.reason.message
-            : "Unable to load daily history for this ticker.",
-      });
-    });
+          batch.warnings.find((warning) => warning.symbol === ticker)?.message ??
+          "Unable to load daily history for this ticker.",
+      }),
+    );
 
     return NextResponse.json({
       ok: true,
       data: {
-        provider: provider.id,
+        provider: summarizeResolvedProviders(batch.providerDiagnostics),
         startDate,
         endDate,
         series,
@@ -104,17 +104,19 @@ export async function GET(
   }
 }
 
-function isValidDateRange(startDate: string, endDate: string): boolean {
-  if (!ISO_DATE_PATTERN.test(startDate) || !ISO_DATE_PATTERN.test(endDate)) {
-    return false;
-  }
+function summarizeResolvedProviders(
+  diagnostics: Array<{ status: string; provider: string }>,
+): string {
+  const providers = [
+    ...new Set(
+      diagnostics
+        .filter(
+          (diagnostic) =>
+            diagnostic.status === "success" || diagnostic.status === "cache-hit",
+        )
+        .map((diagnostic) => diagnostic.provider),
+    ),
+  ];
 
-  const startTime = Date.parse(`${startDate}T00:00:00Z`);
-  const endTime = Date.parse(`${endDate}T00:00:00Z`);
-
-  return (
-    Number.isFinite(startTime) &&
-    Number.isFinite(endTime) &&
-    startTime <= endTime
-  );
+  return providers.length > 0 ? providers.join(" + ") : "unavailable";
 }

@@ -3,15 +3,30 @@ import { RiskDatasetStatusStrip } from "@/components/risk/risk-dataset-status-st
 import { SurfaceCard } from "@/components/ui/surface-card";
 import { cn } from "@/lib/utils";
 import type { RiskSetupSectionProps } from "@/components/risk/types";
-import type { MarketDataPeriod } from "@/lib/market-data/types";
+import type {
+  MarketDataPeriod,
+  MarketDataProviderMode,
+} from "@/lib/market-data/types";
 
 const PERIOD_OPTIONS: MarketDataPeriod[] = ["1M", "3M", "6M", "1Y"];
+const PROVIDER_OPTIONS: Array<{
+  value: MarketDataProviderMode;
+  label: string;
+  requiresStooqConfig?: boolean;
+}> = [
+  { value: "auto", label: "Auto" },
+  { value: "yahoo", label: "Yahoo" },
+  { value: "twelveData", label: "Twelve Data" },
+  { value: "stooq", label: "Stooq - requires API key", requiresStooqConfig: true },
+];
 
 export function RiskSetupSection({
   data,
   inputHint,
   isLoading,
   period,
+  provider,
+  stooqConfigured,
   requestError,
   statusItems,
   tickerInput,
@@ -20,6 +35,7 @@ export function RiskSetupSection({
   weightValidation,
   onApplyEqualWeights,
   onPeriodChange,
+  onProviderChange,
   onSubmit,
   onTickerInputChange,
   onWeightInputChange,
@@ -111,7 +127,7 @@ export function RiskSetupSection({
               </div>
             </SurfaceCard>
 
-            <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(15rem,0.78fr)]">
+            <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(13rem,0.7fr)_minmax(15rem,0.78fr)]">
               <SurfaceCard padding="sm" className="border-white/[0.08]">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-accent-strong/85">
                   Period window
@@ -141,6 +157,34 @@ export function RiskSetupSection({
                     );
                   })}
                 </div>
+              </SurfaceCard>
+
+              <SurfaceCard padding="sm" className="border-white/[0.08]">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-accent-strong/85">
+                  Provider
+                </p>
+                <p className="mt-2 text-sm leading-6 text-foreground-soft">
+                  Auto tries the available no-key historical provider first and
+                  falls back when needed. Data may differ slightly across
+                  providers.
+                </p>
+                <select
+                  value={provider}
+                  onChange={(event) =>
+                    onProviderChange(event.target.value as MarketDataProviderMode)
+                  }
+                  className="mt-4 w-full rounded-[1.15rem] border border-white/10 bg-slate-950/75 px-4 py-3 text-sm text-white outline-none transition focus:border-accent/60"
+                >
+                  {PROVIDER_OPTIONS.map((option) => (
+                    <option
+                      key={option.value}
+                      value={option.value}
+                      disabled={option.requiresStooqConfig && !stooqConfigured}
+                    >
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
               </SurfaceCard>
 
               <SurfaceCard padding="sm" className="border-white/[0.08]">
