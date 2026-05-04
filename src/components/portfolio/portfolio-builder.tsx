@@ -8,6 +8,7 @@ import { PortfolioBenchmarkComparison } from "@/components/portfolio/portfolio-b
 import { PortfolioDrawdownAnalysis } from "@/components/portfolio/portfolio-drawdown-analysis";
 import { PortfolioDrawdownChart } from "@/components/portfolio/portfolio-drawdown-chart";
 import { PortfolioGrowthChart } from "@/components/portfolio/portfolio-growth-chart";
+import { PortfolioStressTests } from "@/components/portfolio/portfolio-stress-tests";
 import { PortfolioSummary } from "@/components/portfolio/portfolio-summary";
 import { SurfaceCard } from "@/components/ui/surface-card";
 import { buildAssetClassAllocation } from "@/lib/finance/portfolio/allocation";
@@ -33,11 +34,16 @@ import {
   calculatePortfolioDailyReturns,
   validatePortfolioInputs,
 } from "@/lib/finance/portfolio/returns";
+import { DEFAULT_STRESS_PERIODS } from "@/lib/finance/portfolio/stress-periods";
+import { buildStressTestAnalysis } from "@/lib/finance/portfolio/stress-testing";
 import type {
   BenchmarkSelectionId,
   PortfolioAnalysis,
   PortfolioAssetInput,
   PortfolioPreset,
+  StressMarketDataPayload,
+  StressMarketDataRouteResponse,
+  StressPeriodDefinition,
 } from "@/lib/finance/portfolio/types";
 import type {
   MarketDataExplorerPayload,
@@ -248,6 +254,15 @@ export function PortfolioBuilder() {
         portfolioDailyReturns: dailyReturns,
         initialCapital: Number(initialCapital),
       });
+      const stressData = await loadStressTestData({
+        holdings: validation.assets,
+        benchmarkDefinition,
+      });
+      const stressTests = buildStressTestAnalysis({
+        holdings: validation.assets,
+        benchmarkDefinition,
+        stressData,
+      });
 
       setAnalysis({
         name: portfolioName.trim() || "ETF Portfolio",
@@ -264,6 +279,7 @@ export function PortfolioBuilder() {
         metrics,
         benchmarkComparison: benchmarkResult.comparison,
         benchmarkWarning: benchmarkResult.warning,
+        stressTests,
       });
     } catch (error) {
       setAnalysis(null);
@@ -329,6 +345,89 @@ export function PortfolioBuilder() {
           error instanceof Error
             ? error.message
             : "Benchmark data could not be loaded. Portfolio-only results are still available.",
+      };
+    }
+  }
+
+  async function loadStressTestData(input: {
+    holdings: PortfolioAssetInput[];
+    benchmarkDefinition: typeof benchmarkDefinition;
+  }) {
+    const holdingTickers = input.holdings.map((holding) => holding.ticker);
+    const benchmarkValidation = validateBenchmarkDefinition(
+      input.benchmarkDefinition,
+    );
+    const benchmarkTickers =
+      input.benchmarkDefinition.type === "none" || !benchmarkValidation.isValid
+        ? []
+        : getBenchmarkTickers(input.benchmarkDefinition);
+
+    return Promise.all(
+      DEFAULT_STRESS_PERIODS.map(async (stressPeriod) => {
+        const [portfolioResult, benchmarkResult] = await Promise.all([
+          fetchStressMarketData({
+            tickers: holdingTickers,
+            stressPeriod,
+          }),
+          benchmarkTickers.length > 0
+            ? fetchStressMarketData({
+                tickers: benchmarkTickers,
+                stressPeriod,
+              })
+            : Promise.resolve({ data: null, error: undefined }),
+        ]);
+
+        return {
+          stressPeriod,
+          portfolioData: portfolioResult.data,
+          portfolioError: portfolioResult.error,
+          benchmarkData: benchmarkResult.data,
+          benchmarkError: benchmarkResult.error,
+        };
+      }),
+    );
+  }
+
+  async function fetchStressMarketData(input: {
+    tickers: string[];
+    stressPeriod: StressPeriodDefinition;
+  }): Promise<{
+    data: StressMarketDataPayload | null;
+    error?: string;
+  }> {
+    if (input.tickers.length === 0) {
+      return {
+        data: null,
+        error: "No tickers were available for this stress period.",
+      };
+    }
+
+    try {
+      const url = new URL("/api/portfolio-stress-data", window.location.origin);
+
+      url.searchParams.set("tickers", input.tickers.join(","));
+      url.searchParams.set("startDate", input.stressPeriod.startDate);
+      url.searchParams.set("endDate", input.stressPeriod.endDate);
+      url.searchParams.set("maxTickers", input.tickers.length.toString());
+
+      const response = await fetch(url.toString(), {
+        method: "GET",
+        cache: "no-store",
+      });
+      const payload = (await response.json()) as StressMarketDataRouteResponse;
+
+      if (!payload.ok) {
+        throw new Error(payload.error);
+      }
+
+      return { data: payload.data };
+    } catch (error) {
+      return {
+        data: null,
+        error:
+          error instanceof Error
+            ? error.message
+            : "Unable to load stress-test market data.",
       };
     }
   }
@@ -670,6 +769,8 @@ export function PortfolioBuilder() {
           </div>
 
           <PortfolioDrawdownAnalysis analysis={analysis} />
+
+          <PortfolioStressTests stressTests={analysis.stressTests.results} />
         </>
       ) : null}
 
