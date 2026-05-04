@@ -1,4 +1,7 @@
-import type { MarketDataPeriod } from "@/lib/market-data/types";
+import type {
+  HistoricalPriceSeries,
+  MarketDataPeriod,
+} from "@/lib/market-data/types";
 
 export type PortfolioAssetInput = {
   ticker: string;
@@ -141,6 +144,73 @@ export type DrawdownAnalysis = {
   currentStatus: CurrentDrawdownStatus;
 };
 
+export type StressCoverageStatus =
+  | "Full coverage"
+  | "Partial coverage"
+  | "Outside available history"
+  | "Insufficient observations"
+  | "Missing required assets";
+
+export type StressPeriodDefinition = {
+  id: string;
+  label: string;
+  startDate: string;
+  endDate: string;
+  description: string;
+  category: string;
+};
+
+export type StressTestResult = {
+  stressPeriod: StressPeriodDefinition;
+  coverageStatus: StressCoverageStatus;
+  coverageNote: string;
+  periodStartUsed: string | null;
+  periodEndUsed: string | null;
+  observations: number;
+  portfolioReturn: number | null;
+  portfolioMaxDrawdown: number | null;
+  benchmarkReturn: number | null;
+  benchmarkMaxDrawdown: number | null;
+  activeReturn: number | null;
+  bestAssetTicker: string | null;
+  bestAssetReturn: number | null;
+  worstAssetTicker: string | null;
+  worstAssetReturn: number | null;
+  availableAssets: string[];
+  missingAssets: string[];
+};
+
+export type StressTestAnalysis = {
+  results: StressTestResult[];
+};
+
+export type StressMarketDataMissingTicker = {
+  ticker: string;
+  error: string;
+};
+
+export type StressMarketDataPayload = {
+  provider: string;
+  startDate: string;
+  endDate: string;
+  series: HistoricalPriceSeries[];
+  missing: StressMarketDataMissingTicker[];
+};
+
+export type StressMarketDataRouteSuccess = {
+  ok: true;
+  data: StressMarketDataPayload;
+};
+
+export type StressMarketDataRouteError = {
+  ok: false;
+  error: string;
+};
+
+export type StressMarketDataRouteResponse =
+  | StressMarketDataRouteSuccess
+  | StressMarketDataRouteError;
+
 export type PortfolioValidationResult =
   | {
       isValid: true;
@@ -205,4 +275,5 @@ export type PortfolioAnalysis = {
   metrics: PortfolioMetrics;
   benchmarkComparison?: BenchmarkComparison;
   benchmarkWarning?: string;
+  stressTests: StressTestAnalysis;
 };
