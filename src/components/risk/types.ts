@@ -3,6 +3,7 @@ import type { PortfolioAnalytics } from "@/lib/finance/portfolio";
 import type {
   MarketDataExplorerPayload,
   MarketDataPeriod,
+  MarketDataProviderMode,
 } from "@/lib/market-data/types";
 import type { LineChartSeries } from "@/components/line-chart-panel";
 
@@ -52,6 +53,8 @@ export type RiskSetupSectionProps = {
   inputHint: string;
   isLoading: boolean;
   period: MarketDataPeriod;
+  provider: MarketDataProviderMode;
+  stooqConfigured: boolean;
   requestError: string | null;
   statusItems: DatasetStatusItem[];
   tickerInput: string;
@@ -60,6 +63,7 @@ export type RiskSetupSectionProps = {
   weightValidation: WeightValidationState | null;
   onApplyEqualWeights: () => void;
   onPeriodChange: (period: MarketDataPeriod) => void;
+  onProviderChange: (provider: MarketDataProviderMode) => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
   onTickerInputChange: (value: string) => void;
   onWeightInputChange: (ticker: string, value: string) => void;

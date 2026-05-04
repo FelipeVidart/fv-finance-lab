@@ -74,6 +74,19 @@ export function PortfolioSummary({ analysis }: PortfolioSummaryProps) {
           <SummaryLine label="Common start" value={formatDate(analysis.commonStartDate)} />
           <SummaryLine label="Common end" value={formatDate(analysis.commonEndDate)} />
           <SummaryLine label="Observations" value={analysis.observations.toString()} />
+          <SummaryLine label="Provider" value={formatProviderLabel(analysis.provider)} />
+          <SummaryLine
+            label="Warnings"
+            value={(analysis.providerWarnings?.length ?? 0).toString()}
+          />
+          <SummaryLine
+            label="Cache"
+            value={
+              analysis.providerCache
+                ? `${analysis.providerCache.hits} hit / ${analysis.providerCache.misses} miss`
+                : "N/A"
+            }
+          />
           <SummaryLine
             label="Best / worst year"
             value={`${formatYearReturn(analysis.metrics.bestYear)} / ${formatYearReturn(
@@ -95,6 +108,19 @@ function SummaryLine({ label, value }: { label: string; value: string }) {
       <p className="mt-2 text-sm font-semibold text-foreground">{value}</p>
     </div>
   );
+}
+
+function formatProviderLabel(value: string): string {
+  return value
+    .split(" + ")
+    .map((provider) =>
+      provider === "twelveData"
+        ? "Twelve Data"
+        : provider === "yahoo"
+          ? "Yahoo"
+        : provider.charAt(0).toUpperCase() + provider.slice(1),
+    )
+    .join(" + ");
 }
 
 function formatCurrency(value: number): string {

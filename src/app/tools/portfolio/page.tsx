@@ -1,6 +1,8 @@
 import { PortfolioBuilder } from "@/components/portfolio/portfolio-builder";
 import { SurfaceCard } from "@/components/ui/surface-card";
 
+export const dynamic = "force-dynamic";
+
 export default function PortfolioPage() {
   return (
     <section className="space-y-8">
@@ -34,7 +36,7 @@ export default function PortfolioPage() {
         </div>
       </SurfaceCard>
 
-      <PortfolioBuilder />
+      <PortfolioBuilder stooqConfigured={Boolean(process.env.STOOQ_API_KEY)} />
     </section>
   );
 }

@@ -18,6 +18,7 @@ import { parseTickerInput } from "@/lib/market-data/request";
 import type {
   MarketDataExplorerPayload,
   MarketDataPeriod,
+  MarketDataProviderMode,
   MarketDataRouteResponse,
 } from "@/lib/market-data/types";
 
@@ -25,10 +26,17 @@ const SERIES_COLORS = ["#d2ab67", "#7f95b3", "#608aa7", "#7f709d", "#5f8b7e"];
 const PORTFOLIO_COLOR = "#e2b86b";
 const DEFAULT_TICKER_INPUT = "AAPL, MSFT, NVDA";
 const DEFAULT_PERIOD: MarketDataPeriod = "6M";
+const DEFAULT_PROVIDER: MarketDataProviderMode = "auto";
 
-export function RiskModuleShell() {
+export function RiskModuleShell({
+  stooqConfigured = false,
+}: {
+  stooqConfigured?: boolean;
+}) {
   const [tickerInput, setTickerInput] = useState(DEFAULT_TICKER_INPUT);
   const [period, setPeriod] = useState<MarketDataPeriod>(DEFAULT_PERIOD);
+  const [provider, setProvider] =
+    useState<MarketDataProviderMode>(DEFAULT_PROVIDER);
   const [validationError, setValidationError] = useState<string | null>(null);
   const [requestError, setRequestError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -37,12 +45,13 @@ export function RiskModuleShell() {
   const [activeSection, setActiveSection] = useState<RiskSectionId>("setup");
 
   useEffect(() => {
-    void loadMarketData(DEFAULT_TICKER_INPUT, DEFAULT_PERIOD);
+    void loadMarketData(DEFAULT_TICKER_INPUT, DEFAULT_PERIOD, DEFAULT_PROVIDER);
   }, []);
 
   async function loadMarketData(
     nextTickerInput: string,
     nextPeriod: MarketDataPeriod,
+    nextProvider: MarketDataProviderMode,
   ) {
     const parsed = parseTickerInput(nextTickerInput);
 
@@ -64,6 +73,7 @@ export function RiskModuleShell() {
 
       url.searchParams.set("tickers", parsed.tickers.join(","));
       url.searchParams.set("period", nextPeriod);
+      url.searchParams.set("provider", nextProvider);
 
       const response = await fetch(url.toString(), {
         method: "GET",
@@ -93,7 +103,7 @@ export function RiskModuleShell() {
 
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    void loadMarketData(tickerInput, period);
+    void loadMarketData(tickerInput, period, provider);
   }
 
   function handleTickerInputChange(value: string) {
@@ -224,6 +234,20 @@ export function RiskModuleShell() {
       {
         label: "Loaded tickers",
         value: data.tickers.length.toString(),
+      },
+      {
+        label: "Provider",
+        value: formatProviderLabel(data.meta.provider),
+      },
+      {
+        label: "Warnings",
+        value: (data.meta.warnings?.length ?? 0).toString(),
+      },
+      {
+        label: "Cache",
+        value: data.meta.cache
+          ? `${data.meta.cache.hits} hit / ${data.meta.cache.misses} miss`
+          : "N/A",
       },
     ];
   }, [data]);
@@ -501,6 +525,8 @@ export function RiskModuleShell() {
           inputHint={inputHint}
           isLoading={isLoading}
           period={period}
+          provider={provider}
+          stooqConfigured={stooqConfigured}
           requestError={requestError}
           statusItems={datasetStatusItems}
           tickerInput={tickerInput}
@@ -509,6 +535,7 @@ export function RiskModuleShell() {
           weightValidation={weightValidation}
           onApplyEqualWeights={handleApplyEqualWeights}
           onPeriodChange={setPeriod}
+          onProviderChange={setProvider}
           onSubmit={handleSubmit}
           onTickerInputChange={handleTickerInputChange}
           onWeightInputChange={handleWeightInputChange}
@@ -644,6 +671,19 @@ function formatDateLabel(value: string): string {
     day: "numeric",
     year: "numeric",
   }).format(new Date(`${value}T00:00:00`));
+}
+
+function formatProviderLabel(value: string): string {
+  return value
+    .split(" + ")
+    .map((provider) =>
+      provider === "twelveData"
+        ? "Twelve Data"
+        : provider === "yahoo"
+          ? "Yahoo"
+        : provider.charAt(0).toUpperCase() + provider.slice(1),
+    )
+    .join(" + ");
 }
 
 function formatNumber(value: number): string {

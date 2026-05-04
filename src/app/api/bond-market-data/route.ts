@@ -1,16 +1,21 @@
 import { NextResponse } from "next/server";
 import { resolveBondSelections, getBondRegistry } from "@/lib/bonds/registry";
+import { buildMissingSymbolsMessage } from "@/lib/market-data/errors";
 import type {
   BondMarketDataRouteResponse,
   BondMarketExplorerPayload,
 } from "@/lib/bonds/types";
+import {
+  convertBatchToHistoricalSeries,
+  getBatchHistoricalPrices,
+} from "@/lib/market-data/market-data-service";
 import { buildExplorerPayload } from "@/lib/market-data/normalize";
 import {
   isMarketDataPeriod,
+  isMarketDataProviderMode,
   parseTickerInput,
   resolvePeriodDateRange,
 } from "@/lib/market-data/request";
-import { getMarketDataProvider } from "@/lib/market-data/provider";
 
 export const runtime = "nodejs";
 
@@ -20,6 +25,7 @@ export async function GET(
   const { searchParams } = new URL(request.url);
   const symbolsParam = searchParams.get("symbols") ?? "";
   const periodParam = searchParams.get("period") ?? "6M";
+  const providerParam = searchParams.get("provider") ?? "auto";
   const parsedSymbols = parseTickerInput(symbolsParam);
 
   if (!parsedSymbols.tickers) {
@@ -42,15 +48,38 @@ export async function GET(
     );
   }
 
+  if (!isMarketDataProviderMode(providerParam)) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error: "Select a supported provider: auto, yahoo, stooq, or twelveData.",
+      },
+      { status: 400 },
+    );
+  }
+
   try {
-    const provider = getMarketDataProvider();
     const selections = resolveBondSelections(parsedSymbols.tickers);
     const { startDate, endDate } = resolvePeriodDateRange(periodParam);
-    const series = await provider.getDailySeries({
-      tickers: selections.map((selection) => selection.marketSymbol),
+    const batch = await getBatchHistoricalPrices({
+      symbols: selections.map((selection) => selection.marketSymbol),
       startDate,
       endDate,
+      interval: "1day",
+      provider: providerParam,
     });
+
+    if (batch.missingSymbols.length > 0) {
+      throw new Error(
+        buildMissingSymbolsMessage({
+          symbols: batch.missingSymbols,
+          warnings: batch.warnings,
+          noun: "symbol",
+        }),
+      );
+    }
+
+    const series = convertBatchToHistoricalSeries(batch);
     const seriesByMarketSymbol = new Map(
       series.map((entry) => [entry.ticker, entry] as const),
     );
@@ -72,7 +101,7 @@ export async function GET(
       marketData: buildExplorerPayload({
         period: periodParam,
         series: remappedSeries,
-        provider: provider.id,
+        provider: summarizeResolvedProviders(batch.providerDiagnostics),
       }),
       bonds: selections,
       meta: {
@@ -106,4 +135,21 @@ export async function GET(
       { status: 502 },
     );
   }
+}
+
+function summarizeResolvedProviders(
+  diagnostics: Array<{ status: string; provider: string }>,
+): string {
+  const providers = [
+    ...new Set(
+      diagnostics
+        .filter(
+          (diagnostic) =>
+            diagnostic.status === "success" || diagnostic.status === "cache-hit",
+        )
+        .map((diagnostic) => diagnostic.provider),
+    ),
+  ];
+
+  return providers.length > 0 ? providers.join(" + ") : "unavailable";
 }

@@ -1,6 +1,8 @@
 import type {
   HistoricalPriceSeries,
   MarketDataPeriod,
+  MarketDataProviderId,
+  MarketDataWarning,
 } from "@/lib/market-data/types";
 
 export type PortfolioAssetInput = {
@@ -264,6 +266,12 @@ export type PortfolioAnalysis = {
   name: string;
   period: MarketDataPeriod;
   provider: string;
+  providers?: MarketDataProviderId[];
+  providerWarnings?: MarketDataWarning[];
+  providerCache?: {
+    hits: number;
+    misses: number;
+  };
   commonStartDate: string;
   commonEndDate: string;
   observations: number;

@@ -1,8 +1,18 @@
-import type { MarketDataPeriod } from "@/lib/market-data/types";
+import type {
+  MarketDataPeriod,
+  MarketDataProviderMode,
+} from "@/lib/market-data/types";
 
 const PERIODS = ["1M", "3M", "6M", "1Y"] as const satisfies readonly MarketDataPeriod[];
+const PROVIDER_MODES = [
+  "auto",
+  "yahoo",
+  "stooq",
+  "twelveData",
+] as const satisfies readonly MarketDataProviderMode[];
 const TICKER_PATTERN = /^[A-Z][A-Z0-9.-]{0,9}$/;
 const DEFAULT_MAX_TICKERS = 5;
+const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
 const PERIOD_MONTHS: Record<MarketDataPeriod, number> = {
   "1M": 1,
@@ -13,6 +23,12 @@ const PERIOD_MONTHS: Record<MarketDataPeriod, number> = {
 
 export function isMarketDataPeriod(value: string): value is MarketDataPeriod {
   return PERIODS.includes(value as MarketDataPeriod);
+}
+
+export function isMarketDataProviderMode(
+  value: string,
+): value is MarketDataProviderMode {
+  return PROVIDER_MODES.includes(value as MarketDataProviderMode);
 }
 
 export function parseTickerInput(rawValue: string, options?: { maxTickers?: number }): {
@@ -68,6 +84,21 @@ export function resolvePeriodDateRange(
     startDate: toIsoDate(startDate),
     endDate,
   };
+}
+
+export function isValidDateRange(startDate: string, endDate: string): boolean {
+  if (!ISO_DATE_PATTERN.test(startDate) || !ISO_DATE_PATTERN.test(endDate)) {
+    return false;
+  }
+
+  const startTime = Date.parse(`${startDate}T00:00:00Z`);
+  const endTime = Date.parse(`${endDate}T00:00:00Z`);
+
+  return (
+    Number.isFinite(startTime) &&
+    Number.isFinite(endTime) &&
+    startTime <= endTime
+  );
 }
 
 function toIsoDate(date: Date): string {

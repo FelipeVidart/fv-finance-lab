@@ -48,6 +48,7 @@ import type {
 import type {
   MarketDataExplorerPayload,
   MarketDataPeriod,
+  MarketDataProviderMode,
   MarketDataRouteResponse,
 } from "@/lib/market-data/types";
 import { cn } from "@/lib/utils";
@@ -60,10 +61,24 @@ type EditableAssetRow = {
 };
 
 const PERIOD_OPTIONS: MarketDataPeriod[] = ["1M", "3M", "6M", "1Y"];
+const PROVIDER_OPTIONS: Array<{
+  value: MarketDataProviderMode;
+  label: string;
+  requiresStooqConfig?: boolean;
+}> = [
+  { value: "auto", label: "Auto" },
+  { value: "yahoo", label: "Yahoo" },
+  { value: "twelveData", label: "Twelve Data" },
+  { value: "stooq", label: "Stooq - requires API key", requiresStooqConfig: true },
+];
 const MAX_PORTFOLIO_TICKERS = 10;
 const DEFAULT_BENCHMARK_ID: BenchmarkSelectionId = "sixtyForty";
 
-export function PortfolioBuilder() {
+export function PortfolioBuilder({
+  stooqConfigured = false,
+}: {
+  stooqConfigured?: boolean;
+}) {
   const [selectedPresetId, setSelectedPresetId] = useState(
     DEFAULT_PORTFOLIO_PRESET_ID,
   );
@@ -76,6 +91,7 @@ export function PortfolioBuilder() {
   const [period, setPeriod] = useState<MarketDataPeriod>(
     DEFAULT_PORTFOLIO_PRESET.period,
   );
+  const [provider, setProvider] = useState<MarketDataProviderMode>("auto");
   const [assetRows, setAssetRows] = useState<EditableAssetRow[]>(
     createRowsFromAssets(DEFAULT_PORTFOLIO_PRESET.holdings),
   );
@@ -209,6 +225,7 @@ export function PortfolioBuilder() {
       url.searchParams.set("tickers", tickers.join(","));
       url.searchParams.set("period", period);
       url.searchParams.set("maxTickers", MAX_PORTFOLIO_TICKERS.toString());
+      url.searchParams.set("provider", provider);
 
       const response = await fetch(url.toString(), {
         method: "GET",
@@ -268,6 +285,9 @@ export function PortfolioBuilder() {
         name: portfolioName.trim() || "ETF Portfolio",
         period,
         provider: payload.data.meta.provider,
+        providers: payload.data.meta.providers,
+        providerWarnings: payload.data.meta.warnings,
+        providerCache: payload.data.meta.cache,
         commonStartDate: payload.data.meta.commonStartDate,
         commonEndDate: payload.data.meta.commonEndDate,
         observations: payload.data.meta.observations,
@@ -319,6 +339,7 @@ export function PortfolioBuilder() {
       url.searchParams.set("tickers", benchmarkTickers.join(","));
       url.searchParams.set("period", period);
       url.searchParams.set("maxTickers", benchmarkTickers.length.toString());
+      url.searchParams.set("provider", provider);
 
       const response = await fetch(url.toString(), {
         method: "GET",
@@ -364,25 +385,24 @@ export function PortfolioBuilder() {
 
     return Promise.all(
       DEFAULT_STRESS_PERIODS.map(async (stressPeriod) => {
-        const [portfolioResult, benchmarkResult] = await Promise.all([
-          fetchStressMarketData({
-            tickers: holdingTickers,
-            stressPeriod,
-          }),
-          benchmarkTickers.length > 0
-            ? fetchStressMarketData({
-                tickers: benchmarkTickers,
-                stressPeriod,
-              })
-            : Promise.resolve({ data: null, error: undefined }),
-        ]);
+        const combinedTickers = [...new Set([...holdingTickers, ...benchmarkTickers])];
+        const stressResult = await fetchStressMarketData({
+          tickers: combinedTickers,
+          stressPeriod,
+        });
 
         return {
           stressPeriod,
-          portfolioData: portfolioResult.data,
-          portfolioError: portfolioResult.error,
-          benchmarkData: benchmarkResult.data,
-          benchmarkError: benchmarkResult.error,
+          portfolioData: stressResult.data
+            ? narrowStressMarketData(stressResult.data, holdingTickers)
+            : null,
+          portfolioError: stressResult.error,
+          benchmarkData:
+            benchmarkTickers.length > 0 && stressResult.data
+              ? narrowStressMarketData(stressResult.data, benchmarkTickers)
+              : null,
+          benchmarkError:
+            benchmarkTickers.length > 0 ? stressResult.error : undefined,
         };
       }),
     );
@@ -409,6 +429,7 @@ export function PortfolioBuilder() {
       url.searchParams.set("startDate", input.stressPeriod.startDate);
       url.searchParams.set("endDate", input.stressPeriod.endDate);
       url.searchParams.set("maxTickers", input.tickers.length.toString());
+      url.searchParams.set("provider", provider);
 
       const response = await fetch(url.toString(), {
         method: "GET",
@@ -544,7 +565,7 @@ export function PortfolioBuilder() {
                 </label>
               </div>
 
-              <div className="mt-5 grid gap-4 lg:grid-cols-[minmax(0,1fr)] lg:items-end">
+              <div className="mt-5 grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(13rem,0.7fr)] lg:items-end">
                 <div>
                   <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-accent-strong/85">
                     Lookback window
@@ -570,11 +591,41 @@ export function PortfolioBuilder() {
                     ))}
                   </div>
                 </div>
+
+                <label className="block">
+                  <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-accent-strong/85">
+                    Provider
+                  </span>
+                  <select
+                    value={provider}
+                    onChange={(event) => {
+                      setProvider(event.target.value as MarketDataProviderMode);
+                      setAnalysis(null);
+                      setRequestMessage(null);
+                    }}
+                    className="mt-3 w-full rounded-[1.15rem] border border-white/10 bg-slate-950/75 px-4 py-3 text-sm text-white outline-none transition focus:border-accent/60"
+                  >
+                    {PROVIDER_OPTIONS.map((option) => (
+                      <option
+                        key={option.value}
+                        value={option.value}
+                        disabled={option.requiresStooqConfig && !stooqConfigured}
+                      >
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
               </div>
 
               <p className="mt-4 rounded-[1.15rem] border border-white/[0.08] bg-background-muted/75 px-4 py-3 text-sm leading-7 text-foreground-soft">
                 Analyze allocation, risk, return, and drawdowns over the
                 available historical period.
+              </p>
+              <p className="mt-3 rounded-[1.15rem] border border-white/[0.08] bg-background-muted/75 px-4 py-3 text-sm leading-7 text-foreground-soft">
+                Auto tries the available no-key historical provider first and
+                falls back when needed. Data may differ slightly across
+                providers.
               </p>
             </SurfaceCard>
 
@@ -781,6 +832,19 @@ export function PortfolioBuilder() {
       <PortfolioAssetsTable analysis={analysis} />
     </div>
   );
+}
+
+function narrowStressMarketData(
+  payload: StressMarketDataPayload,
+  tickers: string[],
+): StressMarketDataPayload {
+  const tickerSet = new Set(tickers);
+
+  return {
+    ...payload,
+    series: payload.series.filter((entry) => tickerSet.has(entry.ticker)),
+    missing: payload.missing.filter((entry) => tickerSet.has(entry.ticker)),
+  };
 }
 
 function createRowsFromAssets(assets: PortfolioAssetInput[]): EditableAssetRow[] {
