@@ -236,6 +236,53 @@ export type PortfolioDrawdownPoint = {
   drawdown: number;
 };
 
+export type RebalancingStrategyId =
+  | "none"
+  | "monthly"
+  | "quarterly"
+  | "annual"
+  | "threshold";
+
+export type RebalanceReason = Exclude<RebalancingStrategyId, "none">;
+
+export type RebalancingStrategyConfig = {
+  id: RebalancingStrategyId;
+  threshold?: number;
+};
+
+export type PortfolioWeightMap = Record<string, number>;
+
+export type RebalanceEvent = {
+  date: string;
+  reason: RebalanceReason;
+  turnover: number;
+  beforeWeights: PortfolioWeightMap;
+  afterWeights: PortfolioWeightMap;
+  maxDriftBeforeRebalance: number;
+};
+
+export type PortfolioDriftPoint = {
+  date: string;
+  weights: PortfolioWeightMap;
+  driftByTicker: PortfolioWeightMap;
+  maxDrift: number;
+  averageDrift: number;
+};
+
+export type PortfolioSimulationResult = {
+  strategy: RebalancingStrategyConfig;
+  performancePoints: PortfolioPerformancePoint[];
+  dailyReturns: number[];
+  driftPoints: PortfolioDriftPoint[];
+  rebalanceEvents: RebalanceEvent[];
+  finalWeights: PortfolioWeightMap;
+  totalTurnover: number;
+  rebalanceCount: number;
+  averageDrift: number;
+  maxDrift: number;
+  finalDrift: number;
+};
+
 export type PortfolioAssetAnalytics = PortfolioAssetInput & {
   startDate: string;
   endDate: string;
@@ -262,6 +309,14 @@ export type PortfolioMetrics = {
   } | null;
 };
 
+export type PortfolioRebalancingAnalysis = {
+  strategy: RebalancingStrategyConfig;
+  selected: PortfolioSimulationResult;
+  buyAndHold: PortfolioSimulationResult;
+  buyAndHoldMetrics: PortfolioMetrics;
+  buyAndHoldDrawdownPoints: PortfolioDrawdownPoint[];
+};
+
 export type PortfolioAnalysis = {
   name: string;
   period: MarketDataPeriod;
@@ -281,6 +336,7 @@ export type PortfolioAnalysis = {
   drawdownAnalysis: DrawdownAnalysis;
   dailyReturns: number[];
   metrics: PortfolioMetrics;
+  rebalancing: PortfolioRebalancingAnalysis;
   benchmarkComparison?: BenchmarkComparison;
   benchmarkWarning?: string;
   stressTests: StressTestAnalysis;

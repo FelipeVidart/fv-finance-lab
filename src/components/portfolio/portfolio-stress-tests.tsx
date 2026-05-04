@@ -135,6 +135,10 @@ export function PortfolioStressTests({
           represented, so portfolio-level results are not computed.
         </NoteLine>
       </div>
+      <p className="mt-3 rounded-[1.15rem] border border-white/[0.08] bg-background-muted/75 px-4 py-3 text-sm leading-7 text-foreground-soft">
+        Stress tests use the current portfolio return methodology and do not
+        yet simulate rebalancing inside each crisis window.
+      </p>
     </SurfaceCard>
   );
 }
