@@ -48,6 +48,21 @@ const toolCards = [
     gridClassName: "xl:col-span-5",
   },
   {
+    key: "data-providers",
+    href: "/tools/data-providers",
+    eyebrow: "Data",
+    title: "Market data provider settings",
+    description:
+      "A configuration view for provider availability, API-key requirements, Auto fallback priority, and future data-source integrations.",
+    summary:
+      "Keeps provider diagnostics and setup instructions separate from the main analytical workflows.",
+    tags: ["Provider Status", "API Keys", "Fallback", "Diagnostics"],
+    action: "Open provider settings",
+    icon: "data" as const,
+    tone: "elevated" as const,
+    gridClassName: "xl:col-span-4",
+  },
+  {
     key: "bonds",
     href: "/tools/bonds",
     eyebrow: "Bonds",
@@ -90,7 +105,7 @@ const workspacePrinciples = [
 const bottomStrip = [
   {
     label: "Workspace modules",
-    value: "Options, Risk, Portfolio, Bonds",
+    value: "Options, Risk, Portfolio, Bonds, Data Providers",
   },
   {
     label: "Navigation model",
@@ -316,7 +331,7 @@ function BottomStripCell({
 function ToolIcon({
   kind,
 }: {
-  kind: "options" | "risk" | "portfolio" | "bonds";
+  kind: "options" | "risk" | "portfolio" | "bonds" | "data";
 }) {
   if (kind === "options") {
     return (
@@ -351,6 +366,20 @@ function ToolIcon({
       <svg viewBox="0 0 20 20" fill="none" className="h-4.5 w-4.5">
         <path
           d="M4.25 14.75 8 11l2.75 2.75 5-6M4.25 5.5h11.5M4.25 9.25h3.25"
+          stroke="currentColor"
+          strokeWidth="1.3"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
+    );
+  }
+
+  if (kind === "data") {
+    return (
+      <svg viewBox="0 0 20 20" fill="none" className="h-4.5 w-4.5">
+        <path
+          d="M4.25 6.25c0-1.1 2.58-2 5.75-2s5.75.9 5.75 2-2.58 2-5.75 2-5.75-.9-5.75-2Zm0 0v7.5c0 1.1 2.58 2 5.75 2s5.75-.9 5.75-2v-7.5M4.25 10c0 1.1 2.58 2 5.75 2s5.75-.9 5.75-2"
           stroke="currentColor"
           strokeWidth="1.3"
           strokeLinecap="round"

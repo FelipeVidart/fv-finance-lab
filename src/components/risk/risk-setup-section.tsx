@@ -1,24 +1,12 @@
+import Link from "next/link";
 import { Card } from "@/components/card";
 import { RiskDatasetStatusStrip } from "@/components/risk/risk-dataset-status-strip";
 import { SurfaceCard } from "@/components/ui/surface-card";
 import { cn } from "@/lib/utils";
 import type { RiskSetupSectionProps } from "@/components/risk/types";
-import type {
-  MarketDataPeriod,
-  MarketDataProviderMode,
-} from "@/lib/market-data/types";
+import type { MarketDataPeriod } from "@/lib/market-data/types";
 
 const PERIOD_OPTIONS: MarketDataPeriod[] = ["1M", "3M", "6M", "1Y"];
-const PROVIDER_OPTIONS: Array<{
-  value: MarketDataProviderMode;
-  label: string;
-  requiresStooqConfig?: boolean;
-}> = [
-  { value: "auto", label: "Auto" },
-  { value: "yahoo", label: "Yahoo" },
-  { value: "twelveData", label: "Twelve Data" },
-  { value: "stooq", label: "Stooq - requires API key", requiresStooqConfig: true },
-];
 
 export function RiskSetupSection({
   data,
@@ -26,7 +14,8 @@ export function RiskSetupSection({
   isLoading,
   period,
   provider,
-  stooqConfigured,
+  providerConfigs,
+  providerSelectorOptions,
   requestError,
   statusItems,
   tickerInput,
@@ -164,27 +153,37 @@ export function RiskSetupSection({
                   Provider
                 </p>
                 <p className="mt-2 text-sm leading-6 text-foreground-soft">
-                  Auto tries the available no-key historical provider first and
-                  falls back when needed. Data may differ slightly across
-                  providers.
+                  Auto uses the first available provider and falls back when
+                  needed.
                 </p>
                 <select
                   value={provider}
                   onChange={(event) =>
-                    onProviderChange(event.target.value as MarketDataProviderMode)
+                    onProviderChange(
+                      event.target.value as RiskSetupSectionProps["provider"],
+                    )
                   }
                   className="mt-4 w-full rounded-[1.15rem] border border-white/10 bg-slate-950/75 px-4 py-3 text-sm text-white outline-none transition focus:border-accent/60"
                 >
-                  {PROVIDER_OPTIONS.map((option) => (
+                  {providerSelectorOptions.map((option) => (
                     <option
                       key={option.value}
                       value={option.value}
-                      disabled={option.requiresStooqConfig && !stooqConfigured}
+                      disabled={option.disabled}
                     >
                       {option.label}
                     </option>
                   ))}
                 </select>
+                <p className="mt-3 text-xs leading-6 text-foreground-subtle">
+                  {formatCompactProviderStatus(providerConfigs)}
+                </p>
+                <Link
+                  href="/tools/data-providers"
+                  className="mt-2 inline-flex text-xs font-semibold text-accent-foreground transition hover:text-accent-strong"
+                >
+                  Provider settings
+                </Link>
               </SurfaceCard>
 
               <SurfaceCard padding="sm" className="border-white/[0.08]">
@@ -588,6 +587,38 @@ function InlineStateCard({
       <p className="mt-2 text-sm leading-7">{body}</p>
     </div>
   );
+}
+
+function formatCompactProviderStatus(
+  providers: RiskSetupSectionProps["providerConfigs"],
+): string {
+  const providerIds = ["yahoo", "twelveData", "stooq"] as const;
+
+  return providerIds
+    .map((providerId) => providers.find((provider) => provider.id === providerId))
+    .filter((provider): provider is NonNullable<typeof provider> =>
+      Boolean(provider),
+    )
+    .map((provider) => `${provider.label} ${formatProviderState(provider)}`)
+    .join(" · ");
+}
+
+function formatProviderState(
+  provider: RiskSetupSectionProps["providerConfigs"][number],
+): string {
+  if (provider.available && provider.requiresApiKey) {
+    return "configured";
+  }
+
+  if (provider.available) {
+    return "available";
+  }
+
+  if (provider.requiresApiKey && !provider.configured) {
+    return "requires API key";
+  }
+
+  return provider.statusLabel.toLowerCase();
 }
 
 function formatNumber(value: number): string {

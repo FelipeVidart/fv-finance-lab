@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState, type FormEvent } from "react";
 import { Card } from "@/components/card";
 import { PortfolioAllocationSummary } from "@/components/portfolio/portfolio-allocation-summary";
@@ -51,6 +52,10 @@ import type {
   MarketDataProviderMode,
   MarketDataRouteResponse,
 } from "@/lib/market-data/types";
+import type {
+  ProviderSelectorOption,
+  SafeProviderConfig,
+} from "@/lib/market-data/provider-config";
 import { cn } from "@/lib/utils";
 
 type EditableAssetRow = {
@@ -61,23 +66,15 @@ type EditableAssetRow = {
 };
 
 const PERIOD_OPTIONS: MarketDataPeriod[] = ["1M", "3M", "6M", "1Y"];
-const PROVIDER_OPTIONS: Array<{
-  value: MarketDataProviderMode;
-  label: string;
-  requiresStooqConfig?: boolean;
-}> = [
-  { value: "auto", label: "Auto" },
-  { value: "yahoo", label: "Yahoo" },
-  { value: "twelveData", label: "Twelve Data" },
-  { value: "stooq", label: "Stooq - requires API key", requiresStooqConfig: true },
-];
 const MAX_PORTFOLIO_TICKERS = 10;
 const DEFAULT_BENCHMARK_ID: BenchmarkSelectionId = "sixtyForty";
 
 export function PortfolioBuilder({
-  stooqConfigured = false,
+  providerConfigs,
+  providerSelectorOptions,
 }: {
-  stooqConfigured?: boolean;
+  providerConfigs: SafeProviderConfig[];
+  providerSelectorOptions: ProviderSelectorOption[];
 }) {
   const [selectedPresetId, setSelectedPresetId] = useState(
     DEFAULT_PORTFOLIO_PRESET_ID,
@@ -605,11 +602,11 @@ export function PortfolioBuilder({
                     }}
                     className="mt-3 w-full rounded-[1.15rem] border border-white/10 bg-slate-950/75 px-4 py-3 text-sm text-white outline-none transition focus:border-accent/60"
                   >
-                    {PROVIDER_OPTIONS.map((option) => (
+                    {providerSelectorOptions.map((option) => (
                       <option
                         key={option.value}
                         value={option.value}
-                        disabled={option.requiresStooqConfig && !stooqConfigured}
+                        disabled={option.disabled}
                       >
                         {option.label}
                       </option>
@@ -623,10 +620,20 @@ export function PortfolioBuilder({
                 available historical period.
               </p>
               <p className="mt-3 rounded-[1.15rem] border border-white/[0.08] bg-background-muted/75 px-4 py-3 text-sm leading-7 text-foreground-soft">
-                Auto tries the available no-key historical provider first and
-                falls back when needed. Data may differ slightly across
-                providers.
+                Auto uses the first available provider and falls back when
+                needed.
               </p>
+              <div className="mt-3 rounded-[1.15rem] border border-white/[0.08] bg-background-muted/75 px-4 py-3">
+                <p className="text-xs leading-6 text-foreground-subtle">
+                  {formatCompactProviderStatus(providerConfigs)}
+                </p>
+                <Link
+                  href="/tools/data-providers"
+                  className="mt-2 inline-flex text-xs font-semibold text-accent-foreground transition hover:text-accent-strong"
+                >
+                  Provider settings
+                </Link>
+              </div>
             </SurfaceCard>
 
             <div className="overflow-x-auto rounded-[1.6rem] border border-white/[0.08] bg-[linear-gradient(180deg,rgba(10,17,26,0.82),rgba(8,13,20,0.72))]">
@@ -845,6 +852,32 @@ function narrowStressMarketData(
     series: payload.series.filter((entry) => tickerSet.has(entry.ticker)),
     missing: payload.missing.filter((entry) => tickerSet.has(entry.ticker)),
   };
+}
+
+function formatCompactProviderStatus(providers: SafeProviderConfig[]): string {
+  const providerIds = ["yahoo", "twelveData", "stooq"] as const;
+
+  return providerIds
+    .map((providerId) => providers.find((provider) => provider.id === providerId))
+    .filter((provider): provider is SafeProviderConfig => Boolean(provider))
+    .map((provider) => `${provider.label} ${formatProviderState(provider)}`)
+    .join(" · ");
+}
+
+function formatProviderState(provider: SafeProviderConfig): string {
+  if (provider.available && provider.requiresApiKey) {
+    return "configured";
+  }
+
+  if (provider.available) {
+    return "available";
+  }
+
+  if (provider.requiresApiKey && !provider.configured) {
+    return "requires API key";
+  }
+
+  return provider.statusLabel.toLowerCase();
 }
 
 function createRowsFromAssets(assets: PortfolioAssetInput[]): EditableAssetRow[] {
