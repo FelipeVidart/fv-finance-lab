@@ -58,7 +58,7 @@ export function PortfolioDrawdownChart({
       detailDescription={
         comparison
           ? "Inspect portfolio and benchmark drawdown over the shared comparison window. Hover the expanded chart to review the nearest date and drawdown."
-          : "Inspect the portfolio drawdown path across the aligned market-data window. Hover the expanded chart to review the nearest date and drawdown."
+          : "Inspect the selected strategy drawdown path across the aligned market-data window. Hover the expanded chart to review the nearest date and drawdown."
       }
       renderPreview={({ open }) => (
         <LineChartPanel

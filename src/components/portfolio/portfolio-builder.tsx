@@ -6,9 +6,11 @@ import { Card } from "@/components/card";
 import { PortfolioAllocationSummary } from "@/components/portfolio/portfolio-allocation-summary";
 import { PortfolioAssetsTable } from "@/components/portfolio/portfolio-assets-table";
 import { PortfolioBenchmarkComparison } from "@/components/portfolio/portfolio-benchmark-comparison";
+import { PortfolioDriftChart } from "@/components/portfolio/portfolio-drift-chart";
 import { PortfolioDrawdownAnalysis } from "@/components/portfolio/portfolio-drawdown-analysis";
 import { PortfolioDrawdownChart } from "@/components/portfolio/portfolio-drawdown-chart";
 import { PortfolioGrowthChart } from "@/components/portfolio/portfolio-growth-chart";
+import { PortfolioRebalancingSummary } from "@/components/portfolio/portfolio-rebalancing-summary";
 import { PortfolioStressTests } from "@/components/portfolio/portfolio-stress-tests";
 import { PortfolioSummary } from "@/components/portfolio/portfolio-summary";
 import { SurfaceCard } from "@/components/ui/surface-card";
@@ -30,9 +32,15 @@ import {
   PORTFOLIO_ASSET_CLASS_BY_TICKER,
 } from "@/lib/finance/portfolio/presets";
 import {
+  DEFAULT_REBALANCING_STRATEGY,
+  DEFAULT_REBALANCING_THRESHOLD,
+  REBALANCING_STRATEGY_OPTIONS,
+  REBALANCING_THRESHOLD_OPTIONS,
+  getRebalancingStrategyLabel,
+  simulatePortfolioRebalancing,
+} from "@/lib/finance/portfolio/rebalancing";
+import {
   buildPortfolioAssetAnalytics,
-  buildPortfolioPerformancePoints,
-  calculatePortfolioDailyReturns,
   validatePortfolioInputs,
 } from "@/lib/finance/portfolio/returns";
 import { DEFAULT_STRESS_PERIODS } from "@/lib/finance/portfolio/stress-periods";
@@ -42,6 +50,8 @@ import type {
   PortfolioAnalysis,
   PortfolioAssetInput,
   PortfolioPreset,
+  RebalancingStrategyConfig,
+  RebalancingStrategyId,
   StressMarketDataPayload,
   StressMarketDataRouteResponse,
   StressPeriodDefinition,
@@ -89,6 +99,11 @@ export function PortfolioBuilder({
     DEFAULT_PORTFOLIO_PRESET.period,
   );
   const [provider, setProvider] = useState<MarketDataProviderMode>("auto");
+  const [rebalancingStrategyId, setRebalancingStrategyId] =
+    useState<RebalancingStrategyId>(DEFAULT_REBALANCING_STRATEGY);
+  const [rebalancingThreshold, setRebalancingThreshold] = useState(
+    DEFAULT_REBALANCING_THRESHOLD.toString(),
+  );
   const [assetRows, setAssetRows] = useState<EditableAssetRow[]>(
     createRowsFromAssets(DEFAULT_PORTFOLIO_PRESET.holdings),
   );
@@ -135,6 +150,16 @@ export function PortfolioBuilder({
       PORTFOLIO_PRESETS.find((preset) => preset.id === selectedPresetId) ??
       DEFAULT_PORTFOLIO_PRESET,
     [selectedPresetId],
+  );
+  const rebalancingStrategy = useMemo<RebalancingStrategyConfig>(
+    () => ({
+      id: rebalancingStrategyId,
+      threshold:
+        rebalancingStrategyId === "threshold"
+          ? Number(rebalancingThreshold)
+          : undefined,
+    }),
+    [rebalancingStrategyId, rebalancingThreshold],
   );
 
   function loadPortfolioPreset(preset: PortfolioPreset) {
@@ -240,22 +265,43 @@ export function PortfolioBuilder({
         );
       }
 
-      const dailyReturns = calculatePortfolioDailyReturns({
+      const selectedSimulation = simulatePortfolioRebalancing({
         data: payload.data,
         assets: validation.assets,
-      });
-      const dates = payload.data.points.map((point) => point.date);
-      const performancePoints = buildPortfolioPerformancePoints({
-        dates,
-        dailyReturns,
         initialCapital: Number(initialCapital),
+        strategy: rebalancingStrategy,
       });
+      const buyAndHoldSimulation =
+        rebalancingStrategy.id === "none"
+          ? selectedSimulation
+          : simulatePortfolioRebalancing({
+              data: payload.data,
+              assets: validation.assets,
+              initialCapital: Number(initialCapital),
+              strategy: { id: "none" },
+            });
+      const performancePoints = selectedSimulation.performancePoints;
+      const dailyReturns = selectedSimulation.dailyReturns;
       const drawdownPoints = buildPortfolioDrawdownPoints(performancePoints);
       const drawdownAnalysis = buildDrawdownAnalysis(performancePoints);
+      const maxDrawdown = Math.min(
+        ...drawdownPoints.map((point) => point.drawdown),
+      );
       const metrics = calculatePortfolioMetrics({
         performancePoints,
         dailyReturns,
-        maxDrawdown: Math.min(...drawdownPoints.map((point) => point.drawdown)),
+        maxDrawdown,
+        riskFreeRate: 0,
+      });
+      const buyAndHoldDrawdownPoints = buildPortfolioDrawdownPoints(
+        buyAndHoldSimulation.performancePoints,
+      );
+      const buyAndHoldMetrics = calculatePortfolioMetrics({
+        performancePoints: buyAndHoldSimulation.performancePoints,
+        dailyReturns: buyAndHoldSimulation.dailyReturns,
+        maxDrawdown: Math.min(
+          ...buyAndHoldDrawdownPoints.map((point) => point.drawdown),
+        ),
         riskFreeRate: 0,
       });
       const assetAnalytics = buildPortfolioAssetAnalytics({
@@ -294,6 +340,13 @@ export function PortfolioBuilder({
         drawdownAnalysis,
         dailyReturns,
         metrics,
+        rebalancing: {
+          strategy: selectedSimulation.strategy,
+          selected: selectedSimulation,
+          buyAndHold: buyAndHoldSimulation,
+          buyAndHoldMetrics,
+          buyAndHoldDrawdownPoints,
+        },
         benchmarkComparison: benchmarkResult.comparison,
         benchmarkWarning: benchmarkResult.warning,
         stressTests,
@@ -698,6 +751,66 @@ export function PortfolioBuilder({
           <div className="space-y-4">
             <SurfaceCard padding="sm" className="border-white/[0.08]">
               <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-accent-strong/85">
+                Rebalancing Strategy
+              </p>
+              <label className="mt-4 block">
+                <span className="text-sm font-semibold text-foreground">
+                  Strategy
+                </span>
+                <select
+                  value={rebalancingStrategyId}
+                  onChange={(event) => {
+                    setRebalancingStrategyId(
+                      event.target.value as RebalancingStrategyId,
+                    );
+                    setAnalysis(null);
+                    setRequestMessage(null);
+                  }}
+                  className="mt-3 w-full rounded-[1.15rem] border border-white/10 bg-slate-950/75 px-4 py-3 text-sm text-white outline-none transition focus:border-accent/60"
+                >
+                  {REBALANCING_STRATEGY_OPTIONS.map((option) => (
+                    <option key={option.id} value={option.id}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              {rebalancingStrategyId === "threshold" ? (
+                <label className="mt-4 block">
+                  <span className="text-sm font-semibold text-foreground">
+                    Drift threshold
+                  </span>
+                  <select
+                    value={rebalancingThreshold}
+                    onChange={(event) => {
+                      setRebalancingThreshold(event.target.value);
+                      setAnalysis(null);
+                      setRequestMessage(null);
+                    }}
+                    className="mt-3 w-full rounded-[1.15rem] border border-white/10 bg-slate-950/75 px-4 py-3 text-sm text-white outline-none transition focus:border-accent/60"
+                  >
+                    {REBALANCING_THRESHOLD_OPTIONS.map((option) => (
+                      <option key={option} value={option.toString()}>
+                        {(option * 100).toFixed(option < 0.1 ? 1 : 0)}%
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              ) : null}
+
+              <p className="mt-4 rounded-[1.15rem] border border-white/[0.08] bg-background-muted/75 px-4 py-3 text-sm leading-7 text-foreground-soft">
+                Rebalancing changes portfolio weights over time. Buy & Hold
+                lets weights drift with market performance, while periodic and
+                threshold strategies reset weights to the target allocation.
+              </p>
+              <p className="mt-3 text-xs leading-6 text-foreground-muted">
+                Current policy: {getRebalancingStrategyLabel(rebalancingStrategy)}
+              </p>
+            </SurfaceCard>
+
+            <SurfaceCard padding="sm" className="border-white/[0.08]">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-accent-strong/85">
                 Benchmark
               </p>
               <label className="mt-4 block">
@@ -795,17 +908,6 @@ export function PortfolioBuilder({
 
             <SurfaceCard padding="sm" className="border-white/[0.08]">
               <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-accent-strong/85">
-                MVP assumption
-              </p>
-              <p className="mt-3 text-sm leading-7 text-foreground-soft">
-                Portfolio returns are calculated using fixed target weights over
-                the available historical period. Full rebalancing simulation
-                will be added later.
-              </p>
-            </SurfaceCard>
-
-            <SurfaceCard padding="sm" className="border-white/[0.08]">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-accent-strong/85">
                 Preset posture
               </p>
               <p className="mt-3 text-sm leading-7 text-foreground-soft">
@@ -819,12 +921,16 @@ export function PortfolioBuilder({
 
       <PortfolioSummary analysis={analysis} />
 
+      <PortfolioRebalancingSummary analysis={analysis} />
+
       {analysis ? (
         <>
           <div className="grid gap-4 xl:grid-cols-2">
             <PortfolioGrowthChart analysis={analysis} />
             <PortfolioDrawdownChart analysis={analysis} />
           </div>
+
+          <PortfolioDriftChart analysis={analysis} />
 
           <PortfolioDrawdownAnalysis analysis={analysis} />
 
@@ -861,7 +967,7 @@ function formatCompactProviderStatus(providers: SafeProviderConfig[]): string {
     .map((providerId) => providers.find((provider) => provider.id === providerId))
     .filter((provider): provider is SafeProviderConfig => Boolean(provider))
     .map((provider) => `${provider.label} ${formatProviderState(provider)}`)
-    .join(" · ");
+    .join(" | ");
 }
 
 function formatProviderState(provider: SafeProviderConfig): string {

@@ -35,7 +35,7 @@ export default function PortfolioPage() {
           <div className="grid gap-3 sm:grid-cols-3 xl:grid-cols-1">
             <HeroSignal label="Current scope" value="One weighted ETF portfolio" />
             <HeroSignal label="Data model" value="Existing aligned daily market data" />
-            <HeroSignal label="Return model" value="Fixed target-weight returns" />
+            <HeroSignal label="Return model" value="Configurable rebalancing simulation" />
           </div>
         </div>
       </SurfaceCard>
