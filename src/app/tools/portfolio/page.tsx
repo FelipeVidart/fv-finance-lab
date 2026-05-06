@@ -1,3 +1,4 @@
+import { PortfolioComparisonSection } from "@/components/portfolio/portfolio-comparison-section";
 import { PortfolioBuilder } from "@/components/portfolio/portfolio-builder";
 import { SurfaceCard } from "@/components/ui/surface-card";
 import {
@@ -26,19 +27,26 @@ export default function PortfolioPage() {
                 Portfolio Management Lab
               </h2>
               <p className="max-w-3xl text-sm leading-7 text-foreground-soft sm:text-[0.96rem]">
-                A tool to build weighted ETF portfolios, backtest historical
-                performance, and analyze risk/return metrics.
+                Compare predefined ETF allocations, build custom portfolios,
+                backtest historical performance, and analyze risk/return metrics.
               </p>
             </div>
           </div>
 
           <div className="grid gap-3 sm:grid-cols-3 xl:grid-cols-1">
-            <HeroSignal label="Current scope" value="One weighted ETF portfolio" />
-            <HeroSignal label="Data model" value="Existing aligned daily market data" />
-            <HeroSignal label="Return model" value="Configurable rebalancing simulation" />
+            <HeroSignal
+              label="Current scope"
+              value="Predefined comparison plus custom builder"
+            />
+            <HeroSignal label="Data model" value="Shared aligned daily market data" />
+            <HeroSignal label="Return model" value="Historical rebalancing simulations" />
           </div>
         </div>
       </SurfaceCard>
+
+      <PortfolioComparisonSection
+        providerSelectorOptions={getProviderSelectorOptions()}
+      />
 
       <PortfolioBuilder
         providerConfigs={getProviderConfigs()}

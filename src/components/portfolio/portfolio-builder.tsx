@@ -60,8 +60,8 @@ import type {
   MarketDataExplorerPayload,
   MarketDataPeriod,
   MarketDataProviderMode,
-  MarketDataRouteResponse,
 } from "@/lib/market-data/types";
+import { loadMarketDataExplorer } from "@/lib/market-data/client";
 import type {
   ProviderSelectorOption,
   SafeProviderConfig,
@@ -241,32 +241,22 @@ export function PortfolioBuilder({
     setIsLoading(true);
 
     try {
-      const url = new URL("/api/market-data", window.location.origin);
       const tickers = validation.assets.map((asset) => asset.ticker);
-
-      url.searchParams.set("tickers", tickers.join(","));
-      url.searchParams.set("period", period);
-      url.searchParams.set("maxTickers", MAX_PORTFOLIO_TICKERS.toString());
-      url.searchParams.set("provider", provider);
-
-      const response = await fetch(url.toString(), {
-        method: "GET",
-        cache: "no-store",
+      const data = await loadMarketDataExplorer({
+        tickers,
+        period,
+        maxTickers: MAX_PORTFOLIO_TICKERS,
+        provider,
       });
-      const payload = (await response.json()) as MarketDataRouteResponse;
 
-      if (!payload.ok) {
-        throw new Error(payload.error);
-      }
-
-      if (payload.data.points.length < 3) {
+      if (data.points.length < 3) {
         throw new Error(
           "Not enough overlapping data was found across the selected ETFs. Try fewer tickers or a longer lookback window.",
         );
       }
 
       const selectedSimulation = simulatePortfolioRebalancing({
-        data: payload.data,
+        data,
         assets: validation.assets,
         initialCapital: Number(initialCapital),
         strategy: rebalancingStrategy,
@@ -275,7 +265,7 @@ export function PortfolioBuilder({
         rebalancingStrategy.id === "none"
           ? selectedSimulation
           : simulatePortfolioRebalancing({
-              data: payload.data,
+              data,
               assets: validation.assets,
               initialCapital: Number(initialCapital),
               strategy: { id: "none" },
@@ -305,12 +295,12 @@ export function PortfolioBuilder({
         riskFreeRate: 0,
       });
       const assetAnalytics = buildPortfolioAssetAnalytics({
-        data: payload.data,
+        data,
         assets: validation.assets,
       });
       const benchmarkResult = await loadBenchmarkComparison({
         definition: benchmarkDefinition,
-        portfolioData: payload.data,
+        portfolioData: data,
         portfolioDailyReturns: dailyReturns,
         initialCapital: Number(initialCapital),
       });
@@ -327,13 +317,13 @@ export function PortfolioBuilder({
       setAnalysis({
         name: portfolioName.trim() || "ETF Portfolio",
         period,
-        provider: payload.data.meta.provider,
-        providers: payload.data.meta.providers,
-        providerWarnings: payload.data.meta.warnings,
-        providerCache: payload.data.meta.cache,
-        commonStartDate: payload.data.meta.commonStartDate,
-        commonEndDate: payload.data.meta.commonEndDate,
-        observations: payload.data.meta.observations,
+        provider: data.meta.provider,
+        providers: data.meta.providers,
+        providerWarnings: data.meta.warnings,
+        providerCache: data.meta.cache,
+        commonStartDate: data.meta.commonStartDate,
+        commonEndDate: data.meta.commonEndDate,
+        observations: data.meta.observations,
         assets: assetAnalytics,
         performancePoints,
         drawdownPoints,
@@ -384,26 +374,16 @@ export function PortfolioBuilder({
 
     try {
       const benchmarkTickers = getBenchmarkTickers(input.definition);
-      const url = new URL("/api/market-data", window.location.origin);
-
-      url.searchParams.set("tickers", benchmarkTickers.join(","));
-      url.searchParams.set("period", period);
-      url.searchParams.set("maxTickers", benchmarkTickers.length.toString());
-      url.searchParams.set("provider", provider);
-
-      const response = await fetch(url.toString(), {
-        method: "GET",
-        cache: "no-store",
+      const data = await loadMarketDataExplorer({
+        tickers: benchmarkTickers,
+        period,
+        maxTickers: benchmarkTickers.length,
+        provider,
       });
-      const payload = (await response.json()) as MarketDataRouteResponse;
-
-      if (!payload.ok) {
-        throw new Error(payload.error);
-      }
 
       const comparison = buildBenchmarkComparison({
         benchmark: input.definition,
-        benchmarkData: payload.data,
+        benchmarkData: data,
         portfolioDates: input.portfolioData.points.map((point) => point.date),
         portfolioDailyReturns: input.portfolioDailyReturns,
         initialCapital: input.initialCapital,
