@@ -2,36 +2,42 @@
 
 import { ExpandableChartCard } from "@/components/expandable-chart-card";
 import { LineChartPanel } from "@/components/line-chart-panel";
-import type {
-  PortfolioComparisonPresetId,
-  PortfolioComparisonResult,
-} from "@/lib/finance/portfolio/comparison";
+import type { PortfolioComparisonResult } from "@/lib/finance/portfolio/comparison";
 
 type PortfolioComparisonChartsProps = {
   comparison: PortfolioComparisonResult;
 };
 
-const SERIES_COLORS: Record<PortfolioComparisonPresetId, string> = {
-  conservative: "#8fb8ff",
-  balanced: "#e2b86b",
-  aggressive: "#7dd3a8",
-};
+const SERIES_COLORS = [
+  "#8fb8ff",
+  "#e2b86b",
+  "#7dd3a8",
+  "#d99adf",
+  "#f59e8b",
+];
 
 export function PortfolioComparisonCharts({
   comparison,
 }: PortfolioComparisonChartsProps) {
   const cumulativeSeries = comparison.cumulativePerformance.series.map(
-    (entry) => ({
+    (entry, index) => ({
       label: entry.label,
       values: entry.values,
-      color: SERIES_COLORS[entry.portfolioId],
+      color: SERIES_COLORS[index % SERIES_COLORS.length],
     }),
   );
-  const drawdownSeries = comparison.drawdowns.series.map((entry) => ({
+  const drawdownSeries = comparison.drawdowns.series.map((entry, index) => ({
     label: entry.label,
     values: entry.values,
-    color: SERIES_COLORS[entry.portfolioId],
+    color: SERIES_COLORS[index % SERIES_COLORS.length],
   }));
+  const rollingVolatilitySeries = comparison.rollingVolatility.series.map(
+    (entry, index) => ({
+      label: entry.label,
+      values: entry.values,
+      color: SERIES_COLORS[index % SERIES_COLORS.length],
+    }),
+  );
   const worstDrawdownPortfolio = comparison.portfolios.reduce(
     (selected, portfolio) =>
       portfolio.metrics.maxDrawdown < selected.metrics.maxDrawdown
@@ -43,10 +49,10 @@ export function PortfolioComparisonCharts({
   return (
     <div className="grid gap-4 xl:grid-cols-2">
       <ExpandableChartCard
-        eyebrow="Comparison chart"
+        eyebrow="Performance comparison"
         title="Cumulative Performance"
         description="Historical cumulative return paths, normalized to 0% at the shared start date."
-        detailDescription="Inspect the three predefined portfolios over the same aligned market-data window. Values are historical cumulative returns, not forecasts."
+        detailDescription="Inspect selected portfolios over the same aligned market-data window. Values are historical cumulative returns, not forecasts."
         renderPreview={({ open }) => (
           <LineChartPanel
             title="Portfolio Comparison Cumulative Performance"
@@ -71,9 +77,9 @@ export function PortfolioComparisonCharts({
       />
 
       <ExpandableChartCard
-        eyebrow="Comparison chart"
+        eyebrow="Risk path"
         title="Drawdown Comparison"
-        description="Peak-to-trough declines for each predefined portfolio across the same historical window."
+        description="Peak-to-trough declines for each selected portfolio across the same historical window."
         detailDescription="Inspect portfolio drawdowns over the shared date range. Drawdown is measured from each portfolio's prior peak."
         renderPreview={({ open }) => (
           <LineChartPanel
@@ -106,6 +112,38 @@ export function PortfolioComparisonCharts({
           </div>
         }
       />
+
+      {comparison.rollingVolatility.dates.length > 0 ? (
+        <div className="xl:col-span-2">
+          <ExpandableChartCard
+            eyebrow="Risk diagnostics"
+            title="Rolling Volatility"
+            description="Trailing 21-trading-day annualized realized volatility for each selected portfolio."
+            detailDescription="Rolling volatility is calculated from each portfolio's simulated daily returns and annualized with 252 trading days."
+            renderPreview={({ open }) => (
+              <LineChartPanel
+                title="Portfolio Rolling Volatility"
+                dates={comparison.rollingVolatility.dates}
+                series={rollingVolatilitySeries}
+                valueFormatter={formatPercent}
+                onChartClick={open}
+                expandLabel="Open chart"
+              />
+            )}
+            detail={
+              <LineChartPanel
+                title="Portfolio Rolling Volatility"
+                dates={comparison.rollingVolatility.dates}
+                series={rollingVolatilitySeries}
+                valueFormatter={formatPercent}
+                heightClassName="h-[24rem] sm:h-[32rem] lg:h-[40rem]"
+                interactive
+                showSummary
+              />
+            }
+          />
+        </div>
+      ) : null}
     </div>
   );
 }

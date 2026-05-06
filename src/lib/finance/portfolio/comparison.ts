@@ -6,6 +6,7 @@ import {
   simulatePortfolioRebalancing,
 } from "@/lib/finance/portfolio/rebalancing";
 import { validatePortfolioInputs } from "@/lib/finance/portfolio/returns";
+import { calculateHistoricalTailRisk95 } from "@/lib/finance/portfolio/risk-diagnostics";
 import type {
   PortfolioAssetInput,
   PortfolioDrawdownPoint,
@@ -17,7 +18,19 @@ import type { MarketDataExplorerPayload, MarketDataPeriod } from "@/lib/market-d
 export type PortfolioComparisonPresetId =
   | "conservative"
   | "balanced"
+  | "growth"
   | "aggressive";
+
+export type PortfolioComparisonDefinition = {
+  id: string;
+  kind: "predefined" | "custom";
+  name: string;
+  label: string;
+  description: string;
+  sourcePresetId?: string;
+  sourcePresetName?: string;
+  holdings: PortfolioAssetInput[];
+};
 
 export type PredefinedPortfolioComparisonPreset = {
   id: PortfolioComparisonPresetId;
@@ -44,12 +57,7 @@ export type PortfolioComparisonMetrics = {
   historicalExpectedShortfall95: number;
 };
 
-export type PortfolioComparisonPortfolioResult = {
-  id: PortfolioComparisonPresetId;
-  label: string;
-  name: string;
-  description: string;
-  holdings: PortfolioAssetInput[];
+export type PortfolioComparisonPortfolioResult = PortfolioComparisonDefinition & {
   metrics: PortfolioComparisonMetrics;
   performancePoints: PortfolioPerformancePoint[];
   drawdownPoints: PortfolioDrawdownPoint[];
@@ -59,7 +67,7 @@ export type PortfolioComparisonPortfolioResult = {
 export type PortfolioComparisonSeries = {
   dates: string[];
   series: Array<{
-    portfolioId: PortfolioComparisonPresetId;
+    portfolioId: string;
     label: string;
     values: number[];
   }>;
@@ -76,6 +84,7 @@ export type PortfolioComparisonResult = {
   portfolios: PortfolioComparisonPortfolioResult[];
   cumulativePerformance: PortfolioComparisonSeries;
   drawdowns: PortfolioComparisonSeries;
+  rollingVolatility: PortfolioComparisonSeries;
   providerWarnings: MarketDataExplorerPayload["meta"]["warnings"];
   providerCache: MarketDataExplorerPayload["meta"]["cache"];
 };
@@ -85,6 +94,10 @@ export const DEFAULT_PORTFOLIO_COMPARISON_INITIAL_CAPITAL = 100000;
 export const DEFAULT_PORTFOLIO_COMPARISON_STRATEGY: RebalancingStrategyConfig = {
   id: DEFAULT_REBALANCING_STRATEGY,
 };
+export const MIN_PORTFOLIO_COMPARISON_COUNT = 2;
+export const MAX_PORTFOLIO_COMPARISON_COUNT = 5;
+export const MAX_PORTFOLIO_COMPARISON_TICKERS = 10;
+export const ROLLING_VOLATILITY_WINDOW_DAYS = 21;
 
 export const DEFAULT_PORTFOLIO_COMPARISON_PRESET_IDS = [
   "conservative",
@@ -108,17 +121,19 @@ const COMPARISON_PRESET_MAPPINGS: Array<{
     sourcePresetId: "balanced-60-40",
   },
   {
+    id: "growth",
+    label: "Growth",
+    sourcePresetId: "growth",
+  },
+  {
     id: "aggressive",
     label: "Aggressive",
     sourcePresetId: "aggressive-growth",
   },
 ];
 
-export function getPredefinedPortfolioComparisonPresets(
-  presetIds: PortfolioComparisonPresetId[] = DEFAULT_PORTFOLIO_COMPARISON_PRESET_IDS,
-): PredefinedPortfolioComparisonPreset[] {
-  return presetIds.map((presetId) => {
-    const mapping = resolvePresetMapping(presetId);
+export function getPredefinedPortfolioComparisonPresets(): PredefinedPortfolioComparisonPreset[] {
+  return COMPARISON_PRESET_MAPPINGS.map((mapping) => {
     const sourcePreset = resolveSourcePreset(mapping.sourcePresetId);
     const validation = validatePortfolioInputs({
       initialCapital: sourcePreset.initialCapital,
@@ -147,15 +162,62 @@ export function getPredefinedPortfolioComparisonPresets(
   });
 }
 
-export function getPortfolioComparisonTickers(
-  presetIds: PortfolioComparisonPresetId[] = DEFAULT_PORTFOLIO_COMPARISON_PRESET_IDS,
-): string[] {
-  const presets = getPredefinedPortfolioComparisonPresets(presetIds);
+export function getDefaultPortfolioComparisonDefinitions(): PortfolioComparisonDefinition[] {
+  return DEFAULT_PORTFOLIO_COMPARISON_PRESET_IDS.map((presetId) =>
+    createPortfolioComparisonDefinitionFromPreset(presetId),
+  );
+}
 
+export function createPortfolioComparisonDefinitionFromPreset(
+  presetId: PortfolioComparisonPresetId,
+  instanceId = `preset-${presetId}`,
+): PortfolioComparisonDefinition {
+  const preset = getPredefinedPortfolioComparisonPresets().find(
+    (entry) => entry.id === presetId,
+  );
+
+  if (!preset) {
+    throw new Error(`Unknown comparison preset: ${presetId}.`);
+  }
+
+  return {
+    id: instanceId,
+    kind: "predefined",
+    name: preset.name,
+    label: preset.label,
+    description: preset.description,
+    sourcePresetId: preset.sourcePresetId,
+    sourcePresetName: preset.sourcePresetName,
+    holdings: cloneHoldings(preset.holdings),
+  };
+}
+
+export function createCustomPortfolioComparisonDefinition(
+  instanceId: string,
+  index: number,
+): PortfolioComparisonDefinition {
+  return {
+    id: instanceId,
+    kind: "custom",
+    name: `Custom Portfolio ${index}`,
+    label: `Custom ${index}`,
+    description: "User-defined allocation for side-by-side comparison.",
+    holdings: [
+      { ticker: "IVV", assetClass: "US Large Cap Equity", weight: 60 },
+      { ticker: "AGG", assetClass: "US Aggregate Bonds", weight: 40 },
+    ],
+  };
+}
+
+export function getPortfolioComparisonTickers(
+  portfolios: PortfolioComparisonDefinition[],
+): string[] {
   return [
     ...new Set(
-      presets.flatMap((preset) =>
-        preset.holdings.map((holding) => holding.ticker.trim().toUpperCase()),
+      portfolios.flatMap((portfolio) =>
+        portfolio.holdings
+          .map((holding) => holding.ticker.trim().toUpperCase())
+          .filter(Boolean),
       ),
     ),
   ];
@@ -163,13 +225,13 @@ export function getPortfolioComparisonTickers(
 
 export function buildPortfolioComparison(input: {
   data: MarketDataExplorerPayload;
-  presetIds?: PortfolioComparisonPresetId[];
+  portfolios: PortfolioComparisonDefinition[];
   initialCapital?: number;
   strategy?: RebalancingStrategyConfig;
   riskFreeRate?: number;
 }): PortfolioComparisonResult {
-  const presetIds =
-    input.presetIds ?? DEFAULT_PORTFOLIO_COMPARISON_PRESET_IDS;
+  validateComparisonPortfolioCount(input.portfolios);
+
   const initialCapital =
     input.initialCapital ?? DEFAULT_PORTFOLIO_COMPARISON_INITIAL_CAPITAL;
   const strategy = input.strategy ?? DEFAULT_PORTFOLIO_COMPARISON_STRATEGY;
@@ -182,59 +244,57 @@ export function buildPortfolioComparison(input: {
     );
   }
 
-  const portfolios = getPredefinedPortfolioComparisonPresets(presetIds).map(
-    (preset) => {
-      const validation = validatePortfolioInputs({
-        initialCapital,
-        assets: preset.holdings,
-      });
+  const portfolios = input.portfolios.map((portfolio) => {
+    const validation = validatePortfolioInputs({
+      initialCapital,
+      assets: portfolio.holdings,
+    });
 
-      if (!validation.isValid) {
-        throw new Error(`${preset.label} portfolio is invalid: ${validation.error}`);
-      }
+    if (!validation.isValid) {
+      throw new Error(`${portfolio.name} is invalid: ${validation.error}`);
+    }
 
-      const simulation = simulatePortfolioRebalancing({
-        data: input.data,
-        assets: validation.assets,
-        initialCapital,
-        strategy,
-      });
-      const drawdownPoints = buildPortfolioDrawdownPoints(
-        simulation.performancePoints,
-      );
-      const maxDrawdown = drawdownPoints.reduce(
-        (minimum, point) => Math.min(minimum, point.drawdown),
-        0,
-      );
-      const metrics = calculatePortfolioMetrics({
-        performancePoints: simulation.performancePoints,
-        dailyReturns: simulation.dailyReturns,
-        maxDrawdown,
-        riskFreeRate,
-      });
-      const tailRisk = calculateHistoricalTailRisk95(simulation.dailyReturns);
+    const simulation = simulatePortfolioRebalancing({
+      data: input.data,
+      assets: validation.assets,
+      initialCapital,
+      strategy,
+    });
+    const drawdownPoints = buildPortfolioDrawdownPoints(
+      simulation.performancePoints,
+    );
+    const maxDrawdown = drawdownPoints.reduce(
+      (minimum, point) => Math.min(minimum, point.drawdown),
+      0,
+    );
+    const metrics = calculatePortfolioMetrics({
+      performancePoints: simulation.performancePoints,
+      dailyReturns: simulation.dailyReturns,
+      maxDrawdown,
+      riskFreeRate,
+    });
+    const tailRisk = calculateHistoricalTailRisk95(simulation.dailyReturns);
 
-      return {
-        id: preset.id,
-        label: preset.label,
-        name: preset.name,
-        description: preset.description,
-        holdings: validation.assets,
-        metrics: {
-          cumulativeReturn: metrics.cumulativeReturn,
-          annualizedReturn: metrics.cagr,
-          annualizedVolatility: metrics.annualizedVolatility,
-          sharpeRatio: metrics.sharpeRatio,
-          maxDrawdown: metrics.maxDrawdown,
-          historicalVar95: tailRisk.var95,
-          historicalExpectedShortfall95: tailRisk.expectedShortfall95,
-        },
-        performancePoints: simulation.performancePoints,
-        drawdownPoints,
-        dailyReturns: simulation.dailyReturns,
-      };
-    },
-  );
+    return {
+      ...portfolio,
+      label: portfolio.label.trim() || portfolio.name.trim() || "Portfolio",
+      name: portfolio.name.trim() || "Portfolio",
+      holdings: validation.assets,
+      metrics: {
+        cumulativeReturn: metrics.cumulativeReturn,
+        annualizedReturn: metrics.cagr,
+        annualizedVolatility: metrics.annualizedVolatility,
+        sharpeRatio: metrics.sharpeRatio,
+        maxDrawdown: metrics.maxDrawdown,
+        historicalVar95: tailRisk.var95,
+        historicalExpectedShortfall95: tailRisk.expectedShortfall95,
+      },
+      performancePoints: simulation.performancePoints,
+      drawdownPoints,
+      dailyReturns: simulation.dailyReturns,
+    };
+  });
+  const rollingVolatility = buildRollingVolatilityComparisonSeries(portfolios);
 
   return {
     period: input.data.period,
@@ -242,7 +302,7 @@ export function buildPortfolioComparison(input: {
     commonStartDate: input.data.meta.commonStartDate,
     commonEndDate: input.data.meta.commonEndDate,
     observations: input.data.meta.observations,
-    tickers: getPortfolioComparisonTickers(presetIds),
+    tickers: getPortfolioComparisonTickers(input.portfolios),
     strategy,
     portfolios,
     cumulativePerformance: {
@@ -261,48 +321,79 @@ export function buildPortfolioComparison(input: {
         values: portfolio.drawdownPoints.map((point) => point.drawdown),
       })),
     },
+    rollingVolatility,
     providerWarnings: input.data.meta.warnings,
     providerCache: input.data.meta.cache,
   };
 }
 
-export function calculateHistoricalTailRisk95(dailyReturns: number[]): {
-  var95: number;
-  expectedShortfall95: number;
-} {
-  const sortedReturns = dailyReturns.filter((value) => Number.isFinite(value));
-
-  sortedReturns.sort((a, b) => a - b);
-
-  if (sortedReturns.length === 0) {
-    return {
-      var95: 0,
-      expectedShortfall95: 0,
-    };
+function validateComparisonPortfolioCount(
+  portfolios: PortfolioComparisonDefinition[],
+) {
+  if (portfolios.length < MIN_PORTFOLIO_COMPARISON_COUNT) {
+    throw new Error(
+      `Select at least ${MIN_PORTFOLIO_COMPARISON_COUNT} portfolios for comparison.`,
+    );
   }
 
-  const tailCount = Math.max(1, Math.ceil(sortedReturns.length * 0.05));
-  const tailReturns = sortedReturns.slice(0, tailCount);
-  const varReturn = tailReturns[tailReturns.length - 1] ?? 0;
-  const expectedShortfallReturn =
-    tailReturns.reduce((sum, value) => sum + value, 0) / tailReturns.length;
+  if (portfolios.length > MAX_PORTFOLIO_COMPARISON_COUNT) {
+    throw new Error(
+      `This lab supports up to ${MAX_PORTFOLIO_COMPARISON_COUNT} portfolios at once.`,
+    );
+  }
+}
+
+function buildRollingVolatilityComparisonSeries(
+  portfolios: PortfolioComparisonPortfolioResult[],
+): PortfolioComparisonSeries {
+  const firstPortfolio = portfolios[0];
+  const dates =
+    firstPortfolio?.performancePoints
+      .slice(ROLLING_VOLATILITY_WINDOW_DAYS)
+      .map((point) => point.date) ?? [];
 
   return {
-    var95: Math.max(0, -varReturn),
-    expectedShortfall95: Math.max(0, -expectedShortfallReturn),
+    dates,
+    series: portfolios.map((portfolio) => ({
+      portfolioId: portfolio.id,
+      label: portfolio.label,
+      values: calculateRollingAnnualizedVolatility(
+        portfolio.dailyReturns,
+        ROLLING_VOLATILITY_WINDOW_DAYS,
+      ),
+    })),
   };
 }
 
-function resolvePresetMapping(presetId: PortfolioComparisonPresetId) {
-  const mapping = COMPARISON_PRESET_MAPPINGS.find(
-    (entry) => entry.id === presetId,
-  );
-
-  if (!mapping) {
-    throw new Error(`Unknown comparison portfolio: ${presetId}.`);
+function calculateRollingAnnualizedVolatility(
+  dailyReturns: number[],
+  windowDays: number,
+): number[] {
+  if (dailyReturns.length < windowDays) {
+    return [];
   }
 
-  return mapping;
+  const values: number[] = [];
+
+  for (let endIndex = windowDays; endIndex <= dailyReturns.length; endIndex += 1) {
+    const windowReturns = dailyReturns.slice(endIndex - windowDays, endIndex);
+    values.push(calculateSampleVolatility(windowReturns) * Math.sqrt(252));
+  }
+
+  return values;
+}
+
+function calculateSampleVolatility(values: number[]): number {
+  if (values.length < 2) {
+    return 0;
+  }
+
+  const mean = values.reduce((sum, value) => sum + value, 0) / values.length;
+  const variance =
+    values.reduce((sum, value) => sum + (value - mean) ** 2, 0) /
+    (values.length - 1);
+
+  return Math.sqrt(Math.max(variance, 0));
 }
 
 function resolveSourcePreset(sourcePresetId: string) {
@@ -313,4 +404,8 @@ function resolveSourcePreset(sourcePresetId: string) {
   }
 
   return preset;
+}
+
+function cloneHoldings(holdings: PortfolioAssetInput[]): PortfolioAssetInput[] {
+  return holdings.map((holding) => ({ ...holding }));
 }
