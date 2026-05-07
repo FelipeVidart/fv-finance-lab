@@ -1,4 +1,4 @@
-import { PortfolioBuilder } from "@/components/portfolio/portfolio-builder";
+import { PortfolioComparisonSection } from "@/components/portfolio/portfolio-comparison-section";
 import { SurfaceCard } from "@/components/ui/surface-card";
 import {
   getProviderConfigs,
@@ -18,29 +18,33 @@ export default function PortfolioPage() {
                 Portfolio tool
               </span>
               <span className="rounded-full border border-white/[0.08] bg-background-muted/75 px-3 py-1.5 text-[0.68rem] font-semibold uppercase tracking-[0.2em] text-foreground-subtle">
-                MVP
+                Risk Lab v1
               </span>
             </div>
             <div className="space-y-4">
               <h2 className="max-w-4xl text-balance text-3xl font-semibold tracking-[-0.04em] text-foreground sm:text-[2.8rem]">
-                Portfolio Management Lab
+                Portfolio Risk Lab
               </h2>
               <p className="max-w-3xl text-sm leading-7 text-foreground-soft sm:text-[0.96rem]">
-                A tool to build weighted ETF portfolios, backtest historical
-                performance, and analyze risk/return metrics.
+                Compare predefined and custom ETF portfolios, backtest
+                historical performance, and connect returns to portfolio risk
+                diagnostics.
               </p>
             </div>
           </div>
 
           <div className="grid gap-3 sm:grid-cols-3 xl:grid-cols-1">
-            <HeroSignal label="Current scope" value="One weighted ETF portfolio" />
-            <HeroSignal label="Data model" value="Existing aligned daily market data" />
-            <HeroSignal label="Return model" value="Configurable rebalancing simulation" />
+            <HeroSignal
+              label="Current scope"
+              value="Flexible comparison plus custom builder"
+            />
+            <HeroSignal label="Data model" value="Shared aligned daily market data" />
+            <HeroSignal label="Risk model" value="Historical and scenario analytics" />
           </div>
         </div>
       </SurfaceCard>
 
-      <PortfolioBuilder
+      <PortfolioComparisonSection
         providerConfigs={getProviderConfigs()}
         providerSelectorOptions={getProviderSelectorOptions()}
       />
