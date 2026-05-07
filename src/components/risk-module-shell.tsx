@@ -14,6 +14,7 @@ import type {
   WeightValidationState,
 } from "@/components/risk/types";
 import { buildPortfolioAnalytics } from "@/lib/finance/portfolio";
+import { buildPortfolioRiskAnalysis } from "@/lib/finance/risk/portfolio-risk-analysis";
 import { parseTickerInput } from "@/lib/market-data/request";
 import type {
   MarketDataExplorerPayload,
@@ -219,6 +220,29 @@ export function RiskModuleShell({
     }
   }, [data, weightValidation]);
 
+  const portfolioRiskAnalysis = useMemo(() => {
+    if (
+      !data ||
+      !portfolioAnalytics ||
+      !weightValidation?.isValid ||
+      !weightValidation.weights
+    ) {
+      return null;
+    }
+
+    try {
+      return buildPortfolioRiskAnalysis({
+        data,
+        tickers: data.tickers,
+        weights: weightValidation.weights,
+        portfolioDailyReturns: portfolioAnalytics.dailyReturns,
+        portfolioNavPoints: portfolioAnalytics.points,
+      });
+    } catch {
+      return null;
+    }
+  }, [data, portfolioAnalytics, weightValidation]);
+
   const datasetStatusItems = useMemo(() => {
     if (!data) {
       return [];
@@ -338,6 +362,48 @@ export function RiskModuleShell({
     ];
   }, [portfolioAnalytics]);
 
+  const riskKpis = useMemo(() => {
+    if (!portfolioRiskAnalysis) {
+      return [];
+    }
+
+    const latestEwmaVolatility =
+      portfolioRiskAnalysis.ewmaVolatilitySeries[
+        portfolioRiskAnalysis.ewmaVolatilitySeries.length - 1
+      ]?.value ?? 0;
+
+    return [
+      {
+        label: "Historical VaR 95%",
+        value: formatRiskLossPercent(portfolioRiskAnalysis.tailRisk.historicalVaR),
+      },
+      {
+        label: "Expected tail loss 95%",
+        value: formatRiskLossPercent(
+          portfolioRiskAnalysis.tailRisk.historicalExpectedShortfall,
+        ),
+      },
+      {
+        label: "Parametric VaR 95%",
+        value: formatRiskLossPercent(portfolioRiskAnalysis.tailRisk.parametricVaR),
+      },
+      {
+        label: "Latest EWMA daily vol",
+        value: formatRiskLossPercent(latestEwmaVolatility),
+      },
+      {
+        label: "Worst daily return",
+        value: formatPercent(portfolioRiskAnalysis.descriptiveStats.worstDailyReturn),
+      },
+      {
+        label: "Positive days",
+        value: formatRiskLossPercent(
+          portfolioRiskAnalysis.descriptiveStats.positiveDayRatio,
+        ),
+      },
+    ];
+  }, [portfolioRiskAnalysis]);
+
   const portfolioCharts = useMemo<RiskChartModel[]>(() => {
     if (!data || !portfolioAnalytics) {
       return [];
@@ -385,6 +451,46 @@ export function RiskModuleShell({
         ],
         valueFormatter: formatPercent,
       },
+      ...(portfolioRiskAnalysis
+        ? [
+            {
+              title: "Rolling Annualized Volatility",
+              description:
+                "Trailing 21-trading-day realized volatility, annualized for portfolio risk monitoring.",
+              dates: portfolioRiskAnalysis.rollingVolatilitySeries.map(
+                (point) => point.date,
+              ),
+              series: [
+                {
+                  label: "Portfolio",
+                  values: portfolioRiskAnalysis.rollingVolatilitySeries.map(
+                    (point) => point.value,
+                  ),
+                  color: "#c9a25d",
+                },
+              ],
+              valueFormatter: formatRiskLossPercent,
+            },
+            {
+              title: "EWMA Daily Volatility",
+              description:
+                "Exponentially weighted daily volatility using lambda 0.94 to emphasize recent return shocks.",
+              dates: portfolioRiskAnalysis.ewmaVolatilitySeries.map(
+                (point) => point.date,
+              ),
+              series: [
+                {
+                  label: "Portfolio",
+                  values: portfolioRiskAnalysis.ewmaVolatilitySeries.map(
+                    (point) => point.value,
+                  ),
+                  color: "#86a8c9",
+                },
+              ],
+              valueFormatter: formatRiskLossPercent,
+            },
+          ]
+        : []),
       {
         title: "Portfolio vs Assets",
         description:
@@ -394,7 +500,7 @@ export function RiskModuleShell({
         valueFormatter: formatPercent,
       },
     ];
-  }, [data, portfolioAnalytics]);
+  }, [data, portfolioAnalytics, portfolioRiskAnalysis]);
 
   const holdings = useMemo(() => {
     if (!data) {
@@ -564,6 +670,8 @@ export function RiskModuleShell({
           portfolioAnalytics={portfolioAnalytics}
           portfolioCharts={portfolioCharts}
           portfolioKpis={portfolioKpis}
+          portfolioRiskAnalysis={portfolioRiskAnalysis}
+          riskKpis={riskKpis}
           weightValidation={weightValidation}
         />
       ) : null}
@@ -670,6 +778,10 @@ function createEqualWeightInputs(tickers: string[]): WeightState {
 
 function formatPercent(value: number): string {
   return `${value >= 0 ? "+" : ""}${(value * 100).toFixed(2)}%`;
+}
+
+function formatRiskLossPercent(value: number): string {
+  return `${(value * 100).toFixed(2)}%`;
 }
 
 function formatDateLabel(value: string): string {
