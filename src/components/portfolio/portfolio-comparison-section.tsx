@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { PortfolioComparisonCharts } from "@/components/portfolio/portfolio-comparison-charts";
+import { PortfolioBuilder } from "@/components/portfolio/portfolio-builder";
 import { PortfolioRiskDiagnosticsSection } from "@/components/portfolio/portfolio-risk-diagnostics-section";
 import { PortfolioStressTestSection } from "@/components/portfolio/portfolio-stress-test-section";
 import { SurfaceCard } from "@/components/ui/surface-card";
@@ -37,13 +38,18 @@ import type {
   MarketDataProviderMode,
   MarketDataWarning,
 } from "@/lib/market-data/types";
-import type { ProviderSelectorOption } from "@/lib/market-data/provider-config";
+import type {
+  ProviderSelectorOption,
+  SafeProviderConfig,
+} from "@/lib/market-data/provider-config";
 import { cn } from "@/lib/utils";
 
 type PortfolioComparisonSectionProps = {
+  providerConfigs: SafeProviderConfig[];
   providerSelectorOptions: ProviderSelectorOption[];
 };
 
+type PortfolioLabMode = "comparison" | "single";
 type MetricFormat = "signedPercent" | "percent" | "lossPercent" | "ratio";
 
 type PortfolioRiskLabResult = {
@@ -106,8 +112,10 @@ const metricRows: Array<{
 ];
 
 export function PortfolioComparisonSection({
+  providerConfigs,
   providerSelectorOptions,
 }: PortfolioComparisonSectionProps) {
+  const [activeMode, setActiveMode] = useState<PortfolioLabMode>("comparison");
   const [period, setPeriod] = useState<MarketDataPeriod>(
     DEFAULT_PORTFOLIO_COMPARISON_PERIOD,
   );
@@ -384,6 +392,48 @@ export function PortfolioComparisonSection({
   return (
     <div className="space-y-6">
       <SurfaceCard tone="elevated" padding="md" className="border-border-strong/90">
+        <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(24rem,0.72fr)] xl:items-end">
+          <div>
+            <p className="text-[0.72rem] font-semibold uppercase tracking-[0.24em] text-accent-strong/90">
+              Portfolio Risk Lab
+            </p>
+            <h2 className="mt-3 text-2xl font-semibold tracking-[-0.04em] text-foreground">
+              One workspace for portfolio construction, comparison, and risk review
+            </h2>
+            <p className="mt-3 max-w-3xl text-sm leading-7 text-foreground-soft">
+              Choose a focused single-portfolio backtest or compare several
+              allocations on the same aligned historical data. Results are
+              analytical outputs, not investment advice.
+            </p>
+          </div>
+          <ModeSwitch activeMode={activeMode} onChange={setActiveMode} />
+        </div>
+      </SurfaceCard>
+
+      {activeMode === "single" ? (
+        <>
+          <SurfaceCard padding="md" className="border-white/[0.08]">
+            <p className="text-[0.72rem] font-semibold uppercase tracking-[0.24em] text-accent-strong/90">
+              Single portfolio analysis
+            </p>
+            <h2 className="mt-3 text-xl font-semibold tracking-[-0.03em] text-foreground">
+              Backtest one allocation with benchmark, rebalancing, and drawdown review.
+            </h2>
+            <p className="mt-2 max-w-3xl text-sm leading-7 text-foreground-soft">
+              This mode preserves the original portfolio builder inside the
+              unified lab: choose a preset, edit holdings, set rebalancing and
+              benchmark controls, then run a historical backtest.
+            </p>
+          </SurfaceCard>
+          <PortfolioBuilder
+            providerConfigs={providerConfigs}
+            providerSelectorOptions={providerSelectorOptions}
+          />
+          <MethodologySection mode="single" />
+        </>
+      ) : (
+        <>
+      <SurfaceCard tone="elevated" padding="md" className="border-border-strong/90">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
             <p className="text-[0.72rem] font-semibold uppercase tracking-[0.24em] text-accent-strong/90">
@@ -598,6 +648,98 @@ export function PortfolioComparisonSection({
           </p>
         </SurfaceCard>
       )}
+          <MethodologySection mode="comparison" />
+        </>
+      )}
+    </div>
+  );
+}
+
+function ModeSwitch({
+  activeMode,
+  onChange,
+}: {
+  activeMode: PortfolioLabMode;
+  onChange: (mode: PortfolioLabMode) => void;
+}) {
+  const modes: Array<{
+    id: PortfolioLabMode;
+    label: string;
+    description: string;
+  }> = [
+    {
+      id: "single",
+      label: "Single portfolio analysis",
+      description: "Build one allocation with benchmark and rebalancing controls.",
+    },
+    {
+      id: "comparison",
+      label: "Portfolio comparison",
+      description: "Compare 2 to 5 portfolios on shared market data.",
+    },
+  ];
+
+  return (
+    <div className="grid gap-2 sm:grid-cols-2">
+      {modes.map((mode) => {
+        const isActive = activeMode === mode.id;
+
+        return (
+          <button
+            key={mode.id}
+            type="button"
+            onClick={() => onChange(mode.id)}
+            className={cn(
+              "rounded-[1.2rem] border px-4 py-3 text-left transition",
+              isActive
+                ? "border-accent/40 bg-accent/12 text-accent-foreground"
+                : "border-white/[0.08] bg-background-muted/75 text-foreground hover:border-accent/25 hover:bg-accent/10",
+            )}
+          >
+            <span className="block text-sm font-semibold">{mode.label}</span>
+            <span className="mt-2 block text-xs leading-5 text-foreground-muted">
+              {mode.description}
+            </span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function MethodologySection({ mode }: { mode: PortfolioLabMode }) {
+  return (
+    <SurfaceCard padding="md" className="border-white/[0.08]">
+      <p className="text-[0.72rem] font-semibold uppercase tracking-[0.24em] text-accent-strong/90">
+        Methodology and limits
+      </p>
+      <div className="mt-4 grid gap-3 lg:grid-cols-3">
+        <MethodologyNote
+          title="Historical data"
+          body={
+            mode === "comparison"
+              ? "Comparison mode evaluates every selected portfolio on one shared aligned historical price window."
+              : "Single mode evaluates one selected allocation and optional benchmark over aligned historical prices."
+          }
+        />
+        <MethodologyNote
+          title="Loss measures"
+          body="VaR and expected shortfall are historical daily loss measures. Drawdown is peak-to-trough decline from the simulated value path."
+        />
+        <MethodologyNote
+          title="Scenario tests"
+          body="Stress tests use simplified asset-class shocks. They are scenario assumptions, not forecasts or recommendations."
+        />
+      </div>
+    </SurfaceCard>
+  );
+}
+
+function MethodologyNote({ title, body }: { title: string; body: string }) {
+  return (
+    <div className="rounded-[1.2rem] border border-white/[0.08] bg-background-muted/75 px-4 py-3">
+      <p className="text-sm font-semibold text-foreground">{title}</p>
+      <p className="mt-2 text-sm leading-6 text-foreground-soft">{body}</p>
     </div>
   );
 }
@@ -675,6 +817,17 @@ function PortfolioSetupCard({
         </p>
       ) : null}
 
+      <div className="mt-4 flex flex-wrap gap-2">
+        <button
+          type="button"
+          onClick={() => onRemovePortfolio(portfolio.id)}
+          disabled={!canRemove}
+          className="rounded-[1rem] border border-white/[0.08] bg-background-muted/80 px-3 py-2 text-xs font-semibold text-foreground-muted transition hover:border-rose-400/30 hover:text-rose-200 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          Remove portfolio
+        </button>
+      </div>
+
       <details className="mt-4 rounded-[1.1rem] border border-white/[0.08] bg-slate-950/35 px-3 py-3">
         <summary className="cursor-pointer text-sm font-semibold text-foreground">
           Edit holdings
@@ -692,79 +845,93 @@ function PortfolioSetupCard({
             />
           </label>
 
-          <div className="overflow-x-auto">
-            <div className="min-w-[620px] rounded-[1.1rem] border border-white/[0.08]">
-              <div className="grid grid-cols-[0.75fr_1.25fr_0.55fr_0.42fr] gap-2 border-b border-white/[0.08] px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-foreground-subtle">
-                <span>Ticker</span>
-                <span>Asset class</span>
-                <span>Weight</span>
-                <span></span>
-              </div>
-              {portfolio.holdings.map((holding, index) => (
-                <div
-                  key={`${portfolio.id}-${index}`}
-                  className="grid grid-cols-[0.75fr_1.25fr_0.55fr_0.42fr] gap-2 px-3 py-3 not-last:border-b not-last:border-white/[0.08]"
-                >
-                  <input
-                    type="text"
-                    value={holding.ticker}
-                    onChange={(event) =>
-                      onHoldingChange(
-                        portfolio.id,
-                        index,
-                        "ticker",
-                        event.target.value,
-                      )
-                    }
-                    placeholder="ETF"
-                    className="w-full rounded-[0.9rem] border border-white/10 bg-slate-950/75 px-3 py-2 text-sm text-white outline-none transition focus:border-accent/60"
-                  />
-                  <input
-                    type="text"
-                    value={holding.assetClass}
-                    onChange={(event) =>
-                      onHoldingChange(
-                        portfolio.id,
-                        index,
-                        "assetClass",
-                        event.target.value,
-                      )
-                    }
-                    placeholder="Asset class"
-                    className="w-full rounded-[0.9rem] border border-white/10 bg-slate-950/75 px-3 py-2 text-sm text-white outline-none transition focus:border-accent/60"
-                  />
-                  <input
-                    type="number"
-                    inputMode="decimal"
-                    min="0"
-                    step="0.01"
-                    value={
-                      Number.isFinite(holding.weight)
-                        ? holding.weight.toString()
-                        : ""
-                    }
-                    onChange={(event) =>
-                      onHoldingChange(
-                        portfolio.id,
-                        index,
-                        "weight",
-                        event.target.value,
-                      )
-                    }
-                    placeholder="0.00"
-                    className="w-full rounded-[0.9rem] border border-white/10 bg-slate-950/75 px-3 py-2 text-sm text-white outline-none transition focus:border-accent/60"
-                  />
+          <div className="space-y-3">
+            {portfolio.holdings.map((holding, index) => (
+              <div
+                key={`${portfolio.id}-${index}`}
+                className="rounded-[1.1rem] border border-white/[0.08] bg-background-muted/70 px-3 py-3"
+              >
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-foreground-subtle">
+                    Holding {index + 1}
+                  </p>
                   <button
                     type="button"
                     onClick={() => onRemoveHolding(portfolio.id, index)}
                     disabled={portfolio.holdings.length <= 1}
-                    className="rounded-[0.9rem] border border-white/[0.08] bg-background-muted/75 px-2 py-2 text-xs font-semibold text-foreground-muted transition hover:border-rose-400/30 hover:text-rose-200 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="rounded-[0.9rem] border border-white/[0.08] bg-slate-950/45 px-3 py-2 text-xs font-semibold text-foreground-muted transition hover:border-rose-400/30 hover:text-rose-200 disabled:cursor-not-allowed disabled:opacity-50"
                   >
-                    Remove
+                    Remove holding
                   </button>
                 </div>
-              ))}
-            </div>
+                <div className="grid gap-3 md:grid-cols-[minmax(5rem,0.7fr)_minmax(0,1.55fr)_minmax(7rem,0.7fr)]">
+                  <label className="block">
+                    <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-foreground-subtle">
+                      Ticker
+                    </span>
+                    <input
+                      type="text"
+                      value={holding.ticker}
+                      onChange={(event) =>
+                        onHoldingChange(
+                          portfolio.id,
+                          index,
+                          "ticker",
+                          event.target.value,
+                        )
+                      }
+                      placeholder="ETF"
+                      className="mt-2 w-full rounded-[0.9rem] border border-white/10 bg-slate-950/75 px-3 py-2 text-sm text-white outline-none transition focus:border-accent/60"
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-foreground-subtle">
+                      Asset class
+                    </span>
+                    <input
+                      type="text"
+                      value={holding.assetClass}
+                      onChange={(event) =>
+                        onHoldingChange(
+                          portfolio.id,
+                          index,
+                          "assetClass",
+                          event.target.value,
+                        )
+                      }
+                      placeholder="Asset class"
+                      className="mt-2 w-full rounded-[0.9rem] border border-white/10 bg-slate-950/75 px-3 py-2 text-sm text-white outline-none transition focus:border-accent/60"
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-foreground-subtle">
+                      Weight
+                    </span>
+                    <input
+                      type="number"
+                      inputMode="decimal"
+                      min="0"
+                      step="0.01"
+                      value={
+                        Number.isFinite(holding.weight)
+                          ? holding.weight.toString()
+                          : ""
+                      }
+                      onChange={(event) =>
+                        onHoldingChange(
+                          portfolio.id,
+                          index,
+                          "weight",
+                          event.target.value,
+                        )
+                      }
+                      placeholder="0.00"
+                      className="mt-2 w-full rounded-[0.9rem] border border-white/10 bg-slate-950/75 px-3 py-2 text-sm text-white outline-none transition focus:border-accent/60"
+                    />
+                  </label>
+                </div>
+              </div>
+            ))}
           </div>
 
           <div className="flex flex-wrap gap-2">
@@ -774,14 +941,6 @@ function PortfolioSetupCard({
               className="rounded-[1rem] border border-accent/25 bg-accent/10 px-3 py-2 text-xs font-semibold text-accent-foreground transition hover:border-accent/40 hover:bg-accent/15"
             >
               Add holding
-            </button>
-            <button
-              type="button"
-              onClick={() => onRemovePortfolio(portfolio.id)}
-              disabled={!canRemove}
-              className="rounded-[1rem] border border-white/[0.08] bg-background-muted/80 px-3 py-2 text-xs font-semibold text-foreground transition hover:border-rose-400/30 hover:text-rose-200 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              Remove portfolio
             </button>
           </div>
         </div>

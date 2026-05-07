@@ -487,8 +487,8 @@ export function PortfolioBuilder({
     <div className="space-y-6">
       <Card
         eyebrow="Portfolio setup"
-        title="Build a weighted ETF portfolio"
-        description="Start from a model portfolio by risk level, then customize the allocation."
+        title="Analyze one weighted ETF portfolio"
+        description="Start from a model portfolio, customize the allocation, then review historical performance, benchmark behavior, drawdowns, and stress periods."
         tone="elevated"
         actions={
           <span
@@ -669,62 +669,76 @@ export function PortfolioBuilder({
               </div>
             </SurfaceCard>
 
-            <div className="overflow-x-auto rounded-[1.6rem] border border-white/[0.08] bg-[linear-gradient(180deg,rgba(10,17,26,0.82),rgba(8,13,20,0.72))]">
-              <div className="min-w-[780px]">
-                <div className="grid grid-cols-[0.75fr_1.5fr_0.65fr_0.45fr] gap-3 border-b border-white/[0.08] px-5 py-3 text-[11px] font-semibold uppercase tracking-[0.18em] text-foreground-subtle">
-                  <span>Ticker</span>
-                  <span>Asset class</span>
-                  <span>Weight</span>
-                  <span></span>
-                </div>
-                {assetRows.map((row, index) => (
-                  <div
-                    key={row.id}
-                    className={cn(
-                      "grid grid-cols-[0.75fr_1.5fr_0.65fr_0.45fr] gap-3 px-5 py-4 not-last:border-b not-last:border-white/[0.08]",
-                      index % 2 === 0 ? "bg-white/[0.015]" : "bg-transparent",
-                    )}
-                  >
-                    <input
-                      type="text"
-                      value={row.ticker}
-                      onChange={(event) =>
-                        updateAssetRow(row.id, "ticker", event.target.value)
-                      }
-                      placeholder="ETF"
-                      className="w-full rounded-[1rem] border border-white/10 bg-slate-900/80 px-3 py-2 text-sm text-white outline-none transition focus:border-accent/60"
-                    />
-                    <input
-                      type="text"
-                      value={row.assetClass}
-                      onChange={(event) =>
-                        updateAssetRow(row.id, "assetClass", event.target.value)
-                      }
-                      placeholder="Asset class"
-                      className="w-full rounded-[1rem] border border-white/10 bg-slate-900/80 px-3 py-2 text-sm text-white outline-none transition focus:border-accent/60"
-                    />
-                    <input
-                      type="number"
-                      inputMode="decimal"
-                      min="0"
-                      step="0.01"
-                      value={row.weight}
-                      onChange={(event) =>
-                        updateAssetRow(row.id, "weight", event.target.value)
-                      }
-                      placeholder="0.00"
-                      className="w-full rounded-[1rem] border border-white/10 bg-slate-900/80 px-3 py-2 text-sm text-white outline-none transition focus:border-accent/60"
-                    />
+            <div className="space-y-3 rounded-[1.6rem] border border-white/[0.08] bg-[linear-gradient(180deg,rgba(10,17,26,0.82),rgba(8,13,20,0.72))] p-4">
+              {assetRows.map((row, index) => (
+                <div
+                  key={row.id}
+                  className={cn(
+                    "rounded-[1.15rem] border border-white/[0.08] px-4 py-4",
+                    index % 2 === 0 ? "bg-white/[0.018]" : "bg-slate-950/25",
+                  )}
+                >
+                  <div className="mb-3 flex items-center justify-between gap-3">
+                    <p className="text-xs font-semibold uppercase tracking-[0.16em] text-foreground-subtle">
+                      Holding {index + 1}
+                    </p>
                     <button
                       type="button"
                       onClick={() => removeAssetRow(row.id)}
-                      className="rounded-[1rem] border border-white/[0.08] bg-slate-950/55 px-3 py-2 text-xs font-semibold text-foreground-muted transition hover:border-rose-400/30 hover:text-rose-200"
+                      className="rounded-[0.95rem] border border-white/[0.08] bg-slate-950/55 px-3 py-2 text-xs font-semibold text-foreground-muted transition hover:border-rose-400/30 hover:text-rose-200"
                     >
-                      Remove
+                      Remove holding
                     </button>
                   </div>
-                ))}
-              </div>
+                  <div className="grid gap-3 md:grid-cols-[minmax(5rem,0.7fr)_minmax(0,1.55fr)_minmax(7rem,0.7fr)]">
+                    <label className="block">
+                      <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-foreground-subtle">
+                        Ticker
+                      </span>
+                      <input
+                        type="text"
+                        value={row.ticker}
+                        onChange={(event) =>
+                          updateAssetRow(row.id, "ticker", event.target.value)
+                        }
+                        placeholder="ETF"
+                        className="mt-2 w-full rounded-[1rem] border border-white/10 bg-slate-900/80 px-3 py-2 text-sm text-white outline-none transition focus:border-accent/60"
+                      />
+                    </label>
+                    <label className="block">
+                      <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-foreground-subtle">
+                        Asset class
+                      </span>
+                      <input
+                        type="text"
+                        value={row.assetClass}
+                        onChange={(event) =>
+                          updateAssetRow(row.id, "assetClass", event.target.value)
+                        }
+                        placeholder="Asset class"
+                        className="mt-2 w-full rounded-[1rem] border border-white/10 bg-slate-900/80 px-3 py-2 text-sm text-white outline-none transition focus:border-accent/60"
+                      />
+                    </label>
+                    <label className="block">
+                      <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-foreground-subtle">
+                        Weight
+                      </span>
+                      <input
+                        type="number"
+                        inputMode="decimal"
+                        min="0"
+                        step="0.01"
+                        value={row.weight}
+                        onChange={(event) =>
+                          updateAssetRow(row.id, "weight", event.target.value)
+                        }
+                        placeholder="0.00"
+                        className="mt-2 w-full rounded-[1rem] border border-white/10 bg-slate-900/80 px-3 py-2 text-sm text-white outline-none transition focus:border-accent/60"
+                      />
+                    </label>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
 

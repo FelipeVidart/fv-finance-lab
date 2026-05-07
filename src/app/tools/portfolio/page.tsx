@@ -1,5 +1,4 @@
 import { PortfolioComparisonSection } from "@/components/portfolio/portfolio-comparison-section";
-import { PortfolioBuilder } from "@/components/portfolio/portfolio-builder";
 import { SurfaceCard } from "@/components/ui/surface-card";
 import {
   getProviderConfigs,
@@ -46,10 +45,6 @@ export default function PortfolioPage() {
       </SurfaceCard>
 
       <PortfolioComparisonSection
-        providerSelectorOptions={getProviderSelectorOptions()}
-      />
-
-      <PortfolioBuilder
         providerConfigs={getProviderConfigs()}
         providerSelectorOptions={getProviderSelectorOptions()}
       />
