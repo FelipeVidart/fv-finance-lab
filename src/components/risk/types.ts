@@ -1,6 +1,9 @@
 import type { FormEvent } from "react";
 import type { PortfolioAnalytics } from "@/lib/finance/portfolio";
-import type { PortfolioRiskAnalysis } from "@/lib/finance/risk/types";
+import type {
+  FactorGradVarAnalysis,
+  PortfolioRiskAnalysis,
+} from "@/lib/finance/risk/types";
 import type {
   MarketDataExplorerPayload,
   MarketDataPeriod,
@@ -83,6 +86,9 @@ export type RiskAssetAnalyticsSectionProps = {
 
 export type RiskPortfolioAnalyticsSectionProps = {
   data: MarketDataExplorerPayload | null;
+  factorGradVarAnalysis: FactorGradVarAnalysis | null;
+  factorGradVarError: string | null;
+  factorGradVarLoading: boolean;
   holdings: PortfolioHoldingRow[];
   portfolioAnalytics: PortfolioAnalytics | null;
   portfolioCharts: RiskChartModel[];

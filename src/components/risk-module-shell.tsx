@@ -14,7 +14,12 @@ import type {
   WeightValidationState,
 } from "@/components/risk/types";
 import { buildPortfolioAnalytics } from "@/lib/finance/portfolio";
+import {
+  DEFAULT_FACTOR_DEFINITIONS,
+  buildFactorGradVarAnalysis,
+} from "@/lib/finance/risk/factor-gradvar";
 import { buildPortfolioRiskAnalysis } from "@/lib/finance/risk/portfolio-risk-analysis";
+import { loadMarketDataExplorer } from "@/lib/market-data/client";
 import { parseTickerInput } from "@/lib/market-data/request";
 import type {
   MarketDataExplorerPayload,
@@ -29,9 +34,18 @@ import type {
 
 const SERIES_COLORS = ["#d2ab67", "#7f95b3", "#608aa7", "#7f709d", "#5f8b7e"];
 const PORTFOLIO_COLOR = "#e2b86b";
+const FACTOR_PROXY_TICKERS = DEFAULT_FACTOR_DEFINITIONS.map(
+  (factor) => factor.proxyTicker,
+);
 const DEFAULT_TICKER_INPUT = "AAPL, MSFT, NVDA";
 const DEFAULT_PERIOD: MarketDataPeriod = "6M";
 const DEFAULT_PROVIDER: MarketDataProviderMode = "auto";
+
+type FactorDataState = {
+  data: MarketDataExplorerPayload | null;
+  error: string | null;
+  requestKey: string | null;
+};
 
 export function RiskModuleShell({
   providerConfigs,
@@ -48,6 +62,13 @@ export function RiskModuleShell({
   const [requestError, setRequestError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [data, setData] = useState<MarketDataExplorerPayload | null>(null);
+  const [loadedProvider, setLoadedProvider] =
+    useState<MarketDataProviderMode | null>(null);
+  const [factorDataState, setFactorDataState] = useState<FactorDataState>({
+    data: null,
+    error: null,
+    requestKey: null,
+  });
   const [weightInputs, setWeightInputs] = useState<WeightState>({});
   const [activeSection, setActiveSection] = useState<RiskSectionId>("setup");
 
@@ -66,6 +87,8 @@ export function RiskModuleShell({
       setValidationError(parsed.error ?? "Enter valid tickers.");
       setRequestError(null);
       setData(null);
+      setLoadedProvider(null);
+      setFactorDataState({ data: null, error: null, requestKey: null });
       setWeightInputs({});
       setIsLoading(false);
       return;
@@ -74,6 +97,7 @@ export function RiskModuleShell({
     setValidationError(null);
     setRequestError(null);
     setIsLoading(true);
+    setFactorDataState({ data: null, error: null, requestKey: null });
 
     try {
       const url = new URL("/api/market-data", window.location.origin);
@@ -93,10 +117,12 @@ export function RiskModuleShell({
       }
 
       setData(payload.data);
+      setLoadedProvider(nextProvider);
       setWeightInputs(createEqualWeightInputs(payload.data.tickers));
       setActiveSection("setup");
     } catch (error) {
       setData(null);
+      setLoadedProvider(null);
       setWeightInputs({});
       setRequestError(
         error instanceof Error
@@ -242,6 +268,108 @@ export function RiskModuleShell({
       return null;
     }
   }, [data, portfolioAnalytics, weightValidation]);
+
+  const factorRequestKey =
+    data && loadedProvider && weightValidation?.isValid
+      ? `${data.period}|${loadedProvider}`
+      : null;
+
+  useEffect(() => {
+    if (!data || !loadedProvider || !factorRequestKey) {
+      return;
+    }
+
+    let cancelled = false;
+
+    loadMarketDataExplorer({
+      tickers: FACTOR_PROXY_TICKERS,
+      period: data.period,
+      provider: loadedProvider,
+      maxTickers: FACTOR_PROXY_TICKERS.length,
+    })
+      .then((payload) => {
+        if (!cancelled) {
+          setFactorDataState({
+            data: payload,
+            error: null,
+            requestKey: factorRequestKey,
+          });
+        }
+      })
+      .catch((error) => {
+        if (!cancelled) {
+          setFactorDataState({
+            data: null,
+            error:
+              error instanceof Error
+                ? error.message
+                : "Unable to load factor proxy data.",
+            requestKey: factorRequestKey,
+          });
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [data, factorRequestKey, loadedProvider]);
+
+  const factorData =
+    factorDataState.requestKey === factorRequestKey
+      ? factorDataState.data
+      : null;
+  const factorDataError =
+    factorDataState.requestKey === factorRequestKey
+      ? factorDataState.error
+      : null;
+
+  const factorGradVarResult = useMemo<{
+    analysis: ReturnType<typeof buildFactorGradVarAnalysis> | null;
+    error: string | null;
+  }>(() => {
+    if (
+      !data ||
+      !factorData ||
+      !portfolioAnalytics ||
+      !weightValidation?.isValid ||
+      !weightValidation.weights
+    ) {
+      return { analysis: null, error: null };
+    }
+
+    try {
+      return {
+        analysis: buildFactorGradVarAnalysis({
+          assetData: data,
+          factorData,
+          tickers: data.tickers,
+          weights: weightValidation.weights,
+          portfolioDailyReturns: portfolioAnalytics.dailyReturns,
+          confidenceLevel: 0.95,
+        }),
+        error: null,
+      };
+    } catch (error) {
+      return {
+        analysis: null,
+        error:
+          error instanceof Error
+            ? error.message
+            : "Unable to compute factor attribution.",
+      };
+    }
+  }, [data, factorData, portfolioAnalytics, weightValidation]);
+
+  const factorGradVarLoading = Boolean(
+    portfolioAnalytics &&
+      weightValidation?.isValid &&
+      factorRequestKey &&
+      !factorDataError &&
+      !factorGradVarResult.error &&
+      factorDataState.requestKey !== factorRequestKey,
+  );
+  const factorGradVarError =
+    factorDataError ?? factorGradVarResult.error ?? null;
 
   const datasetStatusItems = useMemo(() => {
     if (!data) {
@@ -666,6 +794,9 @@ export function RiskModuleShell({
       {activeSection === "portfolio-analytics" ? (
         <RiskPortfolioAnalyticsSection
           data={data}
+          factorGradVarAnalysis={factorGradVarResult.analysis}
+          factorGradVarError={factorGradVarError}
+          factorGradVarLoading={factorGradVarLoading}
           holdings={holdings}
           portfolioAnalytics={portfolioAnalytics}
           portfolioCharts={portfolioCharts}

@@ -8,9 +8,12 @@ import {
 import { SurfaceCard } from "@/components/ui/surface-card";
 import { cn } from "@/lib/utils";
 import type { RiskPortfolioAnalyticsSectionProps } from "@/components/risk/types";
+import { DEFAULT_FACTOR_DEFINITIONS } from "@/lib/finance/risk/factor-gradvar";
 import type {
   DescriptiveStatistics,
   DrawdownSummary,
+  FactorDefinition,
+  FactorGradVarAnalysis,
   PortfolioRiskAnalysis,
   RiskContributionRow,
   TailRiskMetrics,
@@ -18,6 +21,9 @@ import type {
 
 export function RiskPortfolioAnalyticsSection({
   data,
+  factorGradVarAnalysis,
+  factorGradVarError,
+  factorGradVarLoading,
   holdings,
   portfolioAnalytics,
   portfolioCharts,
@@ -139,7 +145,12 @@ export function RiskPortfolioAnalyticsSection({
           </div>
 
           {portfolioRiskAnalysis ? (
-            <PortfolioRiskDiagnostics analysis={portfolioRiskAnalysis} />
+            <PortfolioRiskDiagnostics
+              analysis={portfolioRiskAnalysis}
+              factorGradVarAnalysis={factorGradVarAnalysis}
+              factorGradVarError={factorGradVarError}
+              factorGradVarLoading={factorGradVarLoading}
+            />
           ) : (
             <SurfaceCard padding="sm" className="border-amber-400/20">
               <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-amber-200">
@@ -253,8 +264,14 @@ export function RiskPortfolioAnalyticsSection({
 
 function PortfolioRiskDiagnostics({
   analysis,
+  factorGradVarAnalysis,
+  factorGradVarError,
+  factorGradVarLoading,
 }: {
   analysis: PortfolioRiskAnalysis;
+  factorGradVarAnalysis: FactorGradVarAnalysis | null;
+  factorGradVarError: string | null;
+  factorGradVarLoading: boolean;
 }) {
   return (
     <div className="space-y-4">
@@ -278,6 +295,12 @@ function PortfolioRiskDiagnostics({
         <RiskContributionTable rows={analysis.riskContribution} />
       </Card>
 
+      <FactorGradVarAttributionSection
+        analysis={factorGradVarAnalysis}
+        error={factorGradVarError}
+        isLoading={factorGradVarLoading}
+      />
+
       <Card
         eyebrow="Methodology"
         title="Methodology and limitations"
@@ -300,6 +323,14 @@ function PortfolioRiskDiagnostics({
             <MethodologyPoint
               title="Data dependency"
               body="Outputs depend on selected tickers, provider, lookback window, common-date alignment, and data quality."
+            />
+            <MethodologyPoint
+              title="Factor GradVaR"
+              body="GradVaR decomposes factor-model VaR from ETF proxy regressions, component VaR, and marginal VaR by factor."
+            />
+            <MethodologyPoint
+              title="Proxy limitation"
+              body="ETF proxies are simplifications, not pure economic factors; results are sensitive to lookback window, factor choice, correlations, and multicollinearity."
             />
           </div>
 
@@ -343,6 +374,342 @@ function PortfolioRiskDiagnostics({
           </SurfaceCard>
         </div>
       </Card>
+    </div>
+  );
+}
+
+function FactorGradVarAttributionSection({
+  analysis,
+  error,
+  isLoading,
+}: {
+  analysis: FactorGradVarAnalysis | null;
+  error: string | null;
+  isLoading: boolean;
+}) {
+  const factors = analysis?.factorDefinitions ?? DEFAULT_FACTOR_DEFINITIONS;
+
+  return (
+    <Card
+      eyebrow="Factor Risk"
+      title="Factor GradVaR Attribution"
+      description="Decomposes factor-model VaR using ETF proxies and linear factor exposures."
+    >
+      <div className="space-y-5">
+        <FactorProxySet factors={factors} />
+
+        {isLoading ? (
+          <FactorUnavailableState
+            title="Loading factor attribution..."
+            body="Fetching the fixed ETF proxy set and aligning factor returns with the validated portfolio."
+          />
+        ) : error ? (
+          <FactorUnavailableState
+            title="Factor attribution unavailable"
+            body={error}
+          />
+        ) : analysis ? (
+          <FactorGradVarResults analysis={analysis} />
+        ) : (
+          <FactorUnavailableState
+            title="Factor attribution unavailable"
+            body="Factor proxy data is not ready for the current portfolio."
+          />
+        )}
+      </div>
+    </Card>
+  );
+}
+
+function FactorProxySet({ factors }: { factors: FactorDefinition[] }) {
+  return (
+    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+      {factors.map((factor) => (
+        <SurfaceCard
+          key={factor.id}
+          padding="sm"
+          className="border-white/[0.08]"
+        >
+          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-foreground-subtle">
+            {factor.proxyTicker}
+          </p>
+          <p className="mt-3 text-sm font-semibold leading-6 text-foreground">
+            {factor.name}
+          </p>
+          <p className="mt-2 text-xs leading-5 text-foreground-muted">
+            {factor.description}
+          </p>
+        </SurfaceCard>
+      ))}
+    </div>
+  );
+}
+
+function FactorUnavailableState({
+  title,
+  body,
+}: {
+  title: string;
+  body: string;
+}) {
+  return (
+    <div className="rounded-[1.4rem] border border-amber-400/20 bg-amber-400/[0.07] px-4 py-4 text-sm leading-7 text-amber-100">
+      <p className="font-semibold text-amber-200">{title}</p>
+      <p className="mt-2">{body}</p>
+    </div>
+  );
+}
+
+function FactorGradVarResults({
+  analysis,
+}: {
+  analysis: FactorGradVarAnalysis;
+}) {
+  const kpis = [
+    {
+      label: `Factor-model VaR ${formatPercentNoSign(analysis.confidenceLevel)}`,
+      value: formatPercentNoSign(analysis.valueAtRisk),
+    },
+    {
+      label: "Factor-model daily vol",
+      value: formatPercentNoSign(analysis.dailyVolatility),
+    },
+    {
+      label: "Factor-model ann. vol",
+      value: formatPercentNoSign(analysis.annualizedVolatility),
+    },
+    {
+      label: "Observations",
+      value: analysis.observations.toString(),
+    },
+    ...(analysis.portfolioRegression?.rSquared === null
+      ? []
+      : [
+          {
+            label: "Portfolio factor R2",
+            value: formatPercentNoSign(
+              analysis.portfolioRegression?.rSquared ?? 0,
+            ),
+          },
+        ]),
+  ];
+
+  return (
+    <div className="space-y-5">
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+        {kpis.map((item, index) => (
+          <RiskStatChip
+            key={item.label}
+            label={item.label}
+            value={item.value}
+            accent={index === 0}
+          />
+        ))}
+      </div>
+
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.12fr)_minmax(20rem,0.88fr)]">
+        <FactorAttributionTable analysis={analysis} />
+        <FactorModelNotes analysis={analysis} />
+      </div>
+
+      <InstrumentAttributionTable analysis={analysis} />
+      <InstrumentFactorContributionMatrix analysis={analysis} />
+    </div>
+  );
+}
+
+function FactorAttributionTable({
+  analysis,
+}: {
+  analysis: FactorGradVarAnalysis;
+}) {
+  return (
+    <div className="overflow-x-auto rounded-[1.6rem] border border-white/[0.08] bg-[linear-gradient(180deg,rgba(10,17,26,0.82),rgba(8,13,20,0.72))]">
+      <table className="w-full min-w-[820px] text-left">
+        <thead className="border-b border-white/[0.08] text-[11px] font-semibold uppercase tracking-[0.18em] text-foreground-subtle">
+          <tr>
+            <th className="px-5 py-3">Factor</th>
+            <th className="px-5 py-3">Proxy</th>
+            <th className="px-5 py-3">Exposure</th>
+            <th className="px-5 py-3">Marginal VaR</th>
+            <th className="px-5 py-3">Component VaR</th>
+            <th className="px-5 py-3">Contribution share</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-white/[0.08] text-sm">
+          {analysis.factorAttribution.map((row, index) => (
+            <tr
+              key={row.factorId}
+              className={index % 2 === 0 ? "bg-white/[0.015]" : undefined}
+            >
+              <td className="px-5 py-4 font-semibold text-foreground">
+                {row.factorName}
+              </td>
+              <td className="px-5 py-4 text-foreground-soft">
+                {row.proxyTicker}
+              </td>
+              <td className={cn("px-5 py-4", getNumberTone(row.exposure))}>
+                {formatSignedNumber(row.exposure)}
+              </td>
+              <td className={cn("px-5 py-4", getNumberTone(row.marginalVaR))}>
+                {formatSignedPercent(row.marginalVaR)}
+              </td>
+              <td className={cn("px-5 py-4", getNumberTone(row.componentVaR))}>
+                {formatSignedPercent(row.componentVaR)}
+              </td>
+              <td
+                className={cn(
+                  "px-5 py-4",
+                  getNumberTone(row.contributionShare),
+                )}
+              >
+                {formatSignedPercent(row.contributionShare)}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function FactorModelNotes({
+  analysis,
+}: {
+  analysis: FactorGradVarAnalysis;
+}) {
+  return (
+    <SurfaceCard padding="sm" className="h-full border-white/[0.08]">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-accent-strong/85">
+        Factor methodology
+      </p>
+      <div className="mt-4 space-y-3">
+        <ReadingLine
+          title="Model form"
+          body="Each asset return is regressed on the fixed ETF proxy returns with an intercept."
+        />
+        <ReadingLine
+          title="Component VaR"
+          body="Component VaR estimates how much each factor contributes to the model-implied daily VaR."
+        />
+        <ReadingLine
+          title="Interpretation boundary"
+          body="The output supports portfolio risk interpretation and education; it is not investment advice."
+        />
+      </div>
+
+      {analysis.methodology.warnings.length > 0 ? (
+        <div className="mt-5 rounded-[1.2rem] border border-amber-400/20 bg-amber-400/[0.07] px-4 py-3">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-amber-200">
+            Factor notes
+          </p>
+          <ul className="mt-3 space-y-2 text-sm leading-6 text-amber-100/90">
+            {analysis.methodology.warnings.map((warning) => (
+              <li key={warning}>{warning}</li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+    </SurfaceCard>
+  );
+}
+
+function InstrumentAttributionTable({
+  analysis,
+}: {
+  analysis: FactorGradVarAnalysis;
+}) {
+  return (
+    <div className="overflow-x-auto rounded-[1.6rem] border border-white/[0.08] bg-[linear-gradient(180deg,rgba(10,17,26,0.82),rgba(8,13,20,0.72))]">
+      <table className="w-full min-w-[760px] text-left">
+        <thead className="border-b border-white/[0.08] text-[11px] font-semibold uppercase tracking-[0.18em] text-foreground-subtle">
+          <tr>
+            <th className="px-5 py-3">Ticker</th>
+            <th className="px-5 py-3">Weight</th>
+            <th className="px-5 py-3">Component VaR</th>
+            <th className="px-5 py-3">Contribution share</th>
+            <th className="px-5 py-3">Dominant factor</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-white/[0.08] text-sm">
+          {analysis.instrumentAttribution.map((row, index) => (
+            <tr
+              key={row.ticker}
+              className={index % 2 === 0 ? "bg-white/[0.015]" : undefined}
+            >
+              <td className="px-5 py-4 font-semibold text-foreground">
+                {row.ticker}
+              </td>
+              <td className="px-5 py-4 text-foreground">
+                {formatPercentNoSign(row.weight)}
+              </td>
+              <td className={cn("px-5 py-4", getNumberTone(row.componentVaR))}>
+                {formatSignedPercent(row.componentVaR)}
+              </td>
+              <td
+                className={cn(
+                  "px-5 py-4",
+                  getNumberTone(row.contributionShare),
+                )}
+              >
+                {formatSignedPercent(row.contributionShare)}
+              </td>
+              <td className="px-5 py-4 text-foreground-soft">
+                {row.dominantFactorName ?? "N/A"}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function InstrumentFactorContributionMatrix({
+  analysis,
+}: {
+  analysis: FactorGradVarAnalysis;
+}) {
+  return (
+    <div className="overflow-x-auto rounded-[1.6rem] border border-white/[0.08] bg-[linear-gradient(180deg,rgba(10,17,26,0.82),rgba(8,13,20,0.72))]">
+      <table className="w-full min-w-[960px] text-left">
+        <thead className="border-b border-white/[0.08] text-[11px] font-semibold uppercase tracking-[0.18em] text-foreground-subtle">
+          <tr>
+            <th className="px-5 py-3">Ticker</th>
+            {analysis.factorDefinitions.map((factor) => (
+              <th key={factor.id} className="px-5 py-3">
+                {factor.proxyTicker}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-white/[0.08] text-sm">
+          {analysis.instrumentAttribution.map((row, index) => (
+            <tr
+              key={row.ticker}
+              className={index % 2 === 0 ? "bg-white/[0.015]" : undefined}
+            >
+              <td className="px-5 py-4 font-semibold text-foreground">
+                {row.ticker}
+              </td>
+              {analysis.factorDefinitions.map((factor) => {
+                const contribution = row.factorContributions.find(
+                  (item) => item.factorId === factor.id,
+                )?.contribution ?? 0;
+
+                return (
+                  <td
+                    key={factor.id}
+                    className={cn("px-5 py-4", getNumberTone(contribution))}
+                  >
+                    {formatSignedPercent(contribution)}
+                  </td>
+                );
+              })}
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }
@@ -560,6 +927,22 @@ function formatSignedPercent(value: number): string {
 
 function formatPercentNoSign(value: number): string {
   return `${(value * 100).toFixed(2)}%`;
+}
+
+function formatSignedNumber(value: number): string {
+  return `${value >= 0 ? "+" : ""}${value.toFixed(2)}`;
+}
+
+function getNumberTone(value: number): string {
+  if (value > 0) {
+    return "text-emerald-200";
+  }
+
+  if (value < 0) {
+    return "text-rose-200";
+  }
+
+  return "text-foreground";
 }
 
 function formatOptionalNumber(value: number | null): string {
