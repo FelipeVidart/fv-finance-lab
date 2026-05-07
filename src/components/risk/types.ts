@@ -1,5 +1,6 @@
 import type { FormEvent } from "react";
 import type { PortfolioAnalytics } from "@/lib/finance/portfolio";
+import type { PortfolioRiskAnalysis } from "@/lib/finance/risk/types";
 import type {
   MarketDataExplorerPayload,
   MarketDataPeriod,
@@ -86,5 +87,7 @@ export type RiskPortfolioAnalyticsSectionProps = {
   portfolioAnalytics: PortfolioAnalytics | null;
   portfolioCharts: RiskChartModel[];
   portfolioKpis: DatasetStatusItem[];
+  portfolioRiskAnalysis: PortfolioRiskAnalysis | null;
+  riskKpis: DatasetStatusItem[];
   weightValidation: WeightValidationState | null;
 };
