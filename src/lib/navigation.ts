@@ -14,6 +14,7 @@ export const toolNavigation = [
   { href: "/tools", label: "Overview", match: "exact" },
   { href: "/tools/options", label: "Options", match: "exact" },
   { href: "/tools/risk", label: "Risk", match: "exact" },
+  { href: "/tools/market-regime", label: "Regime", match: "exact" },
   { href: "/tools/portfolio", label: "Portfolio", match: "exact" },
   { href: "/tools/bonds", label: "Bonds", match: "exact" },
 ] as const satisfies readonly NavItem[];

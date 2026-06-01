@@ -29,6 +29,19 @@ const toolCards = [
     gridClassName: "xl:col-span-4",
   },
   {
+    key: "market-regime",
+    href: "/tools/market-regime",
+    eyebrow: "Regime",
+    title: "Classify the current market regime",
+    description:
+      "Combine trend, momentum, volatility, credit, and rates inputs into an explainable risk-on/risk-off dashboard.",
+    tags: ["Regime", "Volatility", "Credit", "Rates"],
+    action: "Open regime",
+    icon: "regime" as const,
+    tone: "default" as const,
+    gridClassName: "xl:col-span-3",
+  },
+  {
     key: "portfolio",
     href: "/tools/portfolio",
     eyebrow: "Portfolio",
@@ -70,8 +83,8 @@ const toolCards = [
 ] as const;
 
 const hubStats = [
-  { label: "Active modules", value: "5" },
-  { label: "Primary desks", value: "Options, risk, portfolio, bonds" },
+  { label: "Active modules", value: "6" },
+  { label: "Primary desks", value: "Options, risk, regime, portfolio, bonds" },
   { label: "Utility", value: "Provider settings" },
 ] as const;
 
@@ -186,7 +199,7 @@ function HubStat({ label, value }: { label: string; value: string }) {
 function ToolIcon({
   kind,
 }: {
-  kind: "options" | "risk" | "portfolio" | "bonds" | "data";
+  kind: "options" | "risk" | "regime" | "portfolio" | "bonds" | "data";
 }) {
   if (kind === "options") {
     return (
@@ -207,6 +220,20 @@ function ToolIcon({
       <svg viewBox="0 0 20 20" fill="none" className="h-4.5 w-4.5">
         <path
           d="M4.25 14.75V10m3.75 4.75V6.75m3.75 8V9m3.75 5.75V4.75M3.5 15.25h13"
+          stroke="currentColor"
+          strokeWidth="1.3"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
+    );
+  }
+
+  if (kind === "regime") {
+    return (
+      <svg viewBox="0 0 20 20" fill="none" className="h-4.5 w-4.5">
+        <path
+          d="M4 13.75h12M5.5 13.75l2.75-5 3 3.5 3.25-6M4.25 5.25h3.25m-3.25 3h2"
           stroke="currentColor"
           strokeWidth="1.3"
           strokeLinecap="round"
