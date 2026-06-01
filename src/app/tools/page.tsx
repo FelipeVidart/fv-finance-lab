@@ -42,6 +42,19 @@ const toolCards = [
     gridClassName: "xl:col-span-3",
   },
   {
+    key: "sector-rotation",
+    href: "/tools/sector-rotation",
+    eyebrow: "Sectors",
+    title: "Monitor sector rotation and leadership",
+    description:
+      "Rank S&P 500 sector ETFs against SPY to read leadership, laggards, relative momentum, and breadth context.",
+    tags: ["Sectors", "Momentum", "SPY", "Breadth"],
+    action: "Open sectors",
+    icon: "rotation" as const,
+    tone: "elevated" as const,
+    gridClassName: "xl:col-span-4",
+  },
+  {
     key: "portfolio",
     href: "/tools/portfolio",
     eyebrow: "Portfolio",
@@ -83,8 +96,11 @@ const toolCards = [
 ] as const;
 
 const hubStats = [
-  { label: "Active modules", value: "6" },
-  { label: "Primary desks", value: "Options, risk, regime, portfolio, bonds" },
+  { label: "Active modules", value: "7" },
+  {
+    label: "Primary desks",
+    value: "Options, risk, regime, sectors, portfolio, bonds",
+  },
   { label: "Utility", value: "Provider settings" },
 ] as const;
 
@@ -103,7 +119,8 @@ export default function ToolsPage() {
               </h1>
               <p className="max-w-2xl text-sm leading-7 text-foreground-soft sm:text-[0.96rem]">
                 Start with the task: price a derivative, review risk, compare
-                allocations, value a bond, or check the data provider layer.
+                sector leadership, compare allocations, value a bond, or check
+                the data provider layer.
               </p>
             </div>
           </div>
@@ -199,7 +216,14 @@ function HubStat({ label, value }: { label: string; value: string }) {
 function ToolIcon({
   kind,
 }: {
-  kind: "options" | "risk" | "regime" | "portfolio" | "bonds" | "data";
+  kind:
+    | "options"
+    | "risk"
+    | "regime"
+    | "rotation"
+    | "portfolio"
+    | "bonds"
+    | "data";
 }) {
   if (kind === "options") {
     return (
@@ -234,6 +258,20 @@ function ToolIcon({
       <svg viewBox="0 0 20 20" fill="none" className="h-4.5 w-4.5">
         <path
           d="M4 13.75h12M5.5 13.75l2.75-5 3 3.5 3.25-6M4.25 5.25h3.25m-3.25 3h2"
+          stroke="currentColor"
+          strokeWidth="1.3"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
+    );
+  }
+
+  if (kind === "rotation") {
+    return (
+      <svg viewBox="0 0 20 20" fill="none" className="h-4.5 w-4.5">
+        <path
+          d="M4.25 6.25h7.5m0 0-2-2m2 2-2 2m6 5.5h-7.5m0 0 2 2m-2-2 2-2M5 13.75c1.2-2.9 2.8-4.35 4.8-4.35 1.75 0 2.9.8 4.2 2.1"
           stroke="currentColor"
           strokeWidth="1.3"
           strokeLinecap="round"
