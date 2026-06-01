@@ -31,7 +31,8 @@ export const searchIndex: SearchEntry[] = [
   {
     label: "Tools Overview",
     href: "/tools",
-    description: "Overview of Options, Risk, and Bonds workspaces.",
+    description:
+      "Overview of Options, Risk, Regime, Sectors, Portfolio, and Bonds workspaces.",
     keywords: ["overview", "tool overview", "modules", "entry points"],
     group: "Page",
   },
@@ -68,6 +69,26 @@ export const searchIndex: SearchEntry[] = [
     href: "/tools/risk",
     description: "Portfolio-level metrics, holdings, and review surfaces.",
     keywords: ["portfolio analytics", "holdings", "metrics", "portfolio"],
+    group: "Section",
+  },
+  {
+    label: "Sector Rotation",
+    href: "/tools/sector-rotation",
+    description: "Sector ETF leadership, laggards, and relative momentum versus SPY.",
+    keywords: [
+      "sector rotation",
+      "sector leadership",
+      "spy",
+      "momentum",
+      "breadth",
+    ],
+    group: "Module",
+  },
+  {
+    label: "Sector Ranking",
+    href: "/tools/sector-rotation",
+    description: "Composite sector scores and rules-based regime interpretation.",
+    keywords: ["ranking", "scores", "relative performance", "regime"],
     group: "Section",
   },
   {

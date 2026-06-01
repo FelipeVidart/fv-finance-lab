@@ -14,6 +14,16 @@ const workspaceLinks = [
     detail: "Load market data, set weights, review portfolio risk.",
   },
   {
+    label: "Regime",
+    href: "/tools/market-regime",
+    detail: "Read trend, volatility, credit, rates, and risk posture.",
+  },
+  {
+    label: "Sectors",
+    href: "/tools/sector-rotation",
+    detail: "Rank sector ETF leadership and momentum versus SPY.",
+  },
+  {
     label: "Portfolio",
     href: "/tools/portfolio",
     detail: "Build ETF allocations and compare risk-return profiles.",
@@ -62,7 +72,8 @@ export default function HomePage() {
               <p className="max-w-2xl text-lg leading-8 text-foreground-soft">
                 Open a module, set assumptions, and read the output. The first
                 release is focused on practical analytical work: options,
-                portfolio risk, ETF allocation, and bonds.
+                portfolio risk, regimes, sector rotation, ETF allocation, and
+                bonds.
               </p>
             </div>
           </div>
@@ -89,7 +100,7 @@ export default function HomePage() {
                 </h2>
               </div>
               <span className="rounded-full border border-accent/20 bg-accent/10 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-accent-foreground">
-                4 tools
+                6 tools
               </span>
             </div>
 
