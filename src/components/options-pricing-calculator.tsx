@@ -1016,59 +1016,32 @@ export function OptionsPricingCalculator() {
     <section className="space-y-8">
       <SurfaceCard
         tone="elevated"
-        padding="lg"
+        padding="md"
         className="border-border-strong/95"
       >
-        <div className="grid gap-6 xl:grid-cols-[minmax(0,1.18fr)_minmax(22rem,0.82fr)]">
-          <div className="space-y-6">
+        <div className="grid gap-5 xl:grid-cols-[minmax(0,0.95fr)_minmax(24rem,1.05fr)] xl:items-end">
+          <div className="space-y-4">
             <div className="flex flex-wrap items-center gap-3">
               <span className="rounded-full border border-accent/20 bg-accent/10 px-3 py-1.5 text-[0.68rem] font-semibold uppercase tracking-[0.24em] text-accent-foreground">
-                Options workspace
+                Options
               </span>
               <span className="rounded-full border border-white/[0.08] bg-background-muted/75 px-3 py-1.5 text-[0.68rem] font-semibold uppercase tracking-[0.2em] text-foreground-subtle">
                 {activeSectionLabel}
               </span>
             </div>
 
-            <div className="space-y-4">
-              <h2 className="max-w-4xl text-balance text-3xl font-semibold tracking-[-0.04em] text-foreground sm:text-[2.8rem]">
-                Price the contract, validate the model path, then read the derivative through Greeks and payoff.
+            <div className="space-y-3">
+              <h2 className="max-w-3xl text-3xl font-semibold tracking-[-0.04em] text-foreground sm:text-[2.35rem]">
+                Options pricing desk
               </h2>
-              <p className="max-w-3xl text-sm leading-7 text-foreground-soft sm:text-[0.96rem]">
-                The module keeps contract setup, valuation, sensitivity review,
-                payoff structure, and model comparison inside one derivatives
-                workflow. The goal is analytical clarity rather than decorative
-                output.
+              <p className="max-w-2xl text-sm leading-7 text-foreground-soft">
+                Set contract inputs, compare valuation methods, and inspect
+                Greeks, payoff, volatility, and strategy outputs.
               </p>
-            </div>
-
-            <div className="grid gap-3 lg:grid-cols-3">
-              <StagePanel
-                step="01"
-                label="Contract setup"
-                body="Define the option structure, market assumptions, and numerical benchmark inputs."
-                state="active"
-              />
-              <StagePanel
-                step="02"
-                label="Valuation and model"
-                body={
-                  isAmerican
-                    ? "Read the American CRR result as the primary valuation layer, then compare it with the European tree."
-                    : "Read the Black-Scholes result as the primary valuation layer, then inspect sensitivities."
-                }
-                state="ready"
-              />
-              <StagePanel
-                step="03"
-                label="Payoff and validation"
-                body="Review expiry behavior and compare the primary model against numerical cross-checks."
-                state="ready"
-              />
             </div>
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
+          <div className="grid gap-3 sm:grid-cols-3">
             <WorkspaceSignal
               label="Primary model"
               value={isAmerican ? "American CRR tree" : "Black-Scholes-Merton"}
@@ -2807,11 +2780,11 @@ function OptionsSectionTabs({
         <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
           <div className="space-y-2">
             <p className="text-[0.72rem] font-semibold uppercase tracking-[0.24em] text-accent-strong/85">
-              Workspace sections
+              Sections
             </p>
             <p className="max-w-2xl text-sm leading-7 text-foreground-soft">
-              Move from pricing into comparison and future derivatives workflows
-              through a consistent product shell.
+              Switch between pricing, model comparison, volatility, and
+              strategy analysis.
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -2959,55 +2932,6 @@ function NoteCard({ title, body }: { title: string; body: string }) {
     <div className="rounded-[1.25rem] border border-white/[0.08] bg-[linear-gradient(180deg,rgba(10,17,26,0.76),rgba(10,17,26,0.54))] px-4 py-4">
       <p className="text-sm font-semibold text-foreground">{title}</p>
       <p className="mt-2 text-sm leading-6 text-foreground-soft">{body}</p>
-    </div>
-  );
-}
-
-function StagePanel({
-  step,
-  label,
-  body,
-  state,
-}: {
-  step: string;
-  label: string;
-  body: string;
-  state: "pending" | "active" | "ready";
-}) {
-  return (
-    <div
-      className={cn(
-        "rounded-[1.6rem] border px-4 py-4",
-        state === "ready" &&
-          "border-emerald-400/18 bg-emerald-400/[0.06] text-emerald-100",
-        state === "active" &&
-          "border-accent/18 bg-accent/[0.07] text-accent-foreground",
-        state === "pending" &&
-          "border-white/[0.08] bg-[linear-gradient(180deg,rgba(10,16,24,0.72),rgba(10,16,24,0.46))] text-foreground",
-      )}
-    >
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-foreground-subtle">
-            Step {step}
-          </p>
-          <p className="mt-3 text-sm font-semibold text-current">{label}</p>
-        </div>
-        <span
-          className={cn(
-            "rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em]",
-            state === "ready" &&
-              "border-emerald-300/20 bg-emerald-300/[0.08] text-emerald-200",
-            state === "active" &&
-              "border-accent/25 bg-accent/12 text-accent-foreground",
-            state === "pending" &&
-              "border-white/[0.08] bg-background-muted/80 text-foreground-subtle",
-          )}
-        >
-          {state === "ready" ? "Ready" : state === "active" ? "Current" : "Pending"}
-        </span>
-      </div>
-      <p className="mt-3 text-sm leading-6 text-foreground-soft">{body}</p>
     </div>
   );
 }

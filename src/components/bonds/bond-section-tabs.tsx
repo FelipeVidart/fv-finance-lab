@@ -47,11 +47,10 @@ export function BondSectionTabs({
         <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
           <div className="space-y-2">
             <p className="text-[0.72rem] font-semibold uppercase tracking-[0.24em] text-accent-strong/85">
-              Workspace sections
+              Sections
             </p>
             <p className="max-w-2xl text-sm leading-7 text-foreground-soft">
-              Move from manual bond pricing into analytics and then into the
-              more desk-style market monitor through one consistent shell.
+              Move between pricing, analytics, and market monitoring.
             </p>
           </div>
           <div className="flex flex-wrap gap-2">

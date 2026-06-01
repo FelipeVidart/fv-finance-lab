@@ -395,15 +395,15 @@ export function PortfolioComparisonSection({
         <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(24rem,0.72fr)] xl:items-end">
           <div>
             <p className="text-[0.72rem] font-semibold uppercase tracking-[0.24em] text-accent-strong/90">
-              Portfolio Risk Lab
+              Portfolio
             </p>
             <h2 className="mt-3 text-2xl font-semibold tracking-[-0.04em] text-foreground">
-              One workspace for portfolio construction, comparison, and risk review
+              Portfolio risk lab
             </h2>
             <p className="mt-3 max-w-3xl text-sm leading-7 text-foreground-soft">
-              Choose a focused single-portfolio backtest or compare several
-              allocations on the same aligned historical data. Results are
-              analytical outputs, not investment advice.
+              Build one allocation or compare several portfolios on the same
+              aligned historical data. Results are analytical outputs, not
+              investment advice.
             </p>
           </div>
           <ModeSwitch activeMode={activeMode} onChange={setActiveMode} />
@@ -417,12 +417,11 @@ export function PortfolioComparisonSection({
               Single portfolio analysis
             </p>
             <h2 className="mt-3 text-xl font-semibold tracking-[-0.03em] text-foreground">
-              Backtest one allocation with benchmark, rebalancing, and drawdown review.
+              Backtest one allocation with benchmark and drawdown review.
             </h2>
             <p className="mt-2 max-w-3xl text-sm leading-7 text-foreground-soft">
-              This mode preserves the original portfolio builder inside the
-              unified lab: choose a preset, edit holdings, set rebalancing and
-              benchmark controls, then run a historical backtest.
+              Choose a preset, edit holdings, set rebalancing and benchmark
+              controls, then run a historical backtest.
             </p>
           </SurfaceCard>
           <PortfolioBuilder
@@ -437,16 +436,15 @@ export function PortfolioComparisonSection({
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
             <p className="text-[0.72rem] font-semibold uppercase tracking-[0.24em] text-accent-strong/90">
-              Portfolio Risk Lab
+              Comparison
             </p>
             <h2 className="mt-3 text-2xl font-semibold tracking-[-0.04em] text-foreground">
-              Compare portfolios on shared performance and risk analytics
+              Compare portfolios on shared data
             </h2>
             <p className="mt-3 max-w-3xl text-sm leading-7 text-foreground-soft">
               Select 2 to 5 predefined or custom portfolios, load one aligned
               historical dataset, then evaluate returns, drawdowns,
-              correlations, risk contribution, and scenario shocks. This is
-              analytics only; it is not investment advice.
+              correlations, risk contribution, and scenario shocks.
             </p>
           </div>
           <span className="w-fit rounded-full border border-accent/20 bg-accent/10 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-accent-foreground">
@@ -711,7 +709,7 @@ function MethodologySection({ mode }: { mode: PortfolioLabMode }) {
   return (
     <SurfaceCard padding="md" className="border-white/[0.08]">
       <p className="text-[0.72rem] font-semibold uppercase tracking-[0.24em] text-accent-strong/90">
-        Methodology and limits
+        Limits
       </p>
       <div className="mt-4 grid gap-3 lg:grid-cols-3">
         <MethodologyNote
