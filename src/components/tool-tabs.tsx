@@ -4,15 +4,14 @@ import { toolNavigation } from "@/lib/navigation";
 
 export function ToolTabs() {
   return (
-    <SurfaceCard tone="elevated" padding="sm">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-        <div className="space-y-2">
+    <SurfaceCard tone="elevated" padding="sm" className="border-border-strong/80">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div>
           <p className="text-[0.72rem] font-semibold uppercase tracking-[0.24em] text-accent-strong/85">
-            Workspace map
+            Tools
           </p>
-          <p className="max-w-2xl text-sm leading-7 text-foreground-soft">
-            Open the overview or jump directly into the tool area built for the
-            task at hand.
+          <p className="mt-1 text-sm leading-6 text-foreground-soft">
+            Jump into the module you need.
           </p>
         </div>
         <NavLinks items={toolNavigation} variant="tabs" />

@@ -49,12 +49,11 @@ export function RiskSectionTabs({
         <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
           <div className="space-y-2">
             <p className="text-[0.72rem] font-semibold uppercase tracking-[0.24em] text-accent-strong/85">
-              Workspace sections
+              Sections
             </p>
             <p className="max-w-2xl text-sm leading-7 text-foreground-soft">
-              Move through the workflow as the dataset and sandbox become
-              operational. Each section stays visible so the module reads like a
-              connected workstation, not a disconnected stack of cards.
+              Move between setup, asset analytics, and portfolio analytics as
+              the dataset and weights become ready.
             </p>
           </div>
           <div className="flex flex-wrap gap-2">

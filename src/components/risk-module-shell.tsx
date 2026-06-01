@@ -659,56 +659,32 @@ export function RiskModuleShell({
     <section className="space-y-8">
       <SurfaceCard
         tone="elevated"
-        padding="lg"
+        padding="md"
         className="border-border-strong/95"
       >
-        <div className="grid gap-6 xl:grid-cols-[minmax(0,1.18fr)_minmax(22rem,0.82fr)]">
-          <div className="space-y-6">
+        <div className="grid gap-5 xl:grid-cols-[minmax(0,0.92fr)_minmax(24rem,1.08fr)] xl:items-end">
+          <div className="space-y-4">
             <div className="flex flex-wrap items-center gap-3">
               <span className="rounded-full border border-accent/20 bg-accent/10 px-3 py-1.5 text-[0.68rem] font-semibold uppercase tracking-[0.24em] text-accent-foreground">
-                Risk workspace
+                Risk
               </span>
               <span className="rounded-full border border-white/[0.08] bg-background-muted/75 px-3 py-1.5 text-[0.68rem] font-semibold uppercase tracking-[0.2em] text-foreground-subtle">
                 {activeSectionLabel}
               </span>
             </div>
 
-            <div className="space-y-4">
-              <h2 className="max-w-4xl text-balance text-3xl font-semibold tracking-[-0.04em] text-foreground sm:text-[2.8rem]">
-                Serious market-risk review starts with a clean dataset, a
-                controlled sandbox, and a readable portfolio lens.
+            <div className="space-y-3">
+              <h2 className="max-w-3xl text-3xl font-semibold tracking-[-0.04em] text-foreground sm:text-[2.35rem]">
+                Market and portfolio risk desk
               </h2>
-              <p className="max-w-3xl text-sm leading-7 text-foreground-soft sm:text-[0.96rem]">
-                The workspace keeps dataset alignment, asset inspection, and
-                portfolio construction inside one analytical flow. Each step is
-                intentionally staged so the downstream views remain operational,
-                comparable, and easy to audit.
+              <p className="max-w-2xl text-sm leading-7 text-foreground-soft">
+                Load an aligned dataset, validate weights, inspect assets, and
+                review the weighted portfolio.
               </p>
-            </div>
-
-            <div className="grid gap-3 lg:grid-cols-3">
-              <StagePanel
-                step="01"
-                label="Dataset alignment"
-                body="Select the market universe, align the shared trading window, and establish the review base."
-                state={datasetReady ? "ready" : isLoading ? "active" : "pending"}
-              />
-              <StagePanel
-                step="02"
-                label="Sandbox controls"
-                body="Define portfolio weights and validate the capital mix before moving into weighted analytics."
-                state={sandboxReady ? "ready" : datasetReady ? "active" : "pending"}
-              />
-              <StagePanel
-                step="03"
-                label="Portfolio review"
-                body="Read the combined portfolio through NAV, drawdown, comparison, and holdings outputs."
-                state={sandboxReady ? "active" : "pending"}
-              />
             </div>
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
+          <div className="grid gap-3 sm:grid-cols-3">
             <WorkspaceSignal
               label="Dataset posture"
               value={
@@ -807,55 +783,6 @@ export function RiskModuleShell({
         />
       ) : null}
     </section>
-  );
-}
-
-function StagePanel({
-  step,
-  label,
-  body,
-  state,
-}: {
-  step: string;
-  label: string;
-  body: string;
-  state: "pending" | "active" | "ready";
-}) {
-  return (
-    <div
-      className={cn(
-        "rounded-[1.6rem] border px-4 py-4",
-        state === "ready" &&
-          "border-emerald-400/18 bg-emerald-400/[0.06] text-emerald-100",
-        state === "active" &&
-          "border-accent/18 bg-accent/[0.07] text-accent-foreground",
-        state === "pending" &&
-          "border-white/[0.08] bg-[linear-gradient(180deg,rgba(10,16,24,0.72),rgba(10,16,24,0.46))] text-foreground",
-      )}
-    >
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-foreground-subtle">
-            Step {step}
-          </p>
-          <p className="mt-3 text-sm font-semibold text-current">{label}</p>
-        </div>
-        <span
-          className={cn(
-            "rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em]",
-            state === "ready" &&
-              "border-emerald-300/20 bg-emerald-300/[0.08] text-emerald-200",
-            state === "active" &&
-              "border-accent/25 bg-accent/12 text-accent-foreground",
-            state === "pending" &&
-              "border-white/[0.08] bg-background-muted/80 text-foreground-subtle",
-          )}
-        >
-          {state === "ready" ? "Ready" : state === "active" ? "Current" : "Pending"}
-        </span>
-      </div>
-      <p className="mt-3 text-sm leading-6 text-foreground-soft">{body}</p>
-    </div>
   );
 }
 
