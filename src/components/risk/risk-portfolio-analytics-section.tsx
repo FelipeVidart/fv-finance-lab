@@ -29,6 +29,8 @@ export function RiskPortfolioAnalyticsSection({
   portfolioCharts,
   portfolioKpis,
   portfolioRiskAnalysis,
+  portfolioValue,
+  presentationCurrency,
   riskKpis,
   weightValidation,
 }: RiskPortfolioAnalyticsSectionProps) {
@@ -150,6 +152,8 @@ export function RiskPortfolioAnalyticsSection({
               factorGradVarAnalysis={factorGradVarAnalysis}
               factorGradVarError={factorGradVarError}
               factorGradVarLoading={factorGradVarLoading}
+              portfolioValue={portfolioValue}
+              presentationCurrency={presentationCurrency}
             />
           ) : (
             <SurfaceCard padding="sm" className="border-amber-400/20">
@@ -267,11 +271,15 @@ function PortfolioRiskDiagnostics({
   factorGradVarAnalysis,
   factorGradVarError,
   factorGradVarLoading,
+  portfolioValue,
+  presentationCurrency,
 }: {
   analysis: PortfolioRiskAnalysis;
   factorGradVarAnalysis: FactorGradVarAnalysis | null;
   factorGradVarError: string | null;
   factorGradVarLoading: boolean;
+  portfolioValue: number | null;
+  presentationCurrency: RiskPortfolioAnalyticsSectionProps["presentationCurrency"];
 }) {
   return (
     <div className="space-y-4">
@@ -282,7 +290,11 @@ function PortfolioRiskDiagnostics({
       >
         <div className="grid gap-4 xl:grid-cols-3">
           <DescriptiveStatisticsTable stats={analysis.descriptiveStats} />
-          <TailRiskTable tailRisk={analysis.tailRisk} />
+          <TailRiskTable
+            tailRisk={analysis.tailRisk}
+            portfolioValue={portfolioValue}
+            presentationCurrency={presentationCurrency}
+          />
           <DrawdownDiagnostics drawdown={analysis.drawdownSummary} />
         </div>
       </Card>
@@ -739,15 +751,41 @@ function DescriptiveStatisticsTable({
   );
 }
 
-function TailRiskTable({ tailRisk }: { tailRisk: TailRiskMetrics }) {
+function TailRiskTable({
+  tailRisk,
+  portfolioValue,
+  presentationCurrency,
+}: {
+  tailRisk: TailRiskMetrics;
+  portfolioValue: number | null;
+  presentationCurrency: RiskPortfolioAnalyticsSectionProps["presentationCurrency"];
+}) {
   const confidence = formatPercentNoSign(tailRisk.confidenceLevel);
   const rows = [
-    ["Historical VaR", formatPercentNoSign(tailRisk.historicalVaR)],
     [
-      "Expected tail loss",
-      formatPercentNoSign(tailRisk.historicalExpectedShortfall),
+      "Historical VaR",
+      formatLossPercentAndMoney(
+        tailRisk.historicalVaR,
+        portfolioValue,
+        presentationCurrency,
+      ),
     ],
-    ["Parametric VaR", formatPercentNoSign(tailRisk.parametricVaR)],
+    [
+      "Expected Shortfall",
+      formatLossPercentAndMoney(
+        tailRisk.historicalExpectedShortfall,
+        portfolioValue,
+        presentationCurrency,
+      ),
+    ],
+    [
+      "Parametric VaR",
+      formatLossPercentAndMoney(
+        tailRisk.parametricVaR,
+        portfolioValue,
+        presentationCurrency,
+      ),
+    ],
     ["Confidence level", confidence],
   ];
 
@@ -927,6 +965,26 @@ function formatSignedPercent(value: number): string {
 
 function formatPercentNoSign(value: number): string {
   return `${(value * 100).toFixed(2)}%`;
+}
+
+function formatLossPercentAndMoney(
+  lossRate: number,
+  portfolioValue: number | null,
+  currency: RiskPortfolioAnalyticsSectionProps["presentationCurrency"],
+): string {
+  const percent = formatPercentNoSign(lossRate);
+
+  if (!portfolioValue) {
+    return percent;
+  }
+
+  const moneyAtRisk = Math.max(lossRate, 0) * portfolioValue;
+
+  return `${percent} / ${new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency,
+    maximumFractionDigits: 0,
+  }).format(moneyAtRisk)}`;
 }
 
 function formatSignedNumber(value: number): string {
