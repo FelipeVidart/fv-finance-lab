@@ -9,10 +9,14 @@ import type { MarketDataPeriod } from "@/lib/market-data/types";
 const PERIOD_OPTIONS: MarketDataPeriod[] = ["1M", "3M", "6M", "1Y"];
 
 export function RiskSetupSection({
+  confidenceLevel,
+  currency,
   data,
   inputHint,
   isLoading,
   period,
+  portfolioValueInput,
+  portfolioValueValidation,
   provider,
   providerConfigs,
   providerSelectorOptions,
@@ -23,7 +27,10 @@ export function RiskSetupSection({
   weightInputs,
   weightValidation,
   onApplyEqualWeights,
+  onConfidenceLevelChange,
+  onCurrencyChange,
   onPeriodChange,
+  onPortfolioValueInputChange,
   onProviderChange,
   onSubmit,
   onTickerInputChange,
@@ -202,6 +209,89 @@ export function RiskSetupSection({
                 </button>
               </SurfaceCard>
             </div>
+
+            <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(11rem,0.45fr)_minmax(13rem,0.55fr)]">
+              <SurfaceCard padding="sm" className="border-white/[0.08]">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-accent-strong/85">
+                  Portfolio value
+                </p>
+                <p className="mt-2 text-sm leading-6 text-foreground-soft">
+                  Used only to translate risk percentages into money-at-risk.
+                </p>
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  min="0"
+                  step="100"
+                  value={portfolioValueInput}
+                  onChange={(event) =>
+                    onPortfolioValueInputChange(event.target.value)
+                  }
+                  className={cn(
+                    "mt-4 w-full rounded-[1.15rem] border bg-slate-950/75 px-4 py-3 text-sm text-white outline-none transition",
+                    portfolioValueValidation.isValid
+                      ? "border-white/10 focus:border-accent/60"
+                      : "border-amber-400/45 focus:border-amber-300",
+                  )}
+                />
+                {!portfolioValueValidation.isValid ? (
+                  <p className="mt-3 rounded-2xl border border-amber-400/25 bg-amber-400/[0.08] px-3 py-2 text-xs leading-6 text-amber-200">
+                    {portfolioValueValidation.error}
+                  </p>
+                ) : null}
+              </SurfaceCard>
+
+              <SurfaceCard padding="sm" className="border-white/[0.08]">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-accent-strong/85">
+                  Currency
+                </p>
+                <p className="mt-2 text-sm leading-6 text-foreground-soft">
+                  Presentation only.
+                </p>
+                <select
+                  value={currency}
+                  onChange={(event) =>
+                    onCurrencyChange(
+                      event.target.value as RiskSetupSectionProps["currency"],
+                    )
+                  }
+                  className="mt-4 w-full rounded-[1.15rem] border border-white/10 bg-slate-950/75 px-4 py-3 text-sm text-white outline-none transition focus:border-accent/60"
+                >
+                  <option value="USD">USD</option>
+                  <option value="ARS">ARS</option>
+                </select>
+              </SurfaceCard>
+
+              <SurfaceCard padding="sm" className="border-white/[0.08]">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-accent-strong/85">
+                  Confidence level
+                </p>
+                <p className="mt-2 text-sm leading-6 text-foreground-soft">
+                  Applies to VaR and Expected Shortfall.
+                </p>
+                <div className="mt-4 grid grid-cols-2 gap-2">
+                  {([0.95, 0.99] as const).map((option) => {
+                    const isActive = confidenceLevel === option;
+
+                    return (
+                      <button
+                        key={option}
+                        type="button"
+                        onClick={() => onConfidenceLevelChange(option)}
+                        className={cn(
+                          "rounded-[1.15rem] border px-4 py-3 text-sm font-semibold transition",
+                          isActive
+                            ? "border-accent/40 bg-accent/12 text-accent-foreground"
+                            : "border-white/[0.08] bg-slate-950/55 text-slate-300 hover:border-border-strong/80 hover:bg-white/[0.04]",
+                        )}
+                      >
+                        {(option * 100).toFixed(0)}%
+                      </button>
+                    );
+                  })}
+                </div>
+              </SurfaceCard>
+            </div>
           </div>
 
           <div className="space-y-4">
@@ -265,6 +355,21 @@ export function RiskSetupSection({
                 <StatusLine
                   label="Period"
                   value={data ? data.period : period}
+                />
+                <StatusLine
+                  label="Portfolio value"
+                  value={
+                    portfolioValueValidation.value
+                      ? formatCurrencyAmount(
+                          portfolioValueValidation.value,
+                          currency,
+                        )
+                      : "Needs value"
+                  }
+                />
+                <StatusLine
+                  label="Confidence"
+                  value={`${(confidenceLevel * 100).toFixed(0)}%`}
                 />
                 <StatusLine
                   label="Sandbox"
@@ -625,5 +730,16 @@ function formatNumber(value: number): string {
   return new Intl.NumberFormat("en-US", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
+  }).format(value);
+}
+
+function formatCurrencyAmount(
+  value: number,
+  currency: RiskSetupSectionProps["currency"],
+): string {
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency,
+    maximumFractionDigits: 0,
   }).format(value);
 }

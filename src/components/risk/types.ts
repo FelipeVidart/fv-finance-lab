@@ -5,6 +5,11 @@ import type {
   PortfolioRiskAnalysis,
 } from "@/lib/finance/risk/types";
 import type {
+  PortfolioConfidenceLevel,
+  PortfolioValueCurrency,
+  PortfolioValueValidation,
+} from "@/lib/finance/risk/portfolio-risk-analyzer";
+import type {
   MarketDataExplorerPayload,
   MarketDataPeriod,
   MarketDataProviderMode,
@@ -57,6 +62,8 @@ export type PortfolioHoldingRow = {
 };
 
 export type RiskSetupSectionProps = {
+  confidenceLevel: PortfolioConfidenceLevel;
+  currency: PortfolioValueCurrency;
   data: MarketDataExplorerPayload | null;
   inputHint: string;
   isLoading: boolean;
@@ -68,10 +75,15 @@ export type RiskSetupSectionProps = {
   statusItems: DatasetStatusItem[];
   tickerInput: string;
   validationError: string | null;
+  portfolioValueInput: string;
+  portfolioValueValidation: PortfolioValueValidation;
   weightInputs: WeightState;
   weightValidation: WeightValidationState | null;
   onApplyEqualWeights: () => void;
+  onConfidenceLevelChange: (confidenceLevel: PortfolioConfidenceLevel) => void;
+  onCurrencyChange: (currency: PortfolioValueCurrency) => void;
   onPeriodChange: (period: MarketDataPeriod) => void;
+  onPortfolioValueInputChange: (value: string) => void;
   onProviderChange: (provider: MarketDataProviderMode) => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
   onTickerInputChange: (value: string) => void;
@@ -94,6 +106,8 @@ export type RiskPortfolioAnalyticsSectionProps = {
   portfolioCharts: RiskChartModel[];
   portfolioKpis: DatasetStatusItem[];
   portfolioRiskAnalysis: PortfolioRiskAnalysis | null;
+  portfolioValue: number | null;
+  presentationCurrency: PortfolioValueCurrency;
   riskKpis: DatasetStatusItem[];
   weightValidation: WeightValidationState | null;
 };

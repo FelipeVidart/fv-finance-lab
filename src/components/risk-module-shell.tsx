@@ -19,6 +19,14 @@ import {
   buildFactorGradVarAnalysis,
 } from "@/lib/finance/risk/factor-gradvar";
 import { buildPortfolioRiskAnalysis } from "@/lib/finance/risk/portfolio-risk-analysis";
+import {
+  calculateMoneyAtRisk,
+  validateConfidenceLevel,
+  validatePortfolioValueInput,
+  validateWeightPercentInputs,
+  type PortfolioConfidenceLevel,
+  type PortfolioValueCurrency,
+} from "@/lib/finance/risk/portfolio-risk-analyzer";
 import { loadMarketDataExplorer } from "@/lib/market-data/client";
 import { parseTickerInput } from "@/lib/market-data/request";
 import type {
@@ -40,6 +48,9 @@ const FACTOR_PROXY_TICKERS = DEFAULT_FACTOR_DEFINITIONS.map(
 const DEFAULT_TICKER_INPUT = "AAPL, MSFT, NVDA";
 const DEFAULT_PERIOD: MarketDataPeriod = "6M";
 const DEFAULT_PROVIDER: MarketDataProviderMode = "auto";
+const DEFAULT_PORTFOLIO_VALUE = "100000";
+const DEFAULT_CURRENCY: PortfolioValueCurrency = "USD";
+const DEFAULT_CONFIDENCE_LEVEL: PortfolioConfidenceLevel = 0.95;
 
 type FactorDataState = {
   data: MarketDataExplorerPayload | null;
@@ -70,6 +81,13 @@ export function RiskModuleShell({
     requestKey: null,
   });
   const [weightInputs, setWeightInputs] = useState<WeightState>({});
+  const [portfolioValueInput, setPortfolioValueInput] = useState(
+    DEFAULT_PORTFOLIO_VALUE,
+  );
+  const [currency, setCurrency] =
+    useState<PortfolioValueCurrency>(DEFAULT_CURRENCY);
+  const [confidenceLevel, setConfidenceLevel] =
+    useState<PortfolioConfidenceLevel>(DEFAULT_CONFIDENCE_LEVEL);
   const [activeSection, setActiveSection] = useState<RiskSectionId>("setup");
 
   useEffect(() => {
@@ -156,6 +174,12 @@ export function RiskModuleShell({
     setWeightInputs(createEqualWeightInputs(data.tickers));
   }
 
+  function handleConfidenceLevelChange(
+    nextConfidenceLevel: PortfolioConfidenceLevel,
+  ) {
+    setConfidenceLevel(validateConfidenceLevel(nextConfidenceLevel));
+  }
+
   const inputHint = useMemo(() => {
     const parsed = parseTickerInput(tickerInput);
 
@@ -173,63 +197,16 @@ export function RiskModuleShell({
       return null;
     }
 
-    let totalPercent = 0;
-    const parsedWeights: Record<string, number> = {};
-
-    for (const ticker of data.tickers) {
-      const rawValue = weightInputs[ticker];
-
-      if (rawValue === undefined || rawValue.trim() === "") {
-        return {
-          isValid: false,
-          error: "Enter a numeric weight for each selected ticker.",
-          totalPercent,
-          weights: null,
-        };
-      }
-
-      const parsed = Number(rawValue);
-
-      if (!Number.isFinite(parsed)) {
-        return {
-          isValid: false,
-          error: "Weights must be numeric.",
-          totalPercent,
-          weights: null,
-        };
-      }
-
-      if (parsed < 0) {
-        return {
-          isValid: false,
-          error: "Weights cannot be negative.",
-          totalPercent,
-          weights: null,
-        };
-      }
-
-      totalPercent += parsed;
-      parsedWeights[ticker] = parsed / 100;
-    }
-
-    if (Math.abs(totalPercent - 100) > 0.05) {
-      return {
-        isValid: false,
-        error: `Portfolio weights must sum to 100%. Current total: ${totalPercent.toFixed(
-          2,
-        )}%.`,
-        totalPercent,
-        weights: null,
-      };
-    }
-
-    return {
-      isValid: true,
-      error: null,
-      totalPercent,
-      weights: parsedWeights,
-    };
+    return validateWeightPercentInputs({
+      tickers: data.tickers,
+      weightInputs,
+    });
   }, [data, weightInputs]);
+
+  const portfolioValueValidation = useMemo(
+    () => validatePortfolioValueInput(portfolioValueInput),
+    [portfolioValueInput],
+  );
 
   const portfolioAnalytics = useMemo(() => {
     if (!data || !weightValidation?.isValid || !weightValidation.weights) {
@@ -263,11 +240,12 @@ export function RiskModuleShell({
         weights: weightValidation.weights,
         portfolioDailyReturns: portfolioAnalytics.dailyReturns,
         portfolioNavPoints: portfolioAnalytics.points,
+        confidenceLevel,
       });
     } catch {
       return null;
     }
-  }, [data, portfolioAnalytics, weightValidation]);
+  }, [confidenceLevel, data, portfolioAnalytics, weightValidation]);
 
   const factorRequestKey =
     data && loadedProvider && weightValidation?.isValid
@@ -345,7 +323,7 @@ export function RiskModuleShell({
           tickers: data.tickers,
           weights: weightValidation.weights,
           portfolioDailyReturns: portfolioAnalytics.dailyReturns,
-          confidenceLevel: 0.95,
+          confidenceLevel,
         }),
         error: null,
       };
@@ -358,7 +336,7 @@ export function RiskModuleShell({
             : "Unable to compute factor attribution.",
       };
     }
-  }, [data, factorData, portfolioAnalytics, weightValidation]);
+  }, [confidenceLevel, data, factorData, portfolioAnalytics, weightValidation]);
 
   const factorGradVarLoading = Boolean(
     portfolioAnalytics &&
@@ -470,7 +448,17 @@ export function RiskModuleShell({
       return [];
     }
 
+    const portfolioValue = portfolioValueValidation.value;
+
     return [
+      ...(portfolioValue
+        ? [
+            {
+              label: "Portfolio value",
+              value: formatCurrencyAmount(portfolioValue, currency),
+            },
+          ]
+        : []),
       {
         label: "Portfolio return",
         value: formatPercent(portfolioAnalytics.metrics.totalReturn),
@@ -488,7 +476,7 @@ export function RiskModuleShell({
         value: formatPercent(portfolioAnalytics.metrics.maxDrawdown),
       },
     ];
-  }, [portfolioAnalytics]);
+  }, [currency, portfolioAnalytics, portfolioValueValidation.value]);
 
   const riskKpis = useMemo(() => {
     if (!portfolioRiskAnalysis) {
@@ -500,20 +488,31 @@ export function RiskModuleShell({
         portfolioRiskAnalysis.ewmaVolatilitySeries.length - 1
       ]?.value ?? 0;
 
+    const confidenceLabel = formatPercentNoDecimals(
+      portfolioRiskAnalysis.tailRisk.confidenceLevel,
+    );
+    const portfolioValue = portfolioValueValidation.value;
+    const formatLossMetric = (lossRate: number) =>
+      formatRiskPercentAndMoney({
+        lossRate,
+        portfolioValue,
+        currency,
+      });
+
     return [
       {
-        label: "Historical VaR 95%",
-        value: formatRiskLossPercent(portfolioRiskAnalysis.tailRisk.historicalVaR),
+        label: `Historical VaR ${confidenceLabel}`,
+        value: formatLossMetric(portfolioRiskAnalysis.tailRisk.historicalVaR),
       },
       {
-        label: "Expected tail loss 95%",
-        value: formatRiskLossPercent(
+        label: `Expected Shortfall ${confidenceLabel}`,
+        value: formatLossMetric(
           portfolioRiskAnalysis.tailRisk.historicalExpectedShortfall,
         ),
       },
       {
-        label: "Parametric VaR 95%",
-        value: formatRiskLossPercent(portfolioRiskAnalysis.tailRisk.parametricVaR),
+        label: `Parametric VaR ${confidenceLabel}`,
+        value: formatLossMetric(portfolioRiskAnalysis.tailRisk.parametricVaR),
       },
       {
         label: "Latest EWMA daily vol",
@@ -530,7 +529,7 @@ export function RiskModuleShell({
         ),
       },
     ];
-  }, [portfolioRiskAnalysis]);
+  }, [currency, portfolioRiskAnalysis, portfolioValueValidation.value]);
 
   const portfolioCharts = useMemo<RiskChartModel[]>(() => {
     if (!data || !portfolioAnalytics) {
@@ -737,10 +736,14 @@ export function RiskModuleShell({
 
       {activeSection === "setup" ? (
         <RiskSetupSection
+          confidenceLevel={confidenceLevel}
+          currency={currency}
           data={data}
           inputHint={inputHint}
           isLoading={isLoading}
           period={period}
+          portfolioValueInput={portfolioValueInput}
+          portfolioValueValidation={portfolioValueValidation}
           provider={provider}
           providerConfigs={providerConfigs}
           providerSelectorOptions={providerSelectorOptions}
@@ -751,7 +754,10 @@ export function RiskModuleShell({
           weightInputs={weightInputs}
           weightValidation={weightValidation}
           onApplyEqualWeights={handleApplyEqualWeights}
+          onConfidenceLevelChange={handleConfidenceLevelChange}
+          onCurrencyChange={setCurrency}
           onPeriodChange={setPeriod}
+          onPortfolioValueInputChange={setPortfolioValueInput}
           onProviderChange={setProvider}
           onSubmit={handleSubmit}
           onTickerInputChange={handleTickerInputChange}
@@ -778,6 +784,8 @@ export function RiskModuleShell({
           portfolioCharts={portfolioCharts}
           portfolioKpis={portfolioKpis}
           portfolioRiskAnalysis={portfolioRiskAnalysis}
+          portfolioValue={portfolioValueValidation.value}
+          presentationCurrency={currency}
           riskKpis={riskKpis}
           weightValidation={weightValidation}
         />
@@ -840,6 +848,44 @@ function formatPercent(value: number): string {
 
 function formatRiskLossPercent(value: number): string {
   return `${(value * 100).toFixed(2)}%`;
+}
+
+function formatPercentNoDecimals(value: number): string {
+  return new Intl.NumberFormat("en-US", {
+    style: "percent",
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(value);
+}
+
+function formatCurrencyAmount(
+  value: number,
+  currency: PortfolioValueCurrency,
+): string {
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency,
+    maximumFractionDigits: 0,
+  }).format(value);
+}
+
+function formatRiskPercentAndMoney(input: {
+  lossRate: number;
+  portfolioValue: number | null;
+  currency: PortfolioValueCurrency;
+}): string {
+  const percent = formatRiskLossPercent(input.lossRate);
+
+  if (!input.portfolioValue) {
+    return percent;
+  }
+
+  const moneyAtRisk = calculateMoneyAtRisk({
+    lossRate: input.lossRate,
+    portfolioValue: input.portfolioValue,
+  });
+
+  return `${percent} / ${formatCurrencyAmount(moneyAtRisk, input.currency)}`;
 }
 
 function formatDateLabel(value: string): string {
