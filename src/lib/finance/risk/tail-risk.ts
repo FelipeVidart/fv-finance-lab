@@ -86,6 +86,14 @@ export function calculateParametricVaR(input: {
   return Math.max(0, -thresholdReturn);
 }
 
+export function calculateStandardNormalZScore(
+  confidenceLevel: number = DEFAULT_CONFIDENCE_LEVEL,
+): number {
+  validateConfidenceLevel(confidenceLevel);
+
+  return Math.abs(inverseStandardNormal(1 - confidenceLevel));
+}
+
 export function validateConfidenceLevel(confidenceLevel: number): void {
   if (
     !Number.isFinite(confidenceLevel) ||
