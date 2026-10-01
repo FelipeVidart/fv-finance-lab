@@ -6,12 +6,15 @@ import {
   calculateParametricVaR,
 } from "../src/lib/finance/risk/tail-risk";
 import { calculateInstrumentVaRContribution } from "../src/lib/finance/risk/risk-contribution";
+import { buildFactorGradVarAnalysis } from "../src/lib/finance/risk/factor-gradvar";
 import {
   calculateMoneyAtRisk,
   validateConfidenceLevel,
   validatePortfolioValueInput,
   validateWeightPercentInputs,
 } from "../src/lib/finance/risk/portfolio-risk-analyzer";
+import type { FactorDefinition } from "../src/lib/finance/risk/types";
+import type { MarketDataExplorerPayload } from "../src/lib/market-data/types";
 
 const syntheticReturns = [-0.1, -0.08, -0.05, -0.02, 0, 0.01, 0.02, 0.03, 0.04, 0.05];
 
@@ -194,3 +197,133 @@ test("instrument VaR attribution reports concentration and top contributors", ()
   assert.ok(analysis.summary.topThreeContributionShare > 0);
   assert.ok(analysis.summary.concentrationHerfindahl > 0);
 });
+
+test("factor GradVaR decomposes synthetic factor-driven assets", () => {
+  const factorDefinitions: FactorDefinition[] = [
+    {
+      id: "equity",
+      name: "Equity",
+      proxyTicker: "EQF",
+      description: "Synthetic equity factor.",
+    },
+    {
+      id: "duration",
+      name: "Duration",
+      proxyTicker: "DUR",
+      description: "Synthetic duration factor.",
+    },
+  ];
+  const factorReturns = Array.from({ length: 36 }, (_, index) => ({
+    equity: 0.006 * Math.sin(index / 2) + 0.001,
+    duration: 0.004 * Math.cos(index / 3) - 0.0005,
+  }));
+  const assetReturns = factorReturns.map((row) => ({
+    RISKY: 1.2 * row.equity + 0.1 * row.duration,
+    BOND: 0.05 * row.equity + 1.1 * row.duration,
+  }));
+  const weights = { RISKY: 0.6, BOND: 0.4 };
+  const portfolioDailyReturns = assetReturns.map(
+    (row) => weights.RISKY * row.RISKY + weights.BOND * row.BOND,
+  );
+  const analysis = buildFactorGradVarAnalysis({
+    assetData: buildSyntheticPayload({
+      tickers: ["RISKY", "BOND"],
+      returnsByTicker: {
+        RISKY: assetReturns.map((row) => row.RISKY),
+        BOND: assetReturns.map((row) => row.BOND),
+      },
+    }),
+    factorData: buildSyntheticPayload({
+      tickers: ["EQF", "DUR"],
+      returnsByTicker: {
+        EQF: factorReturns.map((row) => row.equity),
+        DUR: factorReturns.map((row) => row.duration),
+      },
+    }),
+    tickers: ["RISKY", "BOND"],
+    weights,
+    portfolioDailyReturns,
+    confidenceLevel: 0.95,
+    factorDefinitions,
+  });
+  const factorComponentTotal = analysis.factorAttribution.reduce(
+    (sum, row) => sum + row.componentVaR,
+    0,
+  );
+  const instrumentComponentTotal = analysis.instrumentAttribution.reduce(
+    (sum, row) => sum + row.componentVaR,
+    0,
+  );
+
+  assert.equal(analysis.observations, 36);
+  assert.ok(Math.abs(factorComponentTotal - analysis.valueAtRisk) < 1e-12);
+  assert.ok(Math.abs(instrumentComponentTotal - analysis.valueAtRisk) < 1e-12);
+  assert.equal(
+    analysis.instrumentAttribution.find((row) => row.ticker === "RISKY")
+      ?.dominantFactorName,
+    "Equity",
+  );
+  assert.equal(
+    analysis.instrumentAttribution.find((row) => row.ticker === "BOND")
+      ?.dominantFactorName,
+    "Duration",
+  );
+  assert.ok((analysis.portfolioRegression?.rSquared ?? 0) > 0.99);
+});
+
+function buildSyntheticPayload(input: {
+  tickers: string[];
+  returnsByTicker: Record<string, number[]>;
+}): MarketDataExplorerPayload {
+  const pricesByTicker = Object.fromEntries(
+    input.tickers.map((ticker) => [ticker, buildPricePath(input.returnsByTicker[ticker])]),
+  );
+  const points = Array.from({ length: input.returnsByTicker[input.tickers[0]].length + 1 }, (_, index) => {
+    const date = `2026-01-${String(index + 1).padStart(2, "0")}`;
+
+    return {
+      date,
+      prices: Object.fromEntries(
+        input.tickers.map((ticker) => [ticker, pricesByTicker[ticker][index]]),
+      ),
+      normalized: Object.fromEntries(
+        input.tickers.map((ticker) => [
+          ticker,
+          pricesByTicker[ticker][index] / pricesByTicker[ticker][0],
+        ]),
+      ),
+      cumulativeReturns: Object.fromEntries(
+        input.tickers.map((ticker) => [
+          ticker,
+          pricesByTicker[ticker][index] / pricesByTicker[ticker][0] - 1,
+        ]),
+      ),
+      drawdowns: Object.fromEntries(input.tickers.map((ticker) => [ticker, 0])),
+    };
+  });
+
+  return {
+    tickers: input.tickers,
+    period: "1Y",
+    points,
+    metrics: [],
+    meta: {
+      provider: "synthetic",
+      interval: "1day",
+      adjustMode: "all",
+      observations: points.length,
+      commonStartDate: points[0].date,
+      commonEndDate: points[points.length - 1].date,
+    },
+  };
+}
+
+function buildPricePath(returns: number[]): number[] {
+  return returns.reduce(
+    (prices, dailyReturn) => [
+      ...prices,
+      prices[prices.length - 1] * (1 + dailyReturn),
+    ],
+    [100],
+  );
+}
