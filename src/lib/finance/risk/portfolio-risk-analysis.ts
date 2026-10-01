@@ -1,6 +1,9 @@
 import { calculateDailyReturns } from "@/lib/finance/returns";
 import { calculateEwmaVolatilitySeries } from "@/lib/finance/risk/ewma";
-import { calculateRiskContribution } from "@/lib/finance/risk/risk-contribution";
+import {
+  calculateInstrumentVaRContribution,
+  calculateRiskContribution,
+} from "@/lib/finance/risk/risk-contribution";
 import { calculateDescriptiveStatistics } from "@/lib/finance/risk/statistics";
 import { calculateTailRiskMetrics } from "@/lib/finance/risk/tail-risk";
 import {
@@ -52,6 +55,19 @@ export function buildPortfolioRiskAnalysis(
     ewma.volatility[ewma.volatility.length - 1]?.value;
   const assetReturnSeries = buildAssetReturnSeries(input);
 
+  const riskContribution = calculateRiskContribution({
+    tickers: input.tickers,
+    weights: input.weights,
+    returnSeries: assetReturnSeries,
+  });
+  const instrumentVaRContribution = calculateInstrumentVaRContribution({
+    tickers: input.tickers,
+    weights: input.weights,
+    returnSeries: assetReturnSeries,
+    confidenceLevel,
+    portfolioValue: input.portfolioValue,
+  });
+
   return {
     descriptiveStats: calculateDescriptiveStatistics(portfolioDailyReturns),
     tailRisk: calculateTailRiskMetrics({
@@ -66,11 +82,8 @@ export function buildPortfolioRiskAnalysis(
       windowDays: rollingWindowDays,
     }),
     drawdownSummary: summarizeDrawdowns(input.portfolioNavPoints),
-    riskContribution: calculateRiskContribution({
-      tickers: input.tickers,
-      weights: input.weights,
-      returnSeries: assetReturnSeries,
-    }),
+    riskContribution,
+    instrumentVaRContribution,
     methodology: {
       confidenceLevel,
       ewmaLambda,
