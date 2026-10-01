@@ -708,7 +708,7 @@ function FactorGradVarAttributionSection({
 
 function FactorProxySet({ factors }: { factors: FactorDefinition[] }) {
   return (
-    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
       {factors.map((factor) => (
         <SurfaceCard
           key={factor.id}
@@ -750,6 +750,9 @@ function FactorGradVarResults({
 }: {
   analysis: FactorGradVarAnalysis;
 }) {
+  const topFactor = analysis.factorAttribution[0] ?? null;
+  const topInstrument = analysis.instrumentAttribution[0] ?? null;
+  const factorR2 = analysis.portfolioRegression?.rSquared ?? null;
   const kpis = [
     {
       label: `Factor-model VaR ${formatPercentNoSign(analysis.confidenceLevel)}`,
@@ -792,6 +795,12 @@ function FactorGradVarResults({
         ))}
       </div>
 
+      <FactorInterpretationSummary
+        topFactor={topFactor}
+        topInstrument={topInstrument}
+        factorR2={factorR2}
+      />
+
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1.12fr)_minmax(20rem,0.88fr)]">
         <FactorAttributionTable analysis={analysis} />
         <FactorModelNotes analysis={analysis} />
@@ -799,6 +808,61 @@ function FactorGradVarResults({
 
       <InstrumentAttributionTable analysis={analysis} />
       <InstrumentFactorContributionMatrix analysis={analysis} />
+    </div>
+  );
+}
+
+function FactorInterpretationSummary({
+  topFactor,
+  topInstrument,
+  factorR2,
+}: {
+  topFactor: FactorGradVarAnalysis["factorAttribution"][number] | null;
+  topInstrument: FactorGradVarAnalysis["instrumentAttribution"][number] | null;
+  factorR2: number | null;
+}) {
+  const modelFitLabel =
+    factorR2 === null
+      ? "N/A"
+      : factorR2 >= 0.65
+        ? "High"
+        : factorR2 >= 0.35
+          ? "Medium"
+          : "Low";
+
+  return (
+    <div className="grid gap-4 md:grid-cols-3">
+      <MiniStat
+        label="Dominant factor"
+        value={topFactor?.factorName ?? "N/A"}
+        detail={
+          topFactor
+            ? `${topFactor.proxyTicker}: ${formatSignedPercent(topFactor.contributionShare)} of signed factor VaR.`
+            : "No dominant factor available."
+        }
+      />
+      <MiniStat
+        label="Dominant instrument factor"
+        value={
+          topInstrument
+            ? `${topInstrument.ticker} / ${topInstrument.dominantFactorName ?? "N/A"}`
+            : "N/A"
+        }
+        detail={
+          topInstrument
+            ? `${formatSignedPercent(topInstrument.componentVaR)} factor-model Component VaR.`
+            : "No instrument attribution available."
+        }
+      />
+      <MiniStat
+        label="Model fit"
+        value={modelFitLabel}
+        detail={
+          factorR2 === null
+            ? "Portfolio regression R2 is not available for this sample."
+            : `Portfolio factor R2 is ${formatPercentNoSign(factorR2)}. Treat low fit as a warning, not a failure.`
+        }
+      />
     </div>
   );
 }
@@ -871,15 +935,19 @@ function FactorModelNotes({
       <div className="mt-4 space-y-3">
         <ReadingLine
           title="Model form"
-          body="Each asset return is regressed on the fixed ETF proxy returns with an intercept."
+          body="Each asset return is regressed on a fixed ETF proxy set with an intercept."
         />
         <ReadingLine
           title="Component VaR"
           body="Component VaR estimates how much each factor contributes to the model-implied daily VaR."
         />
         <ReadingLine
+          title="Argentina WM proxy set"
+          body="The default factors use global equity, Argentina, growth/technology, duration, credit/risk appetite, USD/FX, and gold proxies."
+        />
+        <ReadingLine
           title="Interpretation boundary"
-          body="The output supports portfolio risk interpretation and education; it is not investment advice."
+          body="ETF proxies are approximations. Use the output to explain exposure patterns, not as a standalone investment recommendation."
         />
       </div>
 
