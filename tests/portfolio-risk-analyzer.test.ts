@@ -5,6 +5,7 @@ import {
   calculateHistoricalVaR,
   calculateParametricVaR,
 } from "../src/lib/finance/risk/tail-risk";
+import { calculateInstrumentVaRContribution } from "../src/lib/finance/risk/risk-contribution";
 import {
   calculateMoneyAtRisk,
   validateConfidenceLevel,
@@ -118,4 +119,78 @@ test("handles empty or non-loss return samples conservatively", () => {
   assert.equal(calculateHistoricalVaR([], 0.95), 0);
   assert.equal(calculateHistoricalExpectedShortfall([], 0.95), 0);
   assert.equal(calculateHistoricalVaR([0.01, 0.02, 0.03], 0.95), 0);
+});
+
+test("instrument Component VaR sums to covariance portfolio VaR", () => {
+  const analysis = calculateInstrumentVaRContribution({
+    tickers: ["AAA", "BBB"],
+    weights: { AAA: 0.6, BBB: 0.4 },
+    returnSeries: {
+      AAA: [-0.02, -0.01, 0, 0.01, 0.02],
+      BBB: [-0.02, -0.01, 0, 0.01, 0.02],
+    },
+    confidenceLevel: 0.95,
+    portfolioValue: 100000,
+  });
+  const componentTotal = analysis.rows.reduce(
+    (sum, row) => sum + row.componentVaR,
+    0,
+  );
+
+  assert.equal(analysis.rows.length, 2);
+  assert.ok(Math.abs(componentTotal - analysis.summary.portfolioVaR) < 1e-12);
+  assert.ok(Math.abs(analysis.rows[0].contributionShare - 0.6) < 1e-12);
+  assert.ok(Math.abs(analysis.rows[1].contributionShare - 0.4) < 1e-12);
+  assert.ok(
+    Math.abs(
+      analysis.rows[0].componentVaRAmount -
+        analysis.rows[0].componentVaR * 100000,
+    ) < 1e-12,
+  );
+});
+
+test("instrument VaR attribution scales with confidence level", () => {
+  const baseInput = {
+    tickers: ["AAA", "BBB"],
+    weights: { AAA: 0.5, BBB: 0.5 },
+    returnSeries: {
+      AAA: [-0.03, -0.01, 0.01, 0.02, 0.03],
+      BBB: [-0.01, 0, 0.01, 0.01, 0.02],
+    },
+    portfolioValue: 50000,
+  };
+  const analysis95 = calculateInstrumentVaRContribution({
+    ...baseInput,
+    confidenceLevel: 0.95,
+  });
+  const analysis99 = calculateInstrumentVaRContribution({
+    ...baseInput,
+    confidenceLevel: 0.99,
+  });
+
+  assert.ok(analysis99.summary.portfolioVaR > analysis95.summary.portfolioVaR);
+  assert.ok(
+    (analysis99.summary.portfolioVaRAmount ?? 0) >
+      (analysis95.summary.portfolioVaRAmount ?? 0),
+  );
+});
+
+test("instrument VaR attribution reports concentration and top contributors", () => {
+  const analysis = calculateInstrumentVaRContribution({
+    tickers: ["AAA", "BBB", "CCC", "DDD"],
+    weights: { AAA: 0.7, BBB: 0.15, CCC: 0.1, DDD: 0.05 },
+    returnSeries: {
+      AAA: [-0.04, -0.02, 0, 0.02, 0.04],
+      BBB: [-0.01, 0, 0.01, 0.01, 0.02],
+      CCC: [0.01, 0, -0.01, 0, 0.01],
+      DDD: [0, 0.005, -0.005, 0.005, 0],
+    },
+    confidenceLevel: 0.95,
+  });
+
+  assert.equal(analysis.topContributors.length, 3);
+  assert.equal(analysis.rows[0].rankByAbsComponentVaR, 1);
+  assert.equal(analysis.rows[0].isTopContributor, true);
+  assert.ok(analysis.summary.topThreeContributionShare > 0);
+  assert.ok(analysis.summary.concentrationHerfindahl > 0);
 });

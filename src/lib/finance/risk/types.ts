@@ -51,6 +51,35 @@ export type RiskContributionRow = {
   percentContributionToVolatility: number;
 };
 
+export type InstrumentVaRContributionRow = {
+  ticker: string;
+  weight: number;
+  marginalVaR: number;
+  componentVaR: number;
+  componentVaRAmount: number;
+  contributionShare: number;
+  rankByAbsComponentVaR: number;
+  isTopContributor: boolean;
+};
+
+export type InstrumentVaRContributionSummary = {
+  confidenceLevel: number;
+  portfolioValue: number | null;
+  portfolioDailyVolatility: number;
+  portfolioVaR: number;
+  portfolioVaRAmount: number | null;
+  topContributorTicker: string | null;
+  topContributorShare: number;
+  topThreeContributionShare: number;
+  concentrationHerfindahl: number;
+};
+
+export type InstrumentVaRContributionAnalysis = {
+  rows: InstrumentVaRContributionRow[];
+  topContributors: InstrumentVaRContributionRow[];
+  summary: InstrumentVaRContributionSummary;
+};
+
 export type PortfolioRiskAnalysisMethodology = {
   confidenceLevel: number;
   ewmaLambda: number;
@@ -68,6 +97,7 @@ export type PortfolioRiskAnalysis = {
   rollingVolatilitySeries: DatedRiskPoint[];
   drawdownSummary: DrawdownSummary;
   riskContribution: RiskContributionRow[];
+  instrumentVaRContribution: InstrumentVaRContributionAnalysis;
   methodology: PortfolioRiskAnalysisMethodology;
 };
 
@@ -77,6 +107,7 @@ export type PortfolioRiskAnalysisInput = {
   weights: Record<string, number>;
   portfolioDailyReturns: number[];
   portfolioNavPoints: PortfolioPoint[];
+  portfolioValue?: number | null;
   confidenceLevel?: number;
   ewmaLambda?: number;
   rollingWindowDays?: number;

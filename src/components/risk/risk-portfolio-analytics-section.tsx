@@ -14,6 +14,8 @@ import type {
   DrawdownSummary,
   FactorDefinition,
   FactorGradVarAnalysis,
+  InstrumentVaRContributionAnalysis,
+  InstrumentVaRContributionRow,
   PortfolioRiskAnalysis,
   RiskContributionRow,
   TailRiskMetrics,
@@ -307,6 +309,11 @@ function PortfolioRiskDiagnostics({
         <RiskContributionTable rows={analysis.riskContribution} />
       </Card>
 
+      <InstrumentVaRContributionSection
+        analysis={analysis.instrumentVaRContribution}
+        presentationCurrency={presentationCurrency}
+      />
+
       <FactorGradVarAttributionSection
         analysis={factorGradVarAnalysis}
         error={factorGradVarError}
@@ -339,6 +346,10 @@ function PortfolioRiskDiagnostics({
             <MethodologyPoint
               title="Factor GradVaR"
               body="GradVaR decomposes factor-model VaR from ETF proxy regressions, component VaR, and marginal VaR by factor."
+            />
+            <MethodologyPoint
+              title="Instrument Component VaR"
+              body="Instrument Component VaR uses the daily covariance matrix and current weights. Signed contributions can be negative when a position diversifies portfolio VaR."
             />
             <MethodologyPoint
               title="Proxy limitation"
@@ -386,6 +397,268 @@ function PortfolioRiskDiagnostics({
           </SurfaceCard>
         </div>
       </Card>
+    </div>
+  );
+}
+
+function InstrumentVaRContributionSection({
+  analysis,
+  presentationCurrency,
+}: {
+  analysis: InstrumentVaRContributionAnalysis;
+  presentationCurrency: RiskPortfolioAnalyticsSectionProps["presentationCurrency"];
+}) {
+  const topTicker = analysis.summary.topContributorTicker ?? "N/A";
+  const summaryCards = [
+    {
+      label: `Portfolio VaR ${formatPercentNoSign(analysis.summary.confidenceLevel)}`,
+      value: formatLossPercentAndMoney(
+        analysis.summary.portfolioVaR,
+        analysis.summary.portfolioValue,
+        presentationCurrency,
+      ),
+      detail: "Covariance-based daily VaR used for instrument decomposition.",
+    },
+    {
+      label: "Top contributor",
+      value: topTicker,
+      detail:
+        analysis.summary.topContributorTicker === null
+          ? "No contributor available."
+          : `${formatPercentNoSign(analysis.summary.topContributorShare)} of absolute component risk.`,
+    },
+    {
+      label: "Top 3 concentration",
+      value: formatPercentNoSign(analysis.summary.topThreeContributionShare),
+      detail: "Share of absolute component VaR explained by the largest three contributors.",
+    },
+    {
+      label: "Risk HHI",
+      value: analysis.summary.concentrationHerfindahl.toFixed(2),
+      detail: "Higher means component VaR is more concentrated in fewer instruments.",
+    },
+  ];
+
+  return (
+    <Card
+      eyebrow="Instrument VaR Attribution"
+      title="Weight vs risk contribution"
+      description="Marginal VaR estimates sensitivity to each instrument weight; Component VaR translates that sensitivity into the instrument's signed daily VaR contribution."
+    >
+      <div className="space-y-5">
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          {summaryCards.map((item) => (
+            <MiniStat
+              key={item.label}
+              label={item.label}
+              value={item.value}
+              detail={item.detail}
+            />
+          ))}
+        </div>
+
+        <div className="grid gap-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(20rem,0.9fr)]">
+          <InstrumentVaRContributionTable
+            rows={analysis.rows}
+            presentationCurrency={presentationCurrency}
+            portfolioValue={analysis.summary.portfolioValue}
+          />
+          <TopContributorPanel rows={analysis.topContributors} />
+        </div>
+
+        <WeightVsRiskContributionBars rows={analysis.rows} />
+      </div>
+    </Card>
+  );
+}
+
+function InstrumentVaRContributionTable({
+  rows,
+  presentationCurrency,
+  portfolioValue,
+}: {
+  rows: InstrumentVaRContributionRow[];
+  presentationCurrency: RiskPortfolioAnalyticsSectionProps["presentationCurrency"];
+  portfolioValue: number | null;
+}) {
+  if (rows.length === 0) {
+    return (
+      <div className="rounded-[1.4rem] border border-amber-400/20 bg-amber-400/[0.07] px-4 py-4 text-sm leading-7 text-amber-100">
+        Instrument VaR attribution is unavailable for the current asset return
+        sample.
+      </div>
+    );
+  }
+
+  return (
+    <div className="overflow-x-auto rounded-[1.6rem] border border-white/[0.08] bg-[linear-gradient(180deg,rgba(10,17,26,0.82),rgba(8,13,20,0.72))]">
+      <table className="w-full min-w-[880px] text-left">
+        <thead className="border-b border-white/[0.08] text-[11px] font-semibold uppercase tracking-[0.18em] text-foreground-subtle">
+          <tr>
+            <th className="px-5 py-3">Rank</th>
+            <th className="px-5 py-3">Ticker</th>
+            <th className="px-5 py-3">Weight</th>
+            <th className="px-5 py-3">Marginal VaR</th>
+            <th className="px-5 py-3">Component VaR</th>
+            <th className="px-5 py-3">Money-at-risk</th>
+            <th className="px-5 py-3">Contribution share</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-white/[0.08] text-sm">
+          {rows.map((row, index) => (
+            <tr
+              key={row.ticker}
+              className={index % 2 === 0 ? "bg-white/[0.015]" : undefined}
+            >
+              <td className="px-5 py-4 text-foreground-soft">
+                #{row.rankByAbsComponentVaR}
+              </td>
+              <td className="px-5 py-4 font-semibold text-foreground">
+                {row.ticker}
+              </td>
+              <td className="px-5 py-4 text-foreground">
+                {formatPercentNoSign(row.weight)}
+              </td>
+              <td className={cn("px-5 py-4", getNumberTone(row.marginalVaR))}>
+                {formatSignedPercent(row.marginalVaR)}
+              </td>
+              <td className={cn("px-5 py-4", getNumberTone(row.componentVaR))}>
+                {formatSignedPercent(row.componentVaR)}
+              </td>
+              <td
+                className={cn(
+                  "px-5 py-4",
+                  getNumberTone(row.componentVaRAmount),
+                )}
+              >
+                {formatSignedMoney(
+                  row.componentVaRAmount,
+                  presentationCurrency,
+                  portfolioValue,
+                )}
+              </td>
+              <td
+                className={cn(
+                  "px-5 py-4",
+                  getNumberTone(row.contributionShare),
+                )}
+              >
+                {formatSignedPercent(row.contributionShare)}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function TopContributorPanel({
+  rows,
+}: {
+  rows: InstrumentVaRContributionRow[];
+}) {
+  return (
+    <SurfaceCard padding="sm" className="h-full border-white/[0.08]">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-accent-strong/85">
+        Top 3 contributors
+      </p>
+      <div className="mt-4 space-y-3">
+        {rows.length > 0 ? (
+          rows.map((row) => (
+            <ReadingLine
+              key={row.ticker}
+              title={`#${row.rankByAbsComponentVaR} ${row.ticker}`}
+              body={`${formatSignedPercent(row.componentVaR)} Component VaR from a ${formatPercentNoSign(row.weight)} portfolio weight. Share: ${formatSignedPercent(row.contributionShare)}.`}
+            />
+          ))
+        ) : (
+          <p className="text-sm leading-7 text-foreground-soft">
+            No contributors available for this sample.
+          </p>
+        )}
+      </div>
+    </SurfaceCard>
+  );
+}
+
+function WeightVsRiskContributionBars({
+  rows,
+}: {
+  rows: InstrumentVaRContributionRow[];
+}) {
+  if (rows.length === 0) {
+    return null;
+  }
+
+  return (
+    <SurfaceCard padding="sm" className="border-white/[0.08]">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-accent-strong/85">
+        Weight vs risk contribution
+      </p>
+      <div className="mt-4 space-y-4">
+        {rows.map((row) => {
+          const riskBarWidth = `${Math.min(
+            Math.abs(row.contributionShare) * 100,
+            100,
+          ).toFixed(1)}%`;
+          const weightBarWidth = `${Math.min(Math.abs(row.weight) * 100, 100).toFixed(
+            1,
+          )}%`;
+
+          return (
+            <div key={row.ticker} className="space-y-2">
+              <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
+                <span className="font-semibold text-foreground">{row.ticker}</span>
+                <span className="text-foreground-soft">
+                  Weight {formatPercentNoSign(row.weight)} | Risk{" "}
+                  <span className={getNumberTone(row.contributionShare)}>
+                    {formatSignedPercent(row.contributionShare)}
+                  </span>
+                </span>
+              </div>
+              <div className="grid gap-2 md:grid-cols-2">
+                <ContributionBar
+                  label="Weight"
+                  width={weightBarWidth}
+                  tone="bg-sky-300/70"
+                />
+                <ContributionBar
+                  label="Component VaR share"
+                  width={riskBarWidth}
+                  tone={
+                    row.contributionShare >= 0
+                      ? "bg-rose-300/75"
+                      : "bg-emerald-300/75"
+                  }
+                />
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </SurfaceCard>
+  );
+}
+
+function ContributionBar({
+  label,
+  width,
+  tone,
+}: {
+  label: string;
+  width: string;
+  tone: string;
+}) {
+  return (
+    <div>
+      <div className="mb-1 flex justify-between text-[11px] font-semibold uppercase tracking-[0.14em] text-foreground-subtle">
+        <span>{label}</span>
+        <span>{width}</span>
+      </div>
+      <div className="h-2.5 overflow-hidden rounded-full bg-white/[0.08]">
+        <div className={cn("h-full rounded-full", tone)} style={{ width }} />
+      </div>
     </div>
   );
 }
@@ -985,6 +1258,33 @@ function formatLossPercentAndMoney(
     currency,
     maximumFractionDigits: 0,
   }).format(moneyAtRisk)}`;
+}
+
+function formatSignedMoney(
+  value: number,
+  currency: RiskPortfolioAnalyticsSectionProps["presentationCurrency"],
+  portfolioValue: number | null,
+): string {
+  if (!portfolioValue) {
+    return "N/A";
+  }
+
+  const absoluteValue = Math.abs(value);
+  const formatted = new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency,
+    maximumFractionDigits: 0,
+  }).format(absoluteValue);
+
+  if (value > 0) {
+    return `+${formatted}`;
+  }
+
+  if (value < 0) {
+    return `-${formatted}`;
+  }
+
+  return formatted;
 }
 
 function formatSignedNumber(value: number): string {

@@ -240,12 +240,19 @@ export function RiskModuleShell({
         weights: weightValidation.weights,
         portfolioDailyReturns: portfolioAnalytics.dailyReturns,
         portfolioNavPoints: portfolioAnalytics.points,
+        portfolioValue: portfolioValueValidation.value,
         confidenceLevel,
       });
     } catch {
       return null;
     }
-  }, [confidenceLevel, data, portfolioAnalytics, weightValidation]);
+  }, [
+    confidenceLevel,
+    data,
+    portfolioAnalytics,
+    portfolioValueValidation.value,
+    weightValidation,
+  ]);
 
   const factorRequestKey =
     data && loadedProvider && weightValidation?.isValid

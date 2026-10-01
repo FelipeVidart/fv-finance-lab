@@ -1,10 +1,15 @@
-# Portfolio Risk Analyzer - Work 1 Audit, Architecture, and V1
+# Portfolio Risk Analyzer - Audit, Architecture, V1, and Work 2
 
-Date: 2026-09-30
+Date: 2026-10-01
 
 ## Scope
 
-This document covers Work 1 only: audit, architecture decision, and V1 implementation for the FV Finance Lab Risk module. Later roadmap phases remain out of scope for this work: stress testing, scenario analysis, current-vs-proposed comparison, Argentine fixed income, funds look-through, and automatic investment recommendations.
+This document covers Work 1 and Work 2 for the FV Finance Lab Risk module.
+
+- Work 1: audit, architecture decision, and V1 implementation.
+- Work 2: instrument-level risk attribution with Marginal VaR, Component VaR, Component VaR %, top contributors, concentration, and weight-vs-risk contribution visualization.
+
+Later roadmap phases remain out of scope for this work: stress testing, scenario analysis, current-vs-proposed comparison, Argentine fixed income, funds look-through, and automatic investment recommendations.
 
 ## Architecture Decision
 
@@ -35,7 +40,7 @@ Reference source: `portfolio-risk-pipeline/src/portfolio_risk_pipeline/handlers`
 | Factor model | Exists in `handlers/factors.py` via factor covariance and betas. | Exists in `src/lib/finance/risk/factor-gradvar.ts`. | Factor proxies need later methodological review for Argentina WM use. | Keep existing TypeScript, no expansion in V1. |
 | Factor GradVaR | Exists in `GradVaRHandler`. | Exists in `buildFactorGradVarAnalysis`. | Already present, but future roadmap asks for review/visualization. | Do not expand in Work 1. |
 | Risk attribution by factor | Exists in `FactorAttributionHandler`. | Exists in factor GradVaR output/table. | Phase 3 refinement remains. | Preserve existing TypeScript. |
-| Risk attribution by instrument | Exists in `InstrumentAttributionHandler`. | Exists through volatility contribution and factor instrument attribution. | Phase 2 should add Marginal VaR/Component VaR by instrument. | Preserve existing TypeScript; do not implement Work 2 yet. |
+| Risk attribution by instrument | Exists in `InstrumentAttributionHandler`. | Exists through volatility contribution and factor instrument attribution. | Work 2 needed a canonical Marginal VaR/Component VaR view by instrument. | Keep TypeScript; add covariance-based instrument VaR attribution in `risk-contribution.ts`. |
 | Market-data layer | Python downloads Yahoo Finance via yfinance in `handlers/data.py`. | Finance Lab has provider routes and clients for Yahoo/Twelve Data/Stooq under `src/lib/market-data` and `src/app/api/market-data`. | No V1 backend switch needed. | Keep Finance Lab market-data layer. |
 | Tests | Python repo has methodology docs but no visible test suite. | Finance Lab had no visible test suite before Work 1. | Need financial tests for V1. | Add Node test runner and synthetic financial tests in Finance Lab. |
 | Risk UI | Python has no Next.js UI. | Finance Lab has `RiskModuleShell` and Risk components. | Needs portfolio value, currency, confidence-level controls, and money display. | Extend existing Risk UI without a rewrite. |
@@ -53,8 +58,39 @@ Reference source: `portfolio-risk-pipeline/src/portfolio_risk_pipeline/handlers`
 - Money-at-risk equals loss percentage times the user-entered portfolio value in the selected presentation currency.
 - Missing or non-finite return observations are filtered in the risk functions. The analysis records warnings when observations are limited or alignment is imperfect.
 
-## Future Phases Kept Out of Work 1
+## Work 2 Instrument Risk Attribution
 
-- Work 2: instrument risk attribution with Marginal VaR, Component VaR, Component VaR %, top contributors, and weight-vs-risk contribution visualization.
+Implemented in `src/lib/finance/risk/risk-contribution.ts` and surfaced in the Portfolio Analytics section.
+
+### Methodology
+
+- The Work 2 instrument attribution uses the same aligned asset return base as the volatility contribution table.
+- Covariance is daily, not annualized, because VaR is reported as a daily loss measure.
+- Portfolio daily volatility is `sqrt(w' Sigma w)`.
+- Portfolio covariance VaR is `z(confidenceLevel) * portfolioDailyVolatility`.
+- Marginal VaR for instrument `i` is `z * (Sigma w)_i / portfolioDailyVolatility`.
+- Component VaR is `weight_i * marginalVaR_i`.
+- Component VaR % is `componentVaR_i / portfolioVaR`.
+- Component VaR amount is `componentVaR_i * portfolioValue` when a portfolio value is available.
+- Component VaR can be negative when an instrument diversifies or hedges the portfolio. Ranking and concentration use absolute Component VaR so diversifiers are still visible.
+
+### Outputs
+
+- Instrument Marginal VaR.
+- Instrument Component VaR.
+- Instrument Component VaR amount.
+- Component VaR share.
+- Top 3 contributors by absolute Component VaR.
+- Top contributor share.
+- Top-3 concentration.
+- Herfindahl-style risk concentration index.
+- Weight vs Component VaR contribution bars.
+
+### Interpretation Boundary
+
+This is a covariance-based parametric attribution view. It explains how the current weights and historical covariance matrix decompose model-implied daily VaR. It is not a scenario forecast, recommendation engine, or stress test. Client-facing use still requires methodology/disclaimer review.
+
+## Future Phases Kept Out of Work 2
+
 - Work 3: factor attribution review and improvements for Wealth Management in Argentina.
 - Later: scenario analysis, stress testing, current-vs-proposed comparison, Argentine fixed income, funds look-through, and compliance-reviewed client-facing methodology/disclaimers.
