@@ -1,16 +1,17 @@
-# Portfolio Risk Analyzer - Audit, V1, Work 2, and Work 3
+# Portfolio Risk Analyzer - Audit, V1, Work 2, Work 3, and Work 4
 
 Date: 2026-10-01
 
 ## Scope
 
-This document covers Work 1, Work 2, and Work 3 for the FV Finance Lab Risk module.
+This document covers Work 1, Work 2, Work 3, and Work 4 for the FV Finance Lab Risk module.
 
 - Work 1: audit, architecture decision, and V1 implementation.
 - Work 2: instrument-level risk attribution with Marginal VaR, Component VaR, Component VaR %, top contributors, concentration, and weight-vs-risk contribution visualization.
 - Work 3: factor attribution review for a Wealth Management Argentina use case, with improved default proxies, clearer interpretation, and synthetic tests.
+- Work 4: Scenario Analysis stress module with hypothetical factor shocks, estimated monetary impact, and top contributors.
 
-Later roadmap phases remain out of scope for this work: stress testing, scenario analysis, current-vs-proposed comparison, Argentine fixed income, funds look-through, and automatic investment recommendations.
+Later roadmap phases remain out of scope for this work: current-vs-proposed comparison, Argentine fixed income, funds look-through, and automatic investment recommendations.
 
 ## Architecture Decision
 
@@ -42,6 +43,7 @@ Reference source: `portfolio-risk-pipeline/src/portfolio_risk_pipeline/handlers`
 | Factor GradVaR | Exists in `GradVaRHandler`. | Exists in `buildFactorGradVarAnalysis`. | Needed clearer interpretation and proxy review. | Reuse TypeScript GradVaR; add WM-oriented defaults and summary UI. |
 | Risk attribution by factor | Exists in `FactorAttributionHandler`. | Exists in factor GradVaR output/table. | Needed interpretation layer, dominant factor, and model quality summary. | Preserve engine and improve UI/readability in Work 3. |
 | Risk attribution by instrument | Exists in `InstrumentAttributionHandler`. | Exists through volatility contribution and factor instrument attribution. | Work 2 needed a canonical Marginal VaR/Component VaR view by instrument. | Keep TypeScript; add covariance-based instrument VaR attribution in `risk-contribution.ts`. |
+| Scenario Analysis | Python references simulation/regime methodology; scenario stress is not the V1 core. | Portfolio module had a separate simplified asset-class stress helper. Risk module did not have dedicated Scenario Analysis. | Work 4 needed hypothetical stress tests inside the Risk Analyzer with factor-linked contributors. | Add `src/lib/finance/risk/scenario-analysis.ts` and a dedicated Scenario Analysis UI section. |
 | Market-data layer | Python downloads Yahoo Finance via yfinance in `handlers/data.py`. | Finance Lab has provider routes and clients for Yahoo/Twelve Data/Stooq under `src/lib/market-data` and `src/app/api/market-data`. | No V1 backend switch needed. | Keep Finance Lab market-data layer. |
 | Tests | Python repo has methodology docs but no visible test suite. | Finance Lab had no visible test suite before Work 1. | Need financial tests for V1. | Add Node test runner and synthetic financial tests in Finance Lab. |
 | Risk UI | Python has no Next.js UI. | Finance Lab has `RiskModuleShell` and Risk components. | Needs portfolio value, currency, confidence-level controls, and money display. | Extend existing Risk UI without a rewrite. |
@@ -132,6 +134,50 @@ Synthetic tests now verify that:
 - synthetic instruments identify the expected dominant factor;
 - portfolio regression R2 behaves correctly in a controlled factor-driven sample.
 
-## Future Phases Kept Out of Work 3
+## Work 4 Scenario Analysis
 
-- Later: scenario analysis, stress testing, current-vs-proposed comparison, Argentine fixed income, funds look-through, and compliance-reviewed client-facing methodology/disclaimers.
+Implemented in `src/lib/finance/risk/scenario-analysis.ts` and surfaced in the Portfolio Analytics risk diagnostics.
+
+### Initial Scenario Set
+
+| Scenario | Intent | Shock style |
+|---|---|---|
+| Global risk-off | broad equity and credit repricing with defensive USD, duration, and gold assumptions | factor shocks across global equity, Argentina, growth/technology, credit, rates, USD/FX, and gold |
+| Argentina stress | local country-risk stress with Argentina beta leading lower and USD pressure | heavier `ARGT` and USD/FX assumptions |
+| Rates shock | higher-rate shock where duration and growth assets weaken together | negative duration and growth/technology assumptions |
+
+### Methodology
+
+- Scenario Analysis depends on the Work 3 factor model.
+- Each scenario defines deterministic shocks by factor id.
+- Each instrument's estimated impact is `sum(beta_factor * factor_shock)`.
+- Weighted scenario impact is `portfolio_weight * estimated_instrument_impact`.
+- Portfolio impact is the sum of weighted instrument impacts.
+- Monetary impact is `portfolio_impact * portfolioValue` when a value is available.
+- Top contributors are ranked by absolute weighted impact so both losses and offsets remain visible.
+
+### UI / Interpretation
+
+The Portfolio Analytics section now shows:
+
+- estimated impact in percent and money for each scenario;
+- top contributors per scenario;
+- factor-linked methodology notes;
+- explicit "hypothetical scenario, not a forecast" labeling.
+
+### Methodology Boundary
+
+Scenario Analysis is deterministic and hypothetical. It does not estimate probability, forecast timing, or recommend trades. Because it uses ETF-proxy factor betas, it inherits the same proxy and lookback-window limitations as Factor GradVaR.
+
+### Tests
+
+Synthetic tests verify that:
+
+- scenario impact equals the sum of weighted instrument impacts;
+- monetary impact scales from portfolio value;
+- top contributors are ranked by absolute weighted impact;
+- scenarios carry the explicit hypothetical/non-forecast label.
+
+## Future Phases Kept Out of Work 4
+
+- Later: current-vs-proposed comparison, Argentine fixed income, funds look-through, and compliance-reviewed client-facing methodology/disclaimers.

@@ -17,6 +17,8 @@ import type {
   InstrumentVaRContributionAnalysis,
   InstrumentVaRContributionRow,
   PortfolioRiskAnalysis,
+  PortfolioScenarioAnalysis,
+  ScenarioAnalysisResult,
   RiskContributionRow,
   TailRiskMetrics,
 } from "@/lib/finance/risk/types";
@@ -34,6 +36,7 @@ export function RiskPortfolioAnalyticsSection({
   portfolioValue,
   presentationCurrency,
   riskKpis,
+  scenarioAnalysis,
   weightValidation,
 }: RiskPortfolioAnalyticsSectionProps) {
   if (!data) {
@@ -156,6 +159,7 @@ export function RiskPortfolioAnalyticsSection({
               factorGradVarLoading={factorGradVarLoading}
               portfolioValue={portfolioValue}
               presentationCurrency={presentationCurrency}
+              scenarioAnalysis={scenarioAnalysis}
             />
           ) : (
             <SurfaceCard padding="sm" className="border-amber-400/20">
@@ -275,6 +279,7 @@ function PortfolioRiskDiagnostics({
   factorGradVarLoading,
   portfolioValue,
   presentationCurrency,
+  scenarioAnalysis,
 }: {
   analysis: PortfolioRiskAnalysis;
   factorGradVarAnalysis: FactorGradVarAnalysis | null;
@@ -282,6 +287,7 @@ function PortfolioRiskDiagnostics({
   factorGradVarLoading: boolean;
   portfolioValue: number | null;
   presentationCurrency: RiskPortfolioAnalyticsSectionProps["presentationCurrency"];
+  scenarioAnalysis: PortfolioScenarioAnalysis | null;
 }) {
   return (
     <div className="space-y-4">
@@ -320,6 +326,11 @@ function PortfolioRiskDiagnostics({
         isLoading={factorGradVarLoading}
       />
 
+      <ScenarioAnalysisSection
+        analysis={scenarioAnalysis}
+        presentationCurrency={presentationCurrency}
+      />
+
       <Card
         eyebrow="Methodology"
         title="Methodology and limitations"
@@ -346,6 +357,10 @@ function PortfolioRiskDiagnostics({
             <MethodologyPoint
               title="Factor GradVaR"
               body="GradVaR decomposes factor-model VaR from ETF proxy regressions, component VaR, and marginal VaR by factor."
+            />
+            <MethodologyPoint
+              title="Scenario Analysis"
+              body="Scenario impacts apply hypothetical factor shocks to the current factor betas and weights. They are not forecasts or probabilities."
             />
             <MethodologyPoint
               title="Instrument Component VaR"
@@ -398,6 +413,195 @@ function PortfolioRiskDiagnostics({
         </div>
       </Card>
     </div>
+  );
+}
+
+function ScenarioAnalysisSection({
+  analysis,
+  presentationCurrency,
+}: {
+  analysis: PortfolioScenarioAnalysis | null;
+  presentationCurrency: RiskPortfolioAnalyticsSectionProps["presentationCurrency"];
+}) {
+  return (
+    <Card
+      eyebrow="Scenario Analysis"
+      title="Hypothetical portfolio stress scenarios"
+      description="Applies predefined factor shocks to the current factor betas and weights to estimate portfolio impact and leading contributors."
+    >
+      {analysis ? (
+        <div className="space-y-5">
+          <div className="grid gap-4 md:grid-cols-3">
+            {analysis.scenarios.map((scenario) => (
+              <ScenarioSummaryCard
+                key={scenario.scenarioId}
+                scenario={scenario}
+                presentationCurrency={presentationCurrency}
+              />
+            ))}
+          </div>
+
+          <div className="grid gap-4 xl:grid-cols-[minmax(0,1.12fr)_minmax(20rem,0.88fr)]">
+            <ScenarioContributorTables
+              scenarios={analysis.scenarios}
+              presentationCurrency={presentationCurrency}
+            />
+            <ScenarioMethodologyNotes analysis={analysis} />
+          </div>
+        </div>
+      ) : (
+        <FactorUnavailableState
+          title="Scenario analysis unavailable"
+          body="Scenario Analysis unlocks after factor attribution is available for the current portfolio."
+        />
+      )}
+    </Card>
+  );
+}
+
+function ScenarioSummaryCard({
+  scenario,
+  presentationCurrency,
+}: {
+  scenario: ScenarioAnalysisResult;
+  presentationCurrency: RiskPortfolioAnalyticsSectionProps["presentationCurrency"];
+}) {
+  return (
+    <SurfaceCard padding="sm" className="border-white/[0.08]">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-accent-strong/85">
+        {scenario.scenarioName}
+      </p>
+      <p className="mt-3 text-xl font-semibold text-foreground">
+        {formatScenarioImpactAndMoney(
+          scenario.estimatedImpact,
+          scenario.monetaryImpact,
+          presentationCurrency,
+        )}
+      </p>
+      <p className="mt-3 text-sm leading-6 text-foreground-soft">
+        {scenario.description}
+      </p>
+      <p className="mt-3 rounded-full border border-amber-400/20 bg-amber-400/[0.07] px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-amber-100">
+        {scenario.hypotheticalLabel}
+      </p>
+    </SurfaceCard>
+  );
+}
+
+function ScenarioContributorTables({
+  scenarios,
+  presentationCurrency,
+}: {
+  scenarios: ScenarioAnalysisResult[];
+  presentationCurrency: RiskPortfolioAnalyticsSectionProps["presentationCurrency"];
+}) {
+  return (
+    <div className="space-y-4">
+      {scenarios.map((scenario) => (
+        <div
+          key={scenario.scenarioId}
+          className="overflow-x-auto rounded-[1.6rem] border border-white/[0.08] bg-[linear-gradient(180deg,rgba(10,17,26,0.82),rgba(8,13,20,0.72))]"
+        >
+          <table className="w-full min-w-[760px] text-left">
+            <thead className="border-b border-white/[0.08] text-[11px] font-semibold uppercase tracking-[0.18em] text-foreground-subtle">
+              <tr>
+                <th className="px-5 py-3" colSpan={6}>
+                  {scenario.scenarioName} contributors
+                </th>
+              </tr>
+              <tr>
+                <th className="px-5 py-3">Rank</th>
+                <th className="px-5 py-3">Ticker</th>
+                <th className="px-5 py-3">Weight</th>
+                <th className="px-5 py-3">Instrument impact</th>
+                <th className="px-5 py-3">Weighted impact</th>
+                <th className="px-5 py-3">Money impact</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-white/[0.08] text-sm">
+              {scenario.topContributors.map((row, index) => (
+                <tr
+                  key={`${scenario.scenarioId}-${row.ticker}`}
+                  className={index % 2 === 0 ? "bg-white/[0.015]" : undefined}
+                >
+                  <td className="px-5 py-4 text-foreground-soft">
+                    #{row.rankByAbsWeightedImpact}
+                  </td>
+                  <td className="px-5 py-4 font-semibold text-foreground">
+                    {row.ticker}
+                  </td>
+                  <td className="px-5 py-4 text-foreground">
+                    {formatPercentNoSign(row.weight)}
+                  </td>
+                  <td
+                    className={cn(
+                      "px-5 py-4",
+                      getNumberTone(row.estimatedInstrumentImpact),
+                    )}
+                  >
+                    {formatSignedPercent(row.estimatedInstrumentImpact)}
+                  </td>
+                  <td
+                    className={cn("px-5 py-4", getNumberTone(row.weightedImpact))}
+                  >
+                    {formatSignedPercent(row.weightedImpact)}
+                  </td>
+                  <td
+                    className={cn(
+                      "px-5 py-4",
+                      getNumberTone(row.monetaryImpact ?? 0),
+                    )}
+                  >
+                    {formatScenarioMoney(row.monetaryImpact, presentationCurrency)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function ScenarioMethodologyNotes({
+  analysis,
+}: {
+  analysis: PortfolioScenarioAnalysis;
+}) {
+  return (
+    <SurfaceCard padding="sm" className="h-full border-white/[0.08]">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-accent-strong/85">
+        Scenario methodology
+      </p>
+      <div className="mt-4 space-y-3">
+        <ReadingLine
+          title="Shock engine"
+          body="Each scenario defines factor shocks. Instrument impacts are estimated from current factor betas, then weighted by portfolio allocation."
+        />
+        <ReadingLine
+          title="Initial scenario set"
+          body="Work 4 starts with global risk-off, Argentina stress, and rates shock."
+        />
+        <ReadingLine
+          title="Boundary"
+          body="Scenario Analysis is hypothetical and deterministic. It does not assign probability, forecast timing, or recommend trades."
+        />
+      </div>
+
+      {analysis.methodology.warnings.length > 0 ? (
+        <div className="mt-5 rounded-[1.2rem] border border-amber-400/20 bg-amber-400/[0.07] px-4 py-3">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-amber-200">
+            Scenario notes
+          </p>
+          <ul className="mt-3 space-y-2 text-sm leading-6 text-amber-100/90">
+            {analysis.methodology.warnings.map((warning) => (
+              <li key={warning}>{warning}</li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+    </SurfaceCard>
   );
 }
 
@@ -1343,6 +1547,46 @@ function formatSignedMoney(
     currency,
     maximumFractionDigits: 0,
   }).format(absoluteValue);
+
+  if (value > 0) {
+    return `+${formatted}`;
+  }
+
+  if (value < 0) {
+    return `-${formatted}`;
+  }
+
+  return formatted;
+}
+
+function formatScenarioImpactAndMoney(
+  impact: number,
+  monetaryImpact: number | null,
+  currency: RiskPortfolioAnalyticsSectionProps["presentationCurrency"],
+): string {
+  if (monetaryImpact === null) {
+    return formatSignedPercent(impact);
+  }
+
+  return `${formatSignedPercent(impact)} / ${formatScenarioMoney(
+    monetaryImpact,
+    currency,
+  )}`;
+}
+
+function formatScenarioMoney(
+  value: number | null,
+  currency: RiskPortfolioAnalyticsSectionProps["presentationCurrency"],
+): string {
+  if (value === null) {
+    return "N/A";
+  }
+
+  const formatted = new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency,
+    maximumFractionDigits: 0,
+  }).format(Math.abs(value));
 
   if (value > 0) {
     return `+${formatted}`;

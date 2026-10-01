@@ -7,6 +7,7 @@ import {
 } from "../src/lib/finance/risk/tail-risk";
 import { calculateInstrumentVaRContribution } from "../src/lib/finance/risk/risk-contribution";
 import { buildFactorGradVarAnalysis } from "../src/lib/finance/risk/factor-gradvar";
+import { buildPortfolioScenarioAnalysis } from "../src/lib/finance/risk/scenario-analysis";
 import {
   calculateMoneyAtRisk,
   validateConfidenceLevel,
@@ -270,6 +271,91 @@ test("factor GradVaR decomposes synthetic factor-driven assets", () => {
   );
   assert.ok((analysis.portfolioRegression?.rSquared ?? 0) > 0.99);
 });
+
+test("scenario analysis applies hypothetical factor shocks to instrument betas", () => {
+  const factorAnalysis = buildSyntheticFactorAnalysis();
+  const scenarioAnalysis = buildPortfolioScenarioAnalysis({
+    factorAnalysis,
+    weights: { RISKY: 0.6, BOND: 0.4 },
+    portfolioValue: 100000,
+    scenarios: [
+      {
+        id: "synthetic-risk-off",
+        name: "Synthetic risk-off",
+        description: "Synthetic equity selloff with duration offset.",
+        shocks: {
+          equity: -0.1,
+          duration: 0.04,
+        },
+      },
+    ],
+    topContributorCount: 2,
+  });
+  const scenario = scenarioAnalysis.scenarios[0];
+  const impactTotal = scenario.instrumentContributions.reduce(
+    (sum, row) => sum + row.weightedImpact,
+    0,
+  );
+
+  assert.equal(scenarioAnalysis.methodology.scenarioCount, 1);
+  assert.equal(scenario.hypotheticalLabel, "Hypothetical scenario, not a forecast");
+  assert.ok(Math.abs(scenario.estimatedImpact - impactTotal) < 1e-12);
+  assert.ok(Math.abs((scenario.monetaryImpact ?? 0) - scenario.estimatedImpact * 100000) < 1e-9);
+  assert.equal(scenario.topContributors.length, 2);
+  assert.equal(scenario.topContributors[0].ticker, "RISKY");
+  assert.equal(scenario.factorShocks.length, 2);
+});
+
+function buildSyntheticFactorAnalysis() {
+  const factorDefinitions: FactorDefinition[] = [
+    {
+      id: "equity",
+      name: "Equity",
+      proxyTicker: "EQF",
+      description: "Synthetic equity factor.",
+    },
+    {
+      id: "duration",
+      name: "Duration",
+      proxyTicker: "DUR",
+      description: "Synthetic duration factor.",
+    },
+  ];
+  const factorReturns = Array.from({ length: 36 }, (_, index) => ({
+    equity: 0.006 * Math.sin(index / 2) + 0.001,
+    duration: 0.004 * Math.cos(index / 3) - 0.0005,
+  }));
+  const assetReturns = factorReturns.map((row) => ({
+    RISKY: 1.2 * row.equity + 0.1 * row.duration,
+    BOND: 0.05 * row.equity + 1.1 * row.duration,
+  }));
+  const weights = { RISKY: 0.6, BOND: 0.4 };
+  const portfolioDailyReturns = assetReturns.map(
+    (row) => weights.RISKY * row.RISKY + weights.BOND * row.BOND,
+  );
+
+  return buildFactorGradVarAnalysis({
+    assetData: buildSyntheticPayload({
+      tickers: ["RISKY", "BOND"],
+      returnsByTicker: {
+        RISKY: assetReturns.map((row) => row.RISKY),
+        BOND: assetReturns.map((row) => row.BOND),
+      },
+    }),
+    factorData: buildSyntheticPayload({
+      tickers: ["EQF", "DUR"],
+      returnsByTicker: {
+        EQF: factorReturns.map((row) => row.equity),
+        DUR: factorReturns.map((row) => row.duration),
+      },
+    }),
+    tickers: ["RISKY", "BOND"],
+    weights,
+    portfolioDailyReturns,
+    confidenceLevel: 0.95,
+    factorDefinitions,
+  });
+}
 
 function buildSyntheticPayload(input: {
   tickers: string[];

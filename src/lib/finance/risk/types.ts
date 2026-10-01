@@ -198,3 +198,58 @@ export type FactorGradVarAnalysisInput = {
   confidenceLevel?: number;
   factorDefinitions?: FactorDefinition[];
 };
+
+export type ScenarioFactorShock = {
+  factorId: string;
+  factorName: string;
+  proxyTicker: string;
+  shock: number;
+};
+
+export type ScenarioAnalysisDefinition = {
+  id: string;
+  name: string;
+  description: string;
+  shocks: Record<string, number>;
+};
+
+export type ScenarioInstrumentContributionRow = {
+  ticker: string;
+  weight: number;
+  estimatedInstrumentImpact: number;
+  weightedImpact: number;
+  monetaryImpact: number | null;
+  contributionShare: number;
+  rankByAbsWeightedImpact: number;
+  isTopContributor: boolean;
+};
+
+export type ScenarioAnalysisResult = {
+  scenarioId: string;
+  scenarioName: string;
+  description: string;
+  hypotheticalLabel: string;
+  estimatedImpact: number;
+  monetaryImpact: number | null;
+  factorShocks: ScenarioFactorShock[];
+  instrumentContributions: ScenarioInstrumentContributionRow[];
+  topContributors: ScenarioInstrumentContributionRow[];
+};
+
+export type PortfolioScenarioAnalysis = {
+  scenarios: ScenarioAnalysisResult[];
+  methodology: {
+    scenarioCount: number;
+    topContributorCount: number;
+    portfolioValue: number | null;
+    warnings: string[];
+  };
+};
+
+export type PortfolioScenarioAnalysisInput = {
+  factorAnalysis: FactorGradVarAnalysis;
+  weights: Record<string, number>;
+  portfolioValue?: number | null;
+  scenarios?: ScenarioAnalysisDefinition[];
+  topContributorCount?: number;
+};

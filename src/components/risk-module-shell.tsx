@@ -19,6 +19,7 @@ import {
   buildFactorGradVarAnalysis,
 } from "@/lib/finance/risk/factor-gradvar";
 import { buildPortfolioRiskAnalysis } from "@/lib/finance/risk/portfolio-risk-analysis";
+import { buildPortfolioScenarioAnalysis } from "@/lib/finance/risk/scenario-analysis";
 import {
   calculateMoneyAtRisk,
   validateConfidenceLevel,
@@ -355,6 +356,26 @@ export function RiskModuleShell({
   );
   const factorGradVarError =
     factorDataError ?? factorGradVarResult.error ?? null;
+
+  const scenarioAnalysis = useMemo(() => {
+    if (!factorGradVarResult.analysis || !weightValidation?.weights) {
+      return null;
+    }
+
+    try {
+      return buildPortfolioScenarioAnalysis({
+        factorAnalysis: factorGradVarResult.analysis,
+        weights: weightValidation.weights,
+        portfolioValue: portfolioValueValidation.value,
+      });
+    } catch {
+      return null;
+    }
+  }, [
+    factorGradVarResult.analysis,
+    portfolioValueValidation.value,
+    weightValidation?.weights,
+  ]);
 
   const datasetStatusItems = useMemo(() => {
     if (!data) {
@@ -794,6 +815,7 @@ export function RiskModuleShell({
           portfolioValue={portfolioValueValidation.value}
           presentationCurrency={currency}
           riskKpis={riskKpis}
+          scenarioAnalysis={scenarioAnalysis}
           weightValidation={weightValidation}
         />
       ) : null}
