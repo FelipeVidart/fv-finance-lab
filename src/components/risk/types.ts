@@ -2,6 +2,7 @@ import type { FormEvent } from "react";
 import type { PortfolioAnalytics } from "@/lib/finance/portfolio";
 import type {
   FactorGradVarAnalysis,
+  PortfolioScenarioAnalysis,
   PortfolioRiskAnalysis,
 } from "@/lib/finance/risk/types";
 import type {
@@ -106,6 +107,7 @@ export type RiskPortfolioAnalyticsSectionProps = {
   portfolioCharts: RiskChartModel[];
   portfolioKpis: DatasetStatusItem[];
   portfolioRiskAnalysis: PortfolioRiskAnalysis | null;
+  scenarioAnalysis: PortfolioScenarioAnalysis | null;
   portfolioValue: number | null;
   presentationCurrency: PortfolioValueCurrency;
   riskKpis: DatasetStatusItem[];
