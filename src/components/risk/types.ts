@@ -1,6 +1,7 @@
 import type { FormEvent } from "react";
 import type { PortfolioAnalytics } from "@/lib/finance/portfolio";
 import type {
+  CurrentVsProposedRiskComparison,
   FactorGradVarAnalysis,
   PortfolioScenarioAnalysis,
   PortfolioRiskAnalysis,
@@ -72,6 +73,8 @@ export type RiskSetupSectionProps = {
   provider: MarketDataProviderMode;
   providerConfigs: SafeProviderConfig[];
   providerSelectorOptions: ProviderSelectorOption[];
+  proposedWeightInputs: WeightState;
+  proposedWeightValidation: WeightValidationState | null;
   requestError: string | null;
   statusItems: DatasetStatusItem[];
   tickerInput: string;
@@ -86,6 +89,9 @@ export type RiskSetupSectionProps = {
   onPeriodChange: (period: MarketDataPeriod) => void;
   onPortfolioValueInputChange: (value: string) => void;
   onProviderChange: (provider: MarketDataProviderMode) => void;
+  onProposedWeightInputChange: (ticker: string, value: string) => void;
+  onApplyCurrentWeightsToProposed: () => void;
+  onApplyEqualProposedWeights: () => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
   onTickerInputChange: (value: string) => void;
   onWeightInputChange: (ticker: string, value: string) => void;
@@ -102,6 +108,7 @@ export type RiskPortfolioAnalyticsSectionProps = {
   factorGradVarAnalysis: FactorGradVarAnalysis | null;
   factorGradVarError: string | null;
   factorGradVarLoading: boolean;
+  currentVsProposedComparison: CurrentVsProposedRiskComparison | null;
   holdings: PortfolioHoldingRow[];
   portfolioAnalytics: PortfolioAnalytics | null;
   portfolioCharts: RiskChartModel[];
