@@ -10,6 +10,8 @@ import { cn } from "@/lib/utils";
 import type { RiskPortfolioAnalyticsSectionProps } from "@/components/risk/types";
 import { DEFAULT_FACTOR_DEFINITIONS } from "@/lib/finance/risk/factor-gradvar";
 import type {
+  CurrentVsProposedRiskComparison,
+  CurrentVsProposedMetricRow,
   DescriptiveStatistics,
   DrawdownSummary,
   FactorDefinition,
@@ -28,6 +30,7 @@ export function RiskPortfolioAnalyticsSection({
   factorGradVarAnalysis,
   factorGradVarError,
   factorGradVarLoading,
+  currentVsProposedComparison,
   holdings,
   portfolioAnalytics,
   portfolioCharts,
@@ -157,6 +160,7 @@ export function RiskPortfolioAnalyticsSection({
               factorGradVarAnalysis={factorGradVarAnalysis}
               factorGradVarError={factorGradVarError}
               factorGradVarLoading={factorGradVarLoading}
+              currentVsProposedComparison={currentVsProposedComparison}
               portfolioValue={portfolioValue}
               presentationCurrency={presentationCurrency}
               scenarioAnalysis={scenarioAnalysis}
@@ -277,6 +281,7 @@ function PortfolioRiskDiagnostics({
   factorGradVarAnalysis,
   factorGradVarError,
   factorGradVarLoading,
+  currentVsProposedComparison,
   portfolioValue,
   presentationCurrency,
   scenarioAnalysis,
@@ -285,6 +290,7 @@ function PortfolioRiskDiagnostics({
   factorGradVarAnalysis: FactorGradVarAnalysis | null;
   factorGradVarError: string | null;
   factorGradVarLoading: boolean;
+  currentVsProposedComparison: CurrentVsProposedRiskComparison | null;
   portfolioValue: number | null;
   presentationCurrency: RiskPortfolioAnalyticsSectionProps["presentationCurrency"];
   scenarioAnalysis: PortfolioScenarioAnalysis | null;
@@ -329,6 +335,10 @@ function PortfolioRiskDiagnostics({
       <ScenarioAnalysisSection
         analysis={scenarioAnalysis}
         presentationCurrency={presentationCurrency}
+      />
+
+      <CurrentVsProposedSection
+        analysis={currentVsProposedComparison}
       />
 
       <Card
@@ -456,6 +466,209 @@ function ScenarioAnalysisSection({
         />
       )}
     </Card>
+  );
+}
+
+function CurrentVsProposedSection({
+  analysis,
+}: {
+  analysis: CurrentVsProposedRiskComparison | null;
+}) {
+  return (
+    <Card
+      eyebrow="Current vs Proposed"
+      title="Risk profile comparison"
+      description="Compares the current and proposed allocations using the same tickers, historical window, confidence level, and factor proxy set."
+    >
+      {analysis ? (
+        <div className="space-y-5">
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <MiniStat
+              label="Volatility change"
+              value={formatSignedPercent(analysis.summary.volatilityDelta)}
+              detail="Proposed minus current annualized volatility."
+            />
+            <MiniStat
+              label="VaR change"
+              value={formatSignedPercent(analysis.summary.varDelta)}
+              detail="Proposed minus current daily Historical VaR."
+            />
+            <MiniStat
+              label="Top-3 concentration"
+              value={formatSignedPercent(
+                analysis.summary.topThreeConcentrationDelta,
+              )}
+              detail="Change in share explained by the top three risk contributors."
+            />
+            <MiniStat
+              label="Max contributor"
+              value={
+                analysis.summary.maxRiskContributorChanged
+                  ? "Changed"
+                  : "Unchanged"
+              }
+              detail={`${analysis.current.maxRiskContributor ?? "N/A"} -> ${
+                analysis.proposed.maxRiskContributor ?? "N/A"
+              }.`}
+            />
+          </div>
+
+          <div className="grid gap-4 xl:grid-cols-[minmax(0,1.08fr)_minmax(22rem,0.92fr)]">
+            <CurrentVsProposedMetricTable analysis={analysis} />
+            <CurrentVsProposedNotes analysis={analysis} />
+          </div>
+
+          <CurrentVsProposedFactorTable analysis={analysis} />
+        </div>
+      ) : (
+        <FactorUnavailableState
+          title="Current-vs-proposed comparison unavailable"
+          body="Validate both current and proposed weights to compare risk metrics on the same market dataset."
+        />
+      )}
+    </Card>
+  );
+}
+
+function CurrentVsProposedMetricTable({
+  analysis,
+}: {
+  analysis: CurrentVsProposedRiskComparison;
+}) {
+  return (
+    <div className="overflow-x-auto rounded-[1.6rem] border border-white/[0.08] bg-[linear-gradient(180deg,rgba(10,17,26,0.82),rgba(8,13,20,0.72))]">
+      <table className="w-full min-w-[820px] text-left">
+        <thead className="border-b border-white/[0.08] text-[11px] font-semibold uppercase tracking-[0.18em] text-foreground-subtle">
+          <tr>
+            <th className="px-5 py-3">Metric</th>
+            <th className="px-5 py-3">Current</th>
+            <th className="px-5 py-3">Proposed</th>
+            <th className="px-5 py-3">Delta</th>
+            <th className="px-5 py-3">Reading</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-white/[0.08] text-sm">
+          {analysis.metricRows.map((row, index) => (
+            <tr
+              key={row.key}
+              className={index % 2 === 0 ? "bg-white/[0.015]" : undefined}
+            >
+              <td className="px-5 py-4 font-semibold text-foreground">
+                {row.label}
+              </td>
+              <td className="px-5 py-4 text-foreground-soft">
+                {formatComparisonMetric(row.key, row.current)}
+              </td>
+              <td className="px-5 py-4 text-foreground-soft">
+                {formatComparisonMetric(row.key, row.proposed)}
+              </td>
+              <td className={cn("px-5 py-4", getNumberTone(row.delta))}>
+                {formatComparisonMetric(row.key, row.delta, true)}
+              </td>
+              <td className="px-5 py-4 text-foreground-muted">
+                {formatComparisonReading(row)}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function CurrentVsProposedNotes({
+  analysis,
+}: {
+  analysis: CurrentVsProposedRiskComparison;
+}) {
+  return (
+    <SurfaceCard padding="sm" className="h-full border-white/[0.08]">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-accent-strong/85">
+        Comparison notes
+      </p>
+      <div className="mt-4 space-y-3">
+        <ReadingLine
+          title="Same base"
+          body="Both profiles use the same tickers, provider, lookback window, confidence level, and return construction."
+        />
+        <ReadingLine
+          title="Risk explanation"
+          body="The comparison explains how the proposed weights change risk metrics. It does not decide whether the proposal is suitable."
+        />
+        <ReadingLine
+          title="Contributor focus"
+          body="Max contributor and top-3 concentration show whether risk becomes more or less concentrated."
+        />
+      </div>
+
+      {analysis.methodology.warnings.length > 0 ? (
+        <div className="mt-5 rounded-[1.2rem] border border-amber-400/20 bg-amber-400/[0.07] px-4 py-3">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-amber-200">
+            Comparison notes
+          </p>
+          <ul className="mt-3 space-y-2 text-sm leading-6 text-amber-100/90">
+            {analysis.methodology.warnings.map((warning) => (
+              <li key={warning}>{warning}</li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+    </SurfaceCard>
+  );
+}
+
+function CurrentVsProposedFactorTable({
+  analysis,
+}: {
+  analysis: CurrentVsProposedRiskComparison;
+}) {
+  if (analysis.factorRows.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="overflow-x-auto rounded-[1.6rem] border border-white/[0.08] bg-[linear-gradient(180deg,rgba(10,17,26,0.82),rgba(8,13,20,0.72))]">
+      <table className="w-full min-w-[760px] text-left">
+        <thead className="border-b border-white/[0.08] text-[11px] font-semibold uppercase tracking-[0.18em] text-foreground-subtle">
+          <tr>
+            <th className="px-5 py-3">Factor</th>
+            <th className="px-5 py-3">Proxy</th>
+            <th className="px-5 py-3">Current share</th>
+            <th className="px-5 py-3">Proposed share</th>
+            <th className="px-5 py-3">Delta</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-white/[0.08] text-sm">
+          {analysis.factorRows.map((row, index) => (
+            <tr
+              key={row.factorId}
+              className={index % 2 === 0 ? "bg-white/[0.015]" : undefined}
+            >
+              <td className="px-5 py-4 font-semibold text-foreground">
+                {row.factorName}
+              </td>
+              <td className="px-5 py-4 text-foreground-soft">
+                {row.proxyTicker}
+              </td>
+              <td className="px-5 py-4 text-foreground-soft">
+                {formatSignedPercent(row.currentContributionShare)}
+              </td>
+              <td className="px-5 py-4 text-foreground-soft">
+                {formatSignedPercent(row.proposedContributionShare)}
+              </td>
+              <td
+                className={cn(
+                  "px-5 py-4",
+                  getNumberTone(row.deltaContributionShare),
+                )}
+              >
+                {formatSignedPercent(row.deltaContributionShare)}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }
 
@@ -1557,6 +1770,40 @@ function formatSignedMoney(
   }
 
   return formatted;
+}
+
+function formatComparisonMetric(
+  key: CurrentVsProposedMetricRow["key"],
+  value: number,
+  forceSign = false,
+): string {
+  if (key === "maxDrawdown") {
+    return forceSign ? formatSignedPercent(value) : formatSignedPercent(value);
+  }
+
+  if (forceSign) {
+    return formatSignedPercent(value);
+  }
+
+  return formatPercentNoSign(value);
+}
+
+function formatComparisonReading(row: CurrentVsProposedMetricRow): string {
+  if (Math.abs(row.delta) < 1e-10) {
+    return "No material change.";
+  }
+
+  const movedLower = row.delta < 0;
+
+  if (row.lowerIsBetter) {
+    return movedLower
+      ? "Lower under proposed weights."
+      : "Higher under proposed weights.";
+  }
+
+  return movedLower
+    ? "More negative under proposed weights."
+    : "Less negative under proposed weights.";
 }
 
 function formatScenarioImpactAndMoney(

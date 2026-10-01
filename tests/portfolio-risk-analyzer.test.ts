@@ -7,6 +7,7 @@ import {
 } from "../src/lib/finance/risk/tail-risk";
 import { calculateInstrumentVaRContribution } from "../src/lib/finance/risk/risk-contribution";
 import { buildFactorGradVarAnalysis } from "../src/lib/finance/risk/factor-gradvar";
+import { buildCurrentVsProposedRiskComparison } from "../src/lib/finance/risk/current-vs-proposed";
 import { buildPortfolioScenarioAnalysis } from "../src/lib/finance/risk/scenario-analysis";
 import {
   calculateMoneyAtRisk,
@@ -304,6 +305,64 @@ test("scenario analysis applies hypothetical factor shocks to instrument betas",
   assert.equal(scenario.topContributors.length, 2);
   assert.equal(scenario.topContributors[0].ticker, "RISKY");
   assert.equal(scenario.factorShocks.length, 2);
+});
+
+test("current vs proposed comparison reports metric and factor deltas", () => {
+  const comparison = buildCurrentVsProposedRiskComparison({
+    current: {
+      id: "current",
+      label: "Current",
+      annualizedVolatility: 0.18,
+      historicalVaR: 0.025,
+      historicalExpectedShortfall: 0.04,
+      maxDrawdown: -0.22,
+      maxRiskContributor: "AAPL",
+      topThreeContributionShare: 0.82,
+      factorAttribution: [
+        {
+          factorId: "equity",
+          factorName: "Equity",
+          proxyTicker: "EQF",
+          exposure: 1,
+          marginalVaR: 0.02,
+          componentVaR: 0.02,
+          contributionShare: 0.75,
+          rankByAbsComponentVaR: 1,
+        },
+      ],
+    },
+    proposed: {
+      id: "proposed",
+      label: "Proposed",
+      annualizedVolatility: 0.15,
+      historicalVaR: 0.02,
+      historicalExpectedShortfall: 0.032,
+      maxDrawdown: -0.16,
+      maxRiskContributor: "BIL",
+      topThreeContributionShare: 0.68,
+      factorAttribution: [
+        {
+          factorId: "equity",
+          factorName: "Equity",
+          proxyTicker: "EQF",
+          exposure: 0.7,
+          marginalVaR: 0.018,
+          componentVaR: 0.0126,
+          contributionShare: 0.48,
+          rankByAbsComponentVaR: 1,
+        },
+      ],
+    },
+  });
+
+  assert.ok(Math.abs(comparison.summary.volatilityDelta + 0.03) < 1e-12);
+  assert.ok(Math.abs(comparison.summary.varDelta + 0.005) < 1e-12);
+  assert.equal(comparison.summary.maxRiskContributorChanged, true);
+  assert.equal(comparison.metricRows.length, 5);
+  assert.equal(comparison.factorRows[0].factorName, "Equity");
+  assert.ok(
+    Math.abs(comparison.factorRows[0].deltaContributionShare + 0.27) < 1e-12,
+  );
 });
 
 function buildSyntheticFactorAnalysis() {

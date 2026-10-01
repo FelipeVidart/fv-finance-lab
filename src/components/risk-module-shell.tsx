@@ -18,6 +18,7 @@ import {
   DEFAULT_FACTOR_DEFINITIONS,
   buildFactorGradVarAnalysis,
 } from "@/lib/finance/risk/factor-gradvar";
+import { buildCurrentVsProposedRiskComparison } from "@/lib/finance/risk/current-vs-proposed";
 import { buildPortfolioRiskAnalysis } from "@/lib/finance/risk/portfolio-risk-analysis";
 import { buildPortfolioScenarioAnalysis } from "@/lib/finance/risk/scenario-analysis";
 import {
@@ -82,6 +83,9 @@ export function RiskModuleShell({
     requestKey: null,
   });
   const [weightInputs, setWeightInputs] = useState<WeightState>({});
+  const [proposedWeightInputs, setProposedWeightInputs] = useState<WeightState>(
+    {},
+  );
   const [portfolioValueInput, setPortfolioValueInput] = useState(
     DEFAULT_PORTFOLIO_VALUE,
   );
@@ -109,6 +113,7 @@ export function RiskModuleShell({
       setLoadedProvider(null);
       setFactorDataState({ data: null, error: null, requestKey: null });
       setWeightInputs({});
+      setProposedWeightInputs({});
       setIsLoading(false);
       return;
     }
@@ -137,12 +142,15 @@ export function RiskModuleShell({
 
       setData(payload.data);
       setLoadedProvider(nextProvider);
-      setWeightInputs(createEqualWeightInputs(payload.data.tickers));
+      const equalWeights = createEqualWeightInputs(payload.data.tickers);
+      setWeightInputs(equalWeights);
+      setProposedWeightInputs(equalWeights);
       setActiveSection("setup");
     } catch (error) {
       setData(null);
       setLoadedProvider(null);
       setWeightInputs({});
+      setProposedWeightInputs({});
       setRequestError(
         error instanceof Error
           ? error.message
@@ -167,12 +175,28 @@ export function RiskModuleShell({
     setWeightInputs((current) => ({ ...current, [ticker]: value }));
   }
 
+  function handleProposedWeightInputChange(ticker: string, value: string) {
+    setProposedWeightInputs((current) => ({ ...current, [ticker]: value }));
+  }
+
   function handleApplyEqualWeights() {
     if (!data) {
       return;
     }
 
     setWeightInputs(createEqualWeightInputs(data.tickers));
+  }
+
+  function handleApplyEqualProposedWeights() {
+    if (!data) {
+      return;
+    }
+
+    setProposedWeightInputs(createEqualWeightInputs(data.tickers));
+  }
+
+  function handleApplyCurrentWeightsToProposed() {
+    setProposedWeightInputs(weightInputs);
   }
 
   function handleConfidenceLevelChange(
@@ -203,6 +227,17 @@ export function RiskModuleShell({
       weightInputs,
     });
   }, [data, weightInputs]);
+
+  const proposedWeightValidation = useMemo<WeightValidationState | null>(() => {
+    if (!data) {
+      return null;
+    }
+
+    return validateWeightPercentInputs({
+      tickers: data.tickers,
+      weightInputs: proposedWeightInputs,
+    });
+  }, [data, proposedWeightInputs]);
 
   const portfolioValueValidation = useMemo(
     () => validatePortfolioValueInput(portfolioValueInput),
@@ -253,6 +288,56 @@ export function RiskModuleShell({
     portfolioAnalytics,
     portfolioValueValidation.value,
     weightValidation,
+  ]);
+
+  const proposedPortfolioAnalytics = useMemo(() => {
+    if (
+      !data ||
+      !proposedWeightValidation?.isValid ||
+      !proposedWeightValidation.weights
+    ) {
+      return null;
+    }
+
+    try {
+      return buildPortfolioAnalytics({
+        data,
+        weights: proposedWeightValidation.weights,
+      });
+    } catch {
+      return null;
+    }
+  }, [data, proposedWeightValidation]);
+
+  const proposedPortfolioRiskAnalysis = useMemo(() => {
+    if (
+      !data ||
+      !proposedPortfolioAnalytics ||
+      !proposedWeightValidation?.isValid ||
+      !proposedWeightValidation.weights
+    ) {
+      return null;
+    }
+
+    try {
+      return buildPortfolioRiskAnalysis({
+        data,
+        tickers: data.tickers,
+        weights: proposedWeightValidation.weights,
+        portfolioDailyReturns: proposedPortfolioAnalytics.dailyReturns,
+        portfolioNavPoints: proposedPortfolioAnalytics.points,
+        portfolioValue: portfolioValueValidation.value,
+        confidenceLevel,
+      });
+    } catch {
+      return null;
+    }
+  }, [
+    confidenceLevel,
+    data,
+    portfolioValueValidation.value,
+    proposedPortfolioAnalytics,
+    proposedWeightValidation,
   ]);
 
   const factorRequestKey =
@@ -346,6 +431,49 @@ export function RiskModuleShell({
     }
   }, [confidenceLevel, data, factorData, portfolioAnalytics, weightValidation]);
 
+  const proposedFactorGradVarResult = useMemo<{
+    analysis: ReturnType<typeof buildFactorGradVarAnalysis> | null;
+    error: string | null;
+  }>(() => {
+    if (
+      !data ||
+      !factorData ||
+      !proposedPortfolioAnalytics ||
+      !proposedWeightValidation?.isValid ||
+      !proposedWeightValidation.weights
+    ) {
+      return { analysis: null, error: null };
+    }
+
+    try {
+      return {
+        analysis: buildFactorGradVarAnalysis({
+          assetData: data,
+          factorData,
+          tickers: data.tickers,
+          weights: proposedWeightValidation.weights,
+          portfolioDailyReturns: proposedPortfolioAnalytics.dailyReturns,
+          confidenceLevel,
+        }),
+        error: null,
+      };
+    } catch (error) {
+      return {
+        analysis: null,
+        error:
+          error instanceof Error
+            ? error.message
+            : "Unable to compute proposed factor attribution.",
+      };
+    }
+  }, [
+    confidenceLevel,
+    data,
+    factorData,
+    proposedPortfolioAnalytics,
+    proposedWeightValidation,
+  ]);
+
   const factorGradVarLoading = Boolean(
     portfolioAnalytics &&
       weightValidation?.isValid &&
@@ -356,6 +484,62 @@ export function RiskModuleShell({
   );
   const factorGradVarError =
     factorDataError ?? factorGradVarResult.error ?? null;
+
+  const currentVsProposedComparison = useMemo(() => {
+    if (
+      !portfolioAnalytics ||
+      !portfolioRiskAnalysis ||
+      !proposedPortfolioAnalytics ||
+      !proposedPortfolioRiskAnalysis
+    ) {
+      return null;
+    }
+
+    return buildCurrentVsProposedRiskComparison({
+      current: {
+        id: "current",
+        label: "Current",
+        annualizedVolatility:
+          portfolioAnalytics.metrics.annualizedVolatility,
+        historicalVaR: portfolioRiskAnalysis.tailRisk.historicalVaR,
+        historicalExpectedShortfall:
+          portfolioRiskAnalysis.tailRisk.historicalExpectedShortfall,
+        maxDrawdown: portfolioAnalytics.metrics.maxDrawdown,
+        maxRiskContributor:
+          portfolioRiskAnalysis.instrumentVaRContribution.summary
+            .topContributorTicker,
+        topThreeContributionShare:
+          portfolioRiskAnalysis.instrumentVaRContribution.summary
+            .topThreeContributionShare,
+        factorAttribution: factorGradVarResult.analysis?.factorAttribution,
+      },
+      proposed: {
+        id: "proposed",
+        label: "Proposed",
+        annualizedVolatility:
+          proposedPortfolioAnalytics.metrics.annualizedVolatility,
+        historicalVaR: proposedPortfolioRiskAnalysis.tailRisk.historicalVaR,
+        historicalExpectedShortfall:
+          proposedPortfolioRiskAnalysis.tailRisk.historicalExpectedShortfall,
+        maxDrawdown: proposedPortfolioAnalytics.metrics.maxDrawdown,
+        maxRiskContributor:
+          proposedPortfolioRiskAnalysis.instrumentVaRContribution.summary
+            .topContributorTicker,
+        topThreeContributionShare:
+          proposedPortfolioRiskAnalysis.instrumentVaRContribution.summary
+            .topThreeContributionShare,
+        factorAttribution:
+          proposedFactorGradVarResult.analysis?.factorAttribution,
+      },
+    });
+  }, [
+    factorGradVarResult.analysis,
+    portfolioAnalytics,
+    portfolioRiskAnalysis,
+    proposedFactorGradVarResult.analysis,
+    proposedPortfolioAnalytics,
+    proposedPortfolioRiskAnalysis,
+  ]);
 
   const scenarioAnalysis = useMemo(() => {
     if (!factorGradVarResult.analysis || !weightValidation?.weights) {
@@ -772,6 +956,8 @@ export function RiskModuleShell({
           period={period}
           portfolioValueInput={portfolioValueInput}
           portfolioValueValidation={portfolioValueValidation}
+          proposedWeightInputs={proposedWeightInputs}
+          proposedWeightValidation={proposedWeightValidation}
           provider={provider}
           providerConfigs={providerConfigs}
           providerSelectorOptions={providerSelectorOptions}
@@ -787,6 +973,9 @@ export function RiskModuleShell({
           onPeriodChange={setPeriod}
           onPortfolioValueInputChange={setPortfolioValueInput}
           onProviderChange={setProvider}
+          onProposedWeightInputChange={handleProposedWeightInputChange}
+          onApplyCurrentWeightsToProposed={handleApplyCurrentWeightsToProposed}
+          onApplyEqualProposedWeights={handleApplyEqualProposedWeights}
           onSubmit={handleSubmit}
           onTickerInputChange={handleTickerInputChange}
           onWeightInputChange={handleWeightInputChange}
@@ -807,6 +996,7 @@ export function RiskModuleShell({
           factorGradVarAnalysis={factorGradVarResult.analysis}
           factorGradVarError={factorGradVarError}
           factorGradVarLoading={factorGradVarLoading}
+          currentVsProposedComparison={currentVsProposedComparison}
           holdings={holdings}
           portfolioAnalytics={portfolioAnalytics}
           portfolioCharts={portfolioCharts}

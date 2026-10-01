@@ -253,3 +253,57 @@ export type PortfolioScenarioAnalysisInput = {
   scenarios?: ScenarioAnalysisDefinition[];
   topContributorCount?: number;
 };
+
+export type CurrentVsProposedPortfolioInput = {
+  id: "current" | "proposed";
+  label: string;
+  annualizedVolatility: number;
+  historicalVaR: number;
+  historicalExpectedShortfall: number;
+  maxDrawdown: number;
+  maxRiskContributor: string | null;
+  topThreeContributionShare: number;
+  factorAttribution?: FactorGradVarAnalysis["factorAttribution"] | null;
+};
+
+export type CurrentVsProposedMetricKey =
+  | "annualizedVolatility"
+  | "historicalVaR"
+  | "historicalExpectedShortfall"
+  | "maxDrawdown"
+  | "topThreeContributionShare";
+
+export type CurrentVsProposedMetricRow = {
+  key: CurrentVsProposedMetricKey;
+  label: string;
+  current: number;
+  proposed: number;
+  delta: number;
+  lowerIsBetter: boolean;
+};
+
+export type CurrentVsProposedFactorRow = {
+  factorId: string;
+  factorName: string;
+  proxyTicker: string;
+  currentContributionShare: number;
+  proposedContributionShare: number;
+  deltaContributionShare: number;
+};
+
+export type CurrentVsProposedRiskComparison = {
+  current: CurrentVsProposedPortfolioInput;
+  proposed: CurrentVsProposedPortfolioInput;
+  metricRows: CurrentVsProposedMetricRow[];
+  factorRows: CurrentVsProposedFactorRow[];
+  summary: {
+    volatilityDelta: number;
+    varDelta: number;
+    expectedShortfallDelta: number;
+    topThreeConcentrationDelta: number;
+    maxRiskContributorChanged: boolean;
+  };
+  methodology: {
+    warnings: string[];
+  };
+};

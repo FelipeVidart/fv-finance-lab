@@ -1,17 +1,18 @@
-# Portfolio Risk Analyzer - Audit, V1, Work 2, Work 3, and Work 4
+# Portfolio Risk Analyzer - Audit, V1, Work 2, Work 3, Work 4, and Work 5
 
 Date: 2026-10-01
 
 ## Scope
 
-This document covers Work 1, Work 2, Work 3, and Work 4 for the FV Finance Lab Risk module.
+This document covers Work 1, Work 2, Work 3, Work 4, and Work 5 for the FV Finance Lab Risk module.
 
 - Work 1: audit, architecture decision, and V1 implementation.
 - Work 2: instrument-level risk attribution with Marginal VaR, Component VaR, Component VaR %, top contributors, concentration, and weight-vs-risk contribution visualization.
 - Work 3: factor attribution review for a Wealth Management Argentina use case, with improved default proxies, clearer interpretation, and synthetic tests.
 - Work 4: Scenario Analysis stress module with hypothetical factor shocks, estimated monetary impact, and top contributors.
+- Work 5: Current Portfolio vs Proposed Portfolio risk comparison using the same tickers, window, confidence level, and factor proxy set.
 
-Later roadmap phases remain out of scope for this work: current-vs-proposed comparison, Argentine fixed income, funds look-through, and automatic investment recommendations.
+Later roadmap phases remain out of scope for this work: Argentine fixed income, funds look-through, and automatic investment recommendations.
 
 ## Architecture Decision
 
@@ -44,6 +45,7 @@ Reference source: `portfolio-risk-pipeline/src/portfolio_risk_pipeline/handlers`
 | Risk attribution by factor | Exists in `FactorAttributionHandler`. | Exists in factor GradVaR output/table. | Needed interpretation layer, dominant factor, and model quality summary. | Preserve engine and improve UI/readability in Work 3. |
 | Risk attribution by instrument | Exists in `InstrumentAttributionHandler`. | Exists through volatility contribution and factor instrument attribution. | Work 2 needed a canonical Marginal VaR/Component VaR view by instrument. | Keep TypeScript; add covariance-based instrument VaR attribution in `risk-contribution.ts`. |
 | Scenario Analysis | Python references simulation/regime methodology; scenario stress is not the V1 core. | Portfolio module had a separate simplified asset-class stress helper. Risk module did not have dedicated Scenario Analysis. | Work 4 needed hypothetical stress tests inside the Risk Analyzer with factor-linked contributors. | Add `src/lib/finance/risk/scenario-analysis.ts` and a dedicated Scenario Analysis UI section. |
+| Current vs Proposed | Portfolio module had a broader multi-portfolio lab. | Risk module had only one validated weight set. | Work 5 needed a narrow WM comparison for current vs proposed allocations inside Risk Analyzer. | Add proposed weights, side-by-side risk metrics, factor composition deltas, and comparison tests. |
 | Market-data layer | Python downloads Yahoo Finance via yfinance in `handlers/data.py`. | Finance Lab has provider routes and clients for Yahoo/Twelve Data/Stooq under `src/lib/market-data` and `src/app/api/market-data`. | No V1 backend switch needed. | Keep Finance Lab market-data layer. |
 | Tests | Python repo has methodology docs but no visible test suite. | Finance Lab had no visible test suite before Work 1. | Need financial tests for V1. | Add Node test runner and synthetic financial tests in Finance Lab. |
 | Risk UI | Python has no Next.js UI. | Finance Lab has `RiskModuleShell` and Risk components. | Needs portfolio value, currency, confidence-level controls, and money display. | Extend existing Risk UI without a rewrite. |
@@ -178,6 +180,63 @@ Synthetic tests verify that:
 - top contributors are ranked by absolute weighted impact;
 - scenarios carry the explicit hypothetical/non-forecast label.
 
-## Future Phases Kept Out of Work 4
+## Work 5 Current Portfolio vs Proposed Portfolio
 
-- Later: current-vs-proposed comparison, Argentine fixed income, funds look-through, and compliance-reviewed client-facing methodology/disclaimers.
+Implemented through a proposed-weight sandbox in the Risk setup flow plus `src/lib/finance/risk/current-vs-proposed.ts`.
+
+### Scope
+
+Work 5 compares two allocations over the same loaded ticker universe:
+
+- Current weights: the existing portfolio sandbox.
+- Proposed weights: a second optional sandbox using the same tickers.
+
+This keeps the comparison deliberately narrow. It does not fetch a separate proposed universe, ingest client holdings, or recommend an allocation.
+
+### Metrics
+
+The comparison currently reports:
+
+- annualized volatility;
+- Historical VaR at the selected confidence level;
+- Expected Shortfall at the selected confidence level;
+- max drawdown;
+- max risk contributor;
+- top-3 risk concentration;
+- factor contribution deltas when Factor GradVaR is available for both allocations.
+
+### Methodology
+
+- Both allocations use the same aligned market dataset.
+- Both allocations use the same confidence level and portfolio value settings.
+- Proposed analytics reuse the same TypeScript portfolio/risk engines as the current allocation.
+- Factor composition comparison uses the same fixed ETF proxy set introduced in Work 3.
+- Deltas are reported as proposed minus current.
+
+### UI / Interpretation
+
+The setup flow now has:
+
+- current weight editor;
+- proposed weight editor;
+- copy-current-to-proposed action;
+- equal-proposed action.
+
+The Portfolio Analytics diagnostics now show:
+
+- summary cards for volatility, VaR, top-3 concentration, and max contributor change;
+- side-by-side metric table;
+- factor composition delta table when available;
+- explicit language that this is risk explanation, not suitability or advice.
+
+### Tests
+
+Synthetic tests verify that:
+
+- metric deltas are computed as proposed minus current;
+- max risk contributor changes are detected;
+- factor contribution deltas are computed and sorted.
+
+## Future Phases Kept Out of Work 5
+
+- Later: Argentine fixed income, funds look-through, and compliance-reviewed client-facing methodology/disclaimers.

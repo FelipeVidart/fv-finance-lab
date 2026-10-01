@@ -17,6 +17,8 @@ export function RiskSetupSection({
   period,
   portfolioValueInput,
   portfolioValueValidation,
+  proposedWeightInputs,
+  proposedWeightValidation,
   provider,
   providerConfigs,
   providerSelectorOptions,
@@ -27,10 +29,13 @@ export function RiskSetupSection({
   weightInputs,
   weightValidation,
   onApplyEqualWeights,
+  onApplyCurrentWeightsToProposed,
+  onApplyEqualProposedWeights,
   onConfidenceLevelChange,
   onCurrencyChange,
   onPeriodChange,
   onPortfolioValueInputChange,
+  onProposedWeightInputChange,
   onProviderChange,
   onSubmit,
   onTickerInputChange,
@@ -38,6 +43,7 @@ export function RiskSetupSection({
 }: RiskSetupSectionProps) {
   const datasetReady = Boolean(data);
   const sandboxReady = Boolean(weightValidation?.isValid);
+  const proposedReady = Boolean(proposedWeightValidation?.isValid);
 
   return (
     <div
@@ -331,8 +337,8 @@ export function RiskSetupSection({
                 <WorkflowRow
                   index="03"
                   title="Move into analytics"
-                  description="Use the validated setup to inspect asset behavior and portfolio outputs."
-                  state={sandboxReady ? "active" : "pending"}
+                  description="Use the validated setup to inspect asset behavior, portfolio outputs, and current-vs-proposed risk."
+                  state={sandboxReady && proposedReady ? "active" : "pending"}
                 />
               </div>
             </SurfaceCard>
@@ -374,6 +380,10 @@ export function RiskSetupSection({
                 <StatusLine
                   label="Sandbox"
                   value={sandboxReady ? "Validated" : "Awaiting weights"}
+                />
+                <StatusLine
+                  label="Proposed"
+                  value={proposedReady ? "Validated" : "Awaiting weights"}
                 />
               </div>
             </SurfaceCard>
@@ -435,6 +445,7 @@ export function RiskSetupSection({
               <div className="mt-4 space-y-3">
                 <WorkflowListRow label="Fetch aligned market data." />
                 <WorkflowListRow label="Set manual or equalized asset weights." />
+                <WorkflowListRow label="Optionally set proposed weights for comparison." />
                 <WorkflowListRow label="Open the asset and portfolio analytics layers." />
               </div>
             </SurfaceCard>
@@ -582,6 +593,170 @@ export function RiskSetupSection({
           </div>
         )}
       </Card>
+
+      {data ? (
+        <Card
+          eyebrow="Current vs Proposed"
+          title="Proposed portfolio sandbox"
+          description="Use the same tickers and market window to compare the current allocation against a proposed allocation. This is a risk comparison surface, not an automatic recommendation."
+          actions={
+            <StepBadge
+              label={proposedReady ? "Proposed validated" : "Optional Work 5"}
+              tone={proposedReady ? "ready" : "default"}
+            />
+          }
+        >
+          <div className="grid gap-4 xl:grid-cols-[minmax(0,1.16fr)_minmax(20rem,0.84fr)]">
+            <div className="rounded-[1.7rem] border border-white/[0.08] bg-[linear-gradient(180deg,rgba(10,17,26,0.82),rgba(8,13,20,0.72))]">
+              <div className="flex flex-col gap-3 border-b border-white/[0.08] px-5 py-4 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-accent-strong/85">
+                    Proposed weight editor
+                  </p>
+                  <p className="mt-2 text-sm leading-6 text-foreground-soft">
+                    Enter the proposed mix using the same aligned asset universe
+                    as the current sandbox.
+                  </p>
+                </div>
+                <span className="rounded-full border border-white/[0.08] bg-background-muted/80 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-foreground-subtle">
+                  Same tickers
+                </span>
+              </div>
+
+              <div className="overflow-x-auto">
+                <div className="min-w-[620px]">
+                  <div className="grid grid-cols-[1.05fr_0.95fr_1fr_1fr] gap-3 border-b border-white/[0.08] px-5 py-3 text-[11px] font-semibold uppercase tracking-[0.18em] text-foreground-subtle">
+                    <span>Ticker</span>
+                    <span>Current weight</span>
+                    <span>Proposed input</span>
+                    <span>Proposed weight</span>
+                  </div>
+                  {data.tickers.map((ticker, index) => (
+                    <div
+                      key={`proposed-${ticker}`}
+                      className={cn(
+                        "grid grid-cols-[1.05fr_0.95fr_1fr_1fr] gap-3 px-5 py-4 text-sm text-slate-200 not-last:border-b not-last:border-white/[0.08]",
+                        index % 2 === 0 ? "bg-white/[0.015]" : "bg-transparent",
+                      )}
+                    >
+                      <span className="font-semibold text-foreground">
+                        {ticker}
+                      </span>
+                      <span className="text-foreground-soft">
+                        {weightInputs[ticker]
+                          ? `${Number(weightInputs[ticker]).toFixed(2)}%`
+                          : "Not set"}
+                      </span>
+                      <input
+                        type="number"
+                        inputMode="decimal"
+                        min="0"
+                        step="0.01"
+                        value={proposedWeightInputs[ticker] ?? ""}
+                        onChange={(event) =>
+                          onProposedWeightInputChange(
+                            ticker,
+                            event.target.value,
+                          )
+                        }
+                        className="w-full rounded-[1rem] border border-white/10 bg-slate-900/80 px-3 py-2 text-sm text-white outline-none transition focus:border-accent/60"
+                      />
+                      <span className="text-foreground-muted">
+                        {proposedWeightInputs[ticker]
+                          ? `${Number(proposedWeightInputs[ticker]).toFixed(2)}%`
+                          : "Not set"}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <SurfaceCard
+                tone={proposedWeightValidation?.isValid ? "accent" : "elevated"}
+                padding="sm"
+                className="border-white/[0.08]"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-accent-strong/85">
+                      Proposed validation
+                    </p>
+                    <p className="mt-2 text-sm leading-6 text-foreground-soft">
+                      Proposed weights must also sum to 100% before comparison
+                      outputs appear.
+                    </p>
+                  </div>
+                  <span
+                    className={cn(
+                      "rounded-full border px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.16em]",
+                      proposedWeightValidation?.isValid
+                        ? "border-emerald-400/20 bg-emerald-400/[0.08] text-emerald-200"
+                        : "border-white/[0.08] bg-background-muted/80 text-foreground-subtle",
+                    )}
+                  >
+                    {proposedWeightValidation?.isValid ? "Validated" : "Pending"}
+                  </span>
+                </div>
+
+                <p className="mt-5 text-[2.35rem] font-semibold tracking-[-0.04em] text-foreground">
+                  {proposedWeightValidation
+                    ? `${proposedWeightValidation.totalPercent.toFixed(2)}%`
+                    : "No weights"}
+                </p>
+
+                {proposedWeightValidation && !proposedWeightValidation.isValid ? (
+                  <div className="mt-4 rounded-[1.2rem] border border-amber-400/25 bg-amber-400/[0.08] px-4 py-3 text-sm leading-6 text-amber-200">
+                    {proposedWeightValidation.error}
+                  </div>
+                ) : (
+                  <div className="mt-4 rounded-[1.2rem] border border-emerald-400/20 bg-emerald-400/[0.08] px-4 py-3 text-sm leading-6 text-emerald-200">
+                    Proposed weights are valid for current-vs-proposed risk comparison.
+                  </div>
+                )}
+
+                <div className="mt-4 grid gap-2 sm:grid-cols-2">
+                  <button
+                    type="button"
+                    onClick={onApplyCurrentWeightsToProposed}
+                    className="rounded-[1.2rem] border border-white/[0.1] bg-white/[0.04] px-5 py-3 text-sm font-semibold text-foreground transition hover:border-border-strong/80 hover:bg-white/[0.07]"
+                  >
+                    Copy current weights
+                  </button>
+                  <button
+                    type="button"
+                    onClick={onApplyEqualProposedWeights}
+                    className="rounded-[1.2rem] border border-accent/25 bg-accent/10 px-5 py-3 text-sm font-semibold text-accent-foreground transition hover:border-accent/40 hover:bg-accent/15"
+                  >
+                    Equal proposed
+                  </button>
+                </div>
+              </SurfaceCard>
+
+              <SurfaceCard padding="sm" className="border-white/[0.08]">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-accent-strong/85">
+                  Comparison boundary
+                </p>
+                <div className="mt-4 space-y-3">
+                  <StatusLine
+                    label="Universe"
+                    value="Same loaded tickers"
+                  />
+                  <StatusLine
+                    label="Window"
+                    value="Same historical sample"
+                  />
+                  <StatusLine
+                    label="Use"
+                    value="Risk explanation only"
+                  />
+                </div>
+              </SurfaceCard>
+            </div>
+          </div>
+        </Card>
+      ) : null}
     </div>
   );
 }
