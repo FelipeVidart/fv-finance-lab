@@ -11,6 +11,12 @@ const sections: Array<{
   step: string;
 }> = [
   {
+    id: "argentina",
+    step: "04",
+    label: "Argentina",
+    description: "Manual amortizing cash flows, yield and settlement-price scenarios.",
+  },
+  {
     id: "pricing",
     step: "01",
     label: "Pricing",
@@ -65,7 +71,7 @@ export function BondSectionTabs({
         </div>
 
         <div
-          className="grid gap-3 xl:grid-cols-3"
+          className="grid gap-3 md:grid-cols-2 xl:grid-cols-4"
           role="tablist"
           aria-label="Bond module sections"
         >

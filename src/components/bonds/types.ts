@@ -11,7 +11,7 @@ import type {
 import type { MarketDataPeriod } from "@/lib/market-data/types";
 import type { LineChartSeries } from "@/components/line-chart-panel";
 
-export type BondsSectionId = "pricing" | "analytics" | "market-monitor";
+export type BondsSectionId = "pricing" | "analytics" | "market-monitor" | "argentina";
 
 export type BondFormState = {
   faceValue: string;

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { BondAnalyticsSection } from "@/components/bonds/bond-analytics-section";
+import { ArgentinaFixedIncomeSection } from "@/components/bonds/argentina-fixed-income-section";
 import { BondMarketMonitorSection } from "@/components/bonds/bond-market-monitor-section";
 import { BondPricingSection } from "@/components/bonds/bond-pricing-section";
 import { BondSectionTabs } from "@/components/bonds/bond-section-tabs";
@@ -312,7 +313,7 @@ export function BondModuleShell() {
       ? "Pricing"
       : activeSection === "analytics"
         ? "Analytics"
-        : "Market monitor";
+        : activeSection === "argentina" ? "Argentina" : "Market monitor";
 
   return (
     <section className="space-y-8">
@@ -383,6 +384,10 @@ export function BondModuleShell() {
         marketReady={Boolean(marketData)}
         onChange={setActiveSection}
       />
+
+      <div hidden={activeSection !== "argentina"}>
+        <ArgentinaFixedIncomeSection />
+      </div>
 
       {activeSection === "pricing" ? (
         <BondPricingSection
