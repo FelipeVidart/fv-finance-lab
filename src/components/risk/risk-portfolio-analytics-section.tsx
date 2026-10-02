@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 import type { RiskPortfolioAnalyticsSectionProps } from "@/components/risk/types";
 import { DEFAULT_FACTOR_DEFINITIONS } from "@/lib/finance/risk/factor-gradvar";
 import type {
+  ArgentineInstrumentContextAnalysis,
   CurrentVsProposedRiskComparison,
   CurrentVsProposedMetricRow,
   DescriptiveStatistics,
@@ -31,6 +32,7 @@ export function RiskPortfolioAnalyticsSection({
   factorGradVarError,
   factorGradVarLoading,
   currentVsProposedComparison,
+  argentineInstrumentContext,
   holdings,
   portfolioAnalytics,
   portfolioCharts,
@@ -161,6 +163,7 @@ export function RiskPortfolioAnalyticsSection({
               factorGradVarError={factorGradVarError}
               factorGradVarLoading={factorGradVarLoading}
               currentVsProposedComparison={currentVsProposedComparison}
+              argentineInstrumentContext={argentineInstrumentContext}
               portfolioValue={portfolioValue}
               presentationCurrency={presentationCurrency}
               scenarioAnalysis={scenarioAnalysis}
@@ -282,6 +285,7 @@ function PortfolioRiskDiagnostics({
   factorGradVarError,
   factorGradVarLoading,
   currentVsProposedComparison,
+  argentineInstrumentContext,
   portfolioValue,
   presentationCurrency,
   scenarioAnalysis,
@@ -291,6 +295,7 @@ function PortfolioRiskDiagnostics({
   factorGradVarError: string | null;
   factorGradVarLoading: boolean;
   currentVsProposedComparison: CurrentVsProposedRiskComparison | null;
+  argentineInstrumentContext: ArgentineInstrumentContextAnalysis | null;
   portfolioValue: number | null;
   presentationCurrency: RiskPortfolioAnalyticsSectionProps["presentationCurrency"];
   scenarioAnalysis: PortfolioScenarioAnalysis | null;
@@ -336,6 +341,8 @@ function PortfolioRiskDiagnostics({
         analysis={scenarioAnalysis}
         presentationCurrency={presentationCurrency}
       />
+
+      <ArgentineInstrumentContextSection analysis={argentineInstrumentContext} />
 
       <CurrentVsProposedSection
         analysis={currentVsProposedComparison}
@@ -527,6 +534,189 @@ function CurrentVsProposedSection({
         />
       )}
     </Card>
+  );
+}
+
+function ArgentineInstrumentContextSection({
+  analysis,
+}: {
+  analysis: ArgentineInstrumentContextAnalysis | null;
+}) {
+  return (
+    <Card
+      eyebrow="Argentina Instrument Context"
+      title="Local instrument family interpretation"
+      description="Maps each loaded position to an Argentina Wealth Management instrument family so the risk output can be read alongside currency, liquidity, horizon, and operational checks."
+    >
+      {analysis ? (
+        <div className="space-y-5">
+          <div className="grid gap-4 md:grid-cols-3">
+            <MiniStat
+              label="Dominant family"
+              value={analysis.dominantFamily?.familyName ?? "N/A"}
+              detail={
+                analysis.dominantFamily
+                  ? `${formatPercentNoSign(analysis.dominantFamily.weight)} of current portfolio weight.`
+                  : "No classified exposure available."
+              }
+            />
+            <MiniStat
+              label="Families used"
+              value={analysis.familyExposures.length.toString()}
+              detail="Distinct instrument families in the current allocation."
+            />
+            <MiniStat
+              label="Context source"
+              value="Argentina WM"
+              detail="Manual-based classification; it does not alter historical risk calculations."
+            />
+          </div>
+
+          <div className="grid gap-4 xl:grid-cols-[minmax(0,1.12fr)_minmax(22rem,0.88fr)]">
+            <ArgentineInstrumentRowsTable analysis={analysis} />
+            <ArgentineInstrumentContextNotes analysis={analysis} />
+          </div>
+
+          <ArgentineFamilyExposureTable analysis={analysis} />
+        </div>
+      ) : (
+        <FactorUnavailableState
+          title="Argentina context unavailable"
+          body="Validate current weights and classify the loaded tickers in Setup to unlock local instrument interpretation."
+        />
+      )}
+    </Card>
+  );
+}
+
+function ArgentineInstrumentRowsTable({
+  analysis,
+}: {
+  analysis: ArgentineInstrumentContextAnalysis;
+}) {
+  return (
+    <div className="overflow-x-auto rounded-[1.6rem] border border-white/[0.08] bg-[linear-gradient(180deg,rgba(10,17,26,0.82),rgba(8,13,20,0.72))]">
+      <table className="w-full min-w-[900px] text-left">
+        <thead className="border-b border-white/[0.08] text-[11px] font-semibold uppercase tracking-[0.18em] text-foreground-subtle">
+          <tr>
+            <th className="px-5 py-3">Ticker</th>
+            <th className="px-5 py-3">Weight</th>
+            <th className="px-5 py-3">Family</th>
+            <th className="px-5 py-3">Currency / exposure</th>
+            <th className="px-5 py-3">Main risks</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-white/[0.08] text-sm">
+          {analysis.rows.map((row, index) => (
+            <tr
+              key={row.ticker}
+              className={index % 2 === 0 ? "bg-white/[0.015]" : undefined}
+            >
+              <td className="px-5 py-4 font-semibold text-foreground">
+                {row.ticker}
+              </td>
+              <td className="px-5 py-4 text-foreground">
+                {formatPercentNoSign(row.weight)}
+              </td>
+              <td className="px-5 py-4 text-foreground-soft">
+                {row.familyName}
+              </td>
+              <td className="px-5 py-4 text-foreground-muted">
+                {row.currencyAndExposure}
+              </td>
+              <td className="px-5 py-4 text-foreground-soft">
+                {row.primaryRisks.join(", ")}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function ArgentineInstrumentContextNotes({
+  analysis,
+}: {
+  analysis: ArgentineInstrumentContextAnalysis;
+}) {
+  return (
+    <SurfaceCard padding="sm" className="h-full border-white/[0.08]">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-accent-strong/85">
+        Advisor checklist
+      </p>
+      <div className="mt-4 space-y-3">
+        {analysis.checklist.slice(0, 4).map((item) => (
+          <ReadingLine key={item} title="Check" body={item} />
+        ))}
+      </div>
+
+      <div className="mt-5 rounded-[1.2rem] border border-white/[0.08] bg-white/[0.025] px-4 py-3">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-foreground-subtle">
+          Client questions
+        </p>
+        <ul className="mt-3 space-y-2 text-sm leading-6 text-foreground-soft">
+          {analysis.clientQuestions.slice(0, 4).map((question) => (
+            <li key={question}>{question}</li>
+          ))}
+        </ul>
+      </div>
+
+      {analysis.methodology.warnings.length > 0 ? (
+        <div className="mt-5 rounded-[1.2rem] border border-amber-400/20 bg-amber-400/[0.07] px-4 py-3">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-amber-200">
+            Classification notes
+          </p>
+          <ul className="mt-3 space-y-2 text-sm leading-6 text-amber-100/90">
+            {analysis.methodology.warnings.map((warning) => (
+              <li key={warning}>{warning}</li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+    </SurfaceCard>
+  );
+}
+
+function ArgentineFamilyExposureTable({
+  analysis,
+}: {
+  analysis: ArgentineInstrumentContextAnalysis;
+}) {
+  return (
+    <div className="overflow-x-auto rounded-[1.6rem] border border-white/[0.08] bg-[linear-gradient(180deg,rgba(10,17,26,0.82),rgba(8,13,20,0.72))]">
+      <table className="w-full min-w-[780px] text-left">
+        <thead className="border-b border-white/[0.08] text-[11px] font-semibold uppercase tracking-[0.18em] text-foreground-subtle">
+          <tr>
+            <th className="px-5 py-3">Family</th>
+            <th className="px-5 py-3">Weight</th>
+            <th className="px-5 py-3">Currency / exposure</th>
+            <th className="px-5 py-3">Risks to review</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-white/[0.08] text-sm">
+          {analysis.familyExposures.map((row, index) => (
+            <tr
+              key={row.familyId}
+              className={index % 2 === 0 ? "bg-white/[0.015]" : undefined}
+            >
+              <td className="px-5 py-4 font-semibold text-foreground">
+                {row.familyName}
+              </td>
+              <td className="px-5 py-4 text-foreground">
+                {formatPercentNoSign(row.weight)}
+              </td>
+              <td className="px-5 py-4 text-foreground-muted">
+                {row.currencyAndExposure}
+              </td>
+              <td className="px-5 py-4 text-foreground-soft">
+                {row.primaryRisks.join(", ")}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }
 
