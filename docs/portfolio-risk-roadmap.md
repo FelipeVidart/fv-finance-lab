@@ -320,6 +320,27 @@ in `src/lib/finance/argentina-fixed-income.ts`.
 Methodology reference: [FINRA yield and return](https://www.finra.org/investors/insights/bond-yield-return).
 Contractual payment verification remains the user's responsibility; YTM is not a guaranteed realized return.
 
-## Future Phases Kept Out of Work 6
+## Work 8 - Fund Holdings and Look-through
 
-- Later: instrument-specific Argentine fixed-income cash-flow analytics, funds look-through, and compliance-reviewed client-facing methodology/disclaimers.
+Risk now includes a standalone Funds / Look-through tab, independent of the
+historical-market dataset. Manual snapshots include position/share-class name,
+portfolio allocation, snapshot date, source reference and underlying holdings.
+Direct positions are included as a single 100% underlying holding.
+
+- Underlying exposure = portfolio allocation times holding weight.
+- Portfolio allocations must total 100%; fund holdings may be partially disclosed.
+- Undisclosed holdings remain unknown, never renormalized away.
+- Aggregates instrument, legal issuer, economic currency exposure and family.
+- Detects instrument and issuer overlap across distinct portfolio positions.
+- Matching normalizes case and whitespace only; aliases require manual harmonization.
+- Reports snapshot ages over 90 days using the explicitly selected analysis date.
+- Synthetic examples are clearly labeled; no factsheet extraction or live data.
+- One-level holdings only; nested funds require manually expanded composition.
+- This independent composition sandbox does not alter existing VaR calculations.
+- Unit tests cover exposure conservation, unknown weights, overlap, stale snapshots,
+  direct-position rules and invalid inputs.
+
+## Future Phases
+
+- Later: automatic contractual schedules, factsheet ingestion, recursive fund holdings,
+  saved analyses and reviewed client-facing methodology.
