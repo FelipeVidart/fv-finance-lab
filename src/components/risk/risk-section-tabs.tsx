@@ -28,6 +28,12 @@ const sections: Array<{
     label: "Portfolio Analytics",
     description: "Review weighted NAV, drawdown, holdings, and portfolio comparison views.",
   },
+  {
+    id: "funds",
+    step: "04",
+    label: "Funds / Look-through",
+    description: "Manual holdings, issuer overlap and underlying exposure.",
+  },
 ];
 
 type RiskSectionTabsProps = {
@@ -71,7 +77,7 @@ export function RiskSectionTabs({
         </div>
 
         <div
-          className="grid gap-3 xl:grid-cols-3"
+          className="grid gap-3 md:grid-cols-2 xl:grid-cols-4"
           role="tablist"
           aria-label="Risk analytics sections"
         >
@@ -150,6 +156,9 @@ function getSectionStatus(
   datasetReady: boolean,
   sandboxReady: boolean,
 ) {
+  if (id === "funds") {
+    return { label: "Manual", tone: "ready" as const, detail: "Independent factsheet snapshots." };
+  }
   if (id === "setup") {
     return {
       label: "Control center",

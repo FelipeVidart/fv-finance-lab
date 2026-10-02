@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { RiskAssetAnalyticsSection } from "@/components/risk/risk-asset-analytics-section";
 import { RiskPortfolioAnalyticsSection } from "@/components/risk/risk-portfolio-analytics-section";
 import { RiskSectionTabs } from "@/components/risk/risk-section-tabs";
+import { FundLookThroughSection } from "@/components/risk/fund-look-through-section";
 import { RiskSetupSection } from "@/components/risk/risk-setup-section";
 import { SurfaceCard } from "@/components/ui/surface-card";
 import { cn } from "@/lib/utils";
@@ -904,7 +905,7 @@ export function RiskModuleShell({
       ? "Setup"
       : activeSection === "asset-analytics"
         ? "Asset analytics"
-        : "Portfolio analytics";
+        : activeSection === "funds" ? "Funds / Look-through" : "Portfolio analytics";
 
   return (
     <section className="space-y-8">
@@ -985,6 +986,10 @@ export function RiskModuleShell({
         sandboxReady={sandboxReady}
         onChange={setActiveSection}
       />
+
+      <div hidden={activeSection !== "funds"}>
+        <FundLookThroughSection />
+      </div>
 
       {activeSection === "setup" ? (
         <RiskSetupSection

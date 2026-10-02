@@ -24,7 +24,7 @@ import type {
 } from "@/lib/market-data/provider-config";
 import type { LineChartSeries } from "@/components/line-chart-panel";
 
-export type RiskSectionId = "setup" | "asset-analytics" | "portfolio-analytics";
+export type RiskSectionId = "setup" | "asset-analytics" | "portfolio-analytics" | "funds";
 
 export type WeightState = Record<string, string>;
 
