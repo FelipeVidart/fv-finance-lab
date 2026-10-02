@@ -303,6 +303,23 @@ Synthetic tests verify that:
 - family exposures aggregate from portfolio weights;
 - checklist output is produced without warnings when all tickers are classified.
 
+## Work 7 - Manual Argentina Fixed Income
+
+Implemented in `/tools/bonds`, Argentina tab, with a separate cash-flow engine
+in `src/lib/finance/argentina-fixed-income.ts`.
+
+- Editable settlement price, accrued interest, technical value and future coupon/principal flows.
+- Supports amortization and irregular year fractions entered manually from settlement.
+- Solves annual effective YTM from dirty price using monotonic bisection.
+- Reports dirty-price parity, Macaulay/modified duration, next-12-month coupon yield and undiscounted payments.
+- Fully reprices unchanged flows for +/-100 and +/-200 bp immediate yield shocks, alongside duration approximation.
+- Indexed instruments require constant-index amounts; no inflation/FX projection is implied.
+- Synthetic defaults are not issuer schedules. No automatic ticker cash flows, day-count conversion, recommendations or live quotes.
+- Unit tests cover analytical yields, accrued interest, irregular amortization, negative yields and invalid inputs.
+
+Methodology reference: [FINRA yield and return](https://www.finra.org/investors/insights/bond-yield-return).
+Contractual payment verification remains the user's responsibility; YTM is not a guaranteed realized return.
+
 ## Future Phases Kept Out of Work 6
 
 - Later: instrument-specific Argentine fixed-income cash-flow analytics, funds look-through, and compliance-reviewed client-facing methodology/disclaimers.
