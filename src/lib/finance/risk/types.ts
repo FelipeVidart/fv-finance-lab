@@ -307,3 +307,73 @@ export type CurrentVsProposedRiskComparison = {
     warnings: string[];
   };
 };
+
+export type ArgentineInstrumentFamilyId =
+  | "sovereign-hard-dollar"
+  | "cer"
+  | "dollar-linked"
+  | "fixed-rate-ars"
+  | "corporate-bond"
+  | "caucion"
+  | "fci"
+  | "money-market"
+  | "argentina-equity"
+  | "cedear"
+  | "unknown";
+
+export type ArgentineInstrumentFamilyDefinition = {
+  id: ArgentineInstrumentFamilyId;
+  name: string;
+  shortName: string;
+  localExamples: string[];
+  currencyAndExposure: string;
+  riskLevel: string;
+  volatilityProfile: string;
+  liquidityProfile: string;
+  horizon: string;
+  primaryRisks: string[];
+  returnDrivers: string[];
+  usefulFor: string[];
+  verificationChecklist: string[];
+  clientQuestions: string[];
+  interpretationBoundary: string;
+};
+
+export type ArgentineInstrumentContextRow = {
+  ticker: string;
+  weight: number;
+  familyId: ArgentineInstrumentFamilyId;
+  familyName: string;
+  currencyAndExposure: string;
+  horizon: string;
+  primaryRisks: string[];
+  returnDrivers: string[];
+  verificationChecklist: string[];
+  inferred: boolean;
+};
+
+export type ArgentineFamilyExposureRow = {
+  familyId: ArgentineInstrumentFamilyId;
+  familyName: string;
+  weight: number;
+  currencyAndExposure: string;
+  primaryRisks: string[];
+};
+
+export type ArgentineInstrumentContextAnalysis = {
+  rows: ArgentineInstrumentContextRow[];
+  familyExposures: ArgentineFamilyExposureRow[];
+  dominantFamily: ArgentineFamilyExposureRow | null;
+  checklist: string[];
+  clientQuestions: string[];
+  methodology: {
+    source: string;
+    warnings: string[];
+  };
+};
+
+export type ArgentineInstrumentContextInput = {
+  tickers: string[];
+  weights: Record<string, number>;
+  familyByTicker: Record<string, ArgentineInstrumentFamilyId>;
+};
