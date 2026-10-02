@@ -1,18 +1,19 @@
-# Portfolio Risk Analyzer - Audit, V1, Work 2, Work 3, Work 4, and Work 5
+# Portfolio Risk Analyzer - Audit, V1, Work 2, Work 3, Work 4, Work 5, and Work 6
 
 Date: 2026-10-01
 
 ## Scope
 
-This document covers Work 1, Work 2, Work 3, Work 4, and Work 5 for the FV Finance Lab Risk module.
+This document covers Work 1, Work 2, Work 3, Work 4, Work 5, and Work 6 for the FV Finance Lab Risk module.
 
 - Work 1: audit, architecture decision, and V1 implementation.
 - Work 2: instrument-level risk attribution with Marginal VaR, Component VaR, Component VaR %, top contributors, concentration, and weight-vs-risk contribution visualization.
 - Work 3: factor attribution review for a Wealth Management Argentina use case, with improved default proxies, clearer interpretation, and synthetic tests.
 - Work 4: Scenario Analysis stress module with hypothetical factor shocks, estimated monetary impact, and top contributors.
 - Work 5: Current Portfolio vs Proposed Portfolio risk comparison using the same tickers, window, confidence level, and factor proxy set.
+- Work 6: Argentina instrument context layer based on a Wealth Management Argentina instrument manual.
 
-Later roadmap phases remain out of scope for this work: Argentine fixed income, funds look-through, and automatic investment recommendations.
+Later roadmap phases remain out of scope for this work: instrument-specific fixed-income cash-flow pricing, funds look-through, and automatic investment recommendations.
 
 ## Architecture Decision
 
@@ -46,6 +47,7 @@ Reference source: `portfolio-risk-pipeline/src/portfolio_risk_pipeline/handlers`
 | Risk attribution by instrument | Exists in `InstrumentAttributionHandler`. | Exists through volatility contribution and factor instrument attribution. | Work 2 needed a canonical Marginal VaR/Component VaR view by instrument. | Keep TypeScript; add covariance-based instrument VaR attribution in `risk-contribution.ts`. |
 | Scenario Analysis | Python references simulation/regime methodology; scenario stress is not the V1 core. | Portfolio module had a separate simplified asset-class stress helper. Risk module did not have dedicated Scenario Analysis. | Work 4 needed hypothetical stress tests inside the Risk Analyzer with factor-linked contributors. | Add `src/lib/finance/risk/scenario-analysis.ts` and a dedicated Scenario Analysis UI section. |
 | Current vs Proposed | Portfolio module had a broader multi-portfolio lab. | Risk module had only one validated weight set. | Work 5 needed a narrow WM comparison for current vs proposed allocations inside Risk Analyzer. | Add proposed weights, side-by-side risk metrics, factor composition deltas, and comparison tests. |
+| Argentina instrument context | Python pipeline did not model Argentina instrument-family interpretation. | Risk module could compute generic market risk but did not explain local wrappers such as CER, dollar linked, ONs, cauciones, FCI, money market, local equities, or CEDEARs. | Work 6 needed an Argentina WM layer without pretending to price every local instrument. | Add `src/lib/finance/risk/argentina-instruments.ts`, editable family classification, exposure summaries, checklists, and tests. |
 | Market-data layer | Python downloads Yahoo Finance via yfinance in `handlers/data.py`. | Finance Lab has provider routes and clients for Yahoo/Twelve Data/Stooq under `src/lib/market-data` and `src/app/api/market-data`. | No V1 backend switch needed. | Keep Finance Lab market-data layer. |
 | Tests | Python repo has methodology docs but no visible test suite. | Finance Lab had no visible test suite before Work 1. | Need financial tests for V1. | Add Node test runner and synthetic financial tests in Finance Lab. |
 | Risk UI | Python has no Next.js UI. | Finance Lab has `RiskModuleShell` and Risk components. | Needs portfolio value, currency, confidence-level controls, and money display. | Extend existing Risk UI without a rewrite. |
@@ -237,6 +239,70 @@ Synthetic tests verify that:
 - max risk contributor changes are detected;
 - factor contribution deltas are computed and sorted.
 
-## Future Phases Kept Out of Work 5
+## Work 6 Argentina Instrument Context Layer
 
-- Later: Argentine fixed income, funds look-through, and compliance-reviewed client-facing methodology/disclaimers.
+Implemented through editable instrument-family classification in Setup plus `src/lib/finance/risk/argentina-instruments.ts`.
+
+### Source
+
+Work 6 uses the attached internal study reference:
+
+- `Manual_supervivencia_instrumentos_WM_Argentina.pdf`
+- Edition date: 2026-09-06
+- Main concepts used: instrument families, currency/exposure distinctions, risk categories, liquidity/horizon interpretation, client questions, advisor checklist, and interpretation boundaries.
+
+### Scope
+
+The Work 6 layer covers:
+
+- sovereign hard-dollar bonds;
+- CER-linked bonds;
+- dollar-linked instruments;
+- fixed-rate ARS instruments;
+- Obligaciones Negociables;
+- cauciones;
+- Fondos Comunes de Inversion;
+- money market funds;
+- Argentine equities;
+- CEDEARs and CEDEAR ETFs;
+- unknown/manual-review instruments.
+
+### Methodology
+
+- Each loaded ticker receives an editable Argentina instrument family.
+- The module pre-fills a best-effort family using simple ticker-pattern inference.
+- The classification does not change historical returns, VaR, ES, factor GradVaR, scenarios, or current-vs-proposed analytics.
+- The classification adds context: currency/exposure, horizon, primary risks, return drivers, operational checks, client questions, and interpretation boundaries.
+- Portfolio family exposure is computed from the validated current weights.
+
+### UI / Interpretation
+
+Setup now includes:
+
+- an Argentina Context classification table;
+- a family selector per loaded ticker;
+- notes that this is context/checklist only, not a change to the risk engine.
+
+Portfolio Analytics now includes:
+
+- dominant local instrument family;
+- number of distinct families;
+- ticker-level family interpretation table;
+- family exposure table;
+- advisor checklist and client questions.
+
+### Boundary
+
+Work 6 does not price individual bonds, compute TIR/duration from contractual cash flows, parse fund holdings, or determine product suitability. It is an interpretation layer that helps a WM advisor read existing risk metrics through the correct local-instrument lens.
+
+### Tests
+
+Synthetic tests verify that:
+
+- common tickers infer expected instrument families;
+- family exposures aggregate from portfolio weights;
+- checklist output is produced without warnings when all tickers are classified.
+
+## Future Phases Kept Out of Work 6
+
+- Later: instrument-specific Argentine fixed-income cash-flow analytics, funds look-through, and compliance-reviewed client-facing methodology/disclaimers.

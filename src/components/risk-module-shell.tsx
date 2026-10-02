@@ -7,7 +7,12 @@ import { RiskSectionTabs } from "@/components/risk/risk-section-tabs";
 import { RiskSetupSection } from "@/components/risk/risk-setup-section";
 import { SurfaceCard } from "@/components/ui/surface-card";
 import { cn } from "@/lib/utils";
+import {
+  buildArgentineInstrumentContextAnalysis,
+  buildDefaultArgentineInstrumentFamilyMap,
+} from "@/lib/finance/risk/argentina-instruments";
 import type {
+  ArgentineInstrumentFamilyState,
   RiskChartModel,
   RiskSectionId,
   WeightState,
@@ -29,6 +34,7 @@ import {
   type PortfolioConfidenceLevel,
   type PortfolioValueCurrency,
 } from "@/lib/finance/risk/portfolio-risk-analyzer";
+import type { ArgentineInstrumentFamilyId } from "@/lib/finance/risk/types";
 import { loadMarketDataExplorer } from "@/lib/market-data/client";
 import { parseTickerInput } from "@/lib/market-data/request";
 import type {
@@ -86,6 +92,8 @@ export function RiskModuleShell({
   const [proposedWeightInputs, setProposedWeightInputs] = useState<WeightState>(
     {},
   );
+  const [argentineInstrumentFamilies, setArgentineInstrumentFamilies] =
+    useState<ArgentineInstrumentFamilyState>({});
   const [portfolioValueInput, setPortfolioValueInput] = useState(
     DEFAULT_PORTFOLIO_VALUE,
   );
@@ -114,6 +122,7 @@ export function RiskModuleShell({
       setFactorDataState({ data: null, error: null, requestKey: null });
       setWeightInputs({});
       setProposedWeightInputs({});
+      setArgentineInstrumentFamilies({});
       setIsLoading(false);
       return;
     }
@@ -145,12 +154,16 @@ export function RiskModuleShell({
       const equalWeights = createEqualWeightInputs(payload.data.tickers);
       setWeightInputs(equalWeights);
       setProposedWeightInputs(equalWeights);
+      setArgentineInstrumentFamilies(
+        buildDefaultArgentineInstrumentFamilyMap(payload.data.tickers),
+      );
       setActiveSection("setup");
     } catch (error) {
       setData(null);
       setLoadedProvider(null);
       setWeightInputs({});
       setProposedWeightInputs({});
+      setArgentineInstrumentFamilies({});
       setRequestError(
         error instanceof Error
           ? error.message
@@ -197,6 +210,16 @@ export function RiskModuleShell({
 
   function handleApplyCurrentWeightsToProposed() {
     setProposedWeightInputs(weightInputs);
+  }
+
+  function handleArgentineInstrumentFamilyChange(
+    ticker: string,
+    familyId: ArgentineInstrumentFamilyId,
+  ) {
+    setArgentineInstrumentFamilies((current) => ({
+      ...current,
+      [ticker]: familyId,
+    }));
   }
 
   function handleConfidenceLevelChange(
@@ -558,6 +581,23 @@ export function RiskModuleShell({
   }, [
     factorGradVarResult.analysis,
     portfolioValueValidation.value,
+    weightValidation?.weights,
+  ]);
+
+  const argentineInstrumentContext = useMemo(() => {
+    if (!data || !weightValidation?.isValid || !weightValidation.weights) {
+      return null;
+    }
+
+    return buildArgentineInstrumentContextAnalysis({
+      tickers: data.tickers,
+      weights: weightValidation.weights,
+      familyByTicker: argentineInstrumentFamilies,
+    });
+  }, [
+    argentineInstrumentFamilies,
+    data,
+    weightValidation?.isValid,
     weightValidation?.weights,
   ]);
 
@@ -956,6 +996,7 @@ export function RiskModuleShell({
           period={period}
           portfolioValueInput={portfolioValueInput}
           portfolioValueValidation={portfolioValueValidation}
+          argentineInstrumentFamilies={argentineInstrumentFamilies}
           proposedWeightInputs={proposedWeightInputs}
           proposedWeightValidation={proposedWeightValidation}
           provider={provider}
@@ -968,6 +1009,9 @@ export function RiskModuleShell({
           weightInputs={weightInputs}
           weightValidation={weightValidation}
           onApplyEqualWeights={handleApplyEqualWeights}
+          onArgentineInstrumentFamilyChange={
+            handleArgentineInstrumentFamilyChange
+          }
           onConfidenceLevelChange={handleConfidenceLevelChange}
           onCurrencyChange={setCurrency}
           onPeriodChange={setPeriod}
@@ -997,6 +1041,7 @@ export function RiskModuleShell({
           factorGradVarError={factorGradVarError}
           factorGradVarLoading={factorGradVarLoading}
           currentVsProposedComparison={currentVsProposedComparison}
+          argentineInstrumentContext={argentineInstrumentContext}
           holdings={holdings}
           portfolioAnalytics={portfolioAnalytics}
           portfolioCharts={portfolioCharts}

@@ -8,6 +8,10 @@ import {
 import { calculateInstrumentVaRContribution } from "../src/lib/finance/risk/risk-contribution";
 import { buildFactorGradVarAnalysis } from "../src/lib/finance/risk/factor-gradvar";
 import { buildCurrentVsProposedRiskComparison } from "../src/lib/finance/risk/current-vs-proposed";
+import {
+  buildArgentineInstrumentContextAnalysis,
+  inferArgentineInstrumentFamily,
+} from "../src/lib/finance/risk/argentina-instruments";
 import { buildPortfolioScenarioAnalysis } from "../src/lib/finance/risk/scenario-analysis";
 import {
   calculateMoneyAtRisk,
@@ -363,6 +367,37 @@ test("current vs proposed comparison reports metric and factor deltas", () => {
   assert.ok(
     Math.abs(comparison.factorRows[0].deltaContributionShare + 0.27) < 1e-12,
   );
+});
+
+test("argentine instrument context infers common local families", () => {
+  assert.equal(inferArgentineInstrumentFamily("AL30"), "sovereign-hard-dollar");
+  assert.equal(inferArgentineInstrumentFamily("TZX27"), "cer");
+  assert.equal(inferArgentineInstrumentFamily("S31O5"), "fixed-rate-ars");
+  assert.equal(inferArgentineInstrumentFamily("GGAL"), "argentina-equity");
+  assert.equal(inferArgentineInstrumentFamily("AAPL"), "cedear");
+});
+
+test("argentine instrument context aggregates family exposure and checklist", () => {
+  const analysis = buildArgentineInstrumentContextAnalysis({
+    tickers: ["AL30", "TZX27", "AAPL"],
+    weights: {
+      AL30: 0.5,
+      TZX27: 0.3,
+      AAPL: 0.2,
+    },
+    familyByTicker: {
+      AL30: "sovereign-hard-dollar",
+      TZX27: "cer",
+      AAPL: "cedear",
+    },
+  });
+
+  assert.equal(analysis.rows.length, 3);
+  assert.equal(analysis.dominantFamily?.familyId, "sovereign-hard-dollar");
+  assert.ok(Math.abs((analysis.dominantFamily?.weight ?? 0) - 0.5) < 1e-12);
+  assert.equal(analysis.familyExposures.length, 3);
+  assert.ok(analysis.checklist.some((item) => item.includes("residual cash-flow")));
+  assert.equal(analysis.methodology.warnings.length, 0);
 });
 
 function buildSyntheticFactorAnalysis() {

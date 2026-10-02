@@ -3,6 +3,7 @@ import { Card } from "@/components/card";
 import { RiskDatasetStatusStrip } from "@/components/risk/risk-dataset-status-strip";
 import { SurfaceCard } from "@/components/ui/surface-card";
 import { cn } from "@/lib/utils";
+import { ARGENTINE_INSTRUMENT_FAMILIES } from "@/lib/finance/risk/argentina-instruments";
 import type { RiskSetupSectionProps } from "@/components/risk/types";
 import type { MarketDataPeriod } from "@/lib/market-data/types";
 
@@ -17,6 +18,7 @@ export function RiskSetupSection({
   period,
   portfolioValueInput,
   portfolioValueValidation,
+  argentineInstrumentFamilies,
   proposedWeightInputs,
   proposedWeightValidation,
   provider,
@@ -29,6 +31,7 @@ export function RiskSetupSection({
   weightInputs,
   weightValidation,
   onApplyEqualWeights,
+  onArgentineInstrumentFamilyChange,
   onApplyCurrentWeightsToProposed,
   onApplyEqualProposedWeights,
   onConfidenceLevelChange,
@@ -593,6 +596,111 @@ export function RiskSetupSection({
           </div>
         )}
       </Card>
+
+      {data ? (
+        <Card
+          eyebrow="Argentina Context"
+          title="Instrument family classification"
+          description="Classify each loaded ticker into an Argentina Wealth Management instrument family. The classification adds interpretation, checklist, and client-question context; it does not change the return, VaR, or factor calculations."
+          actions={
+            <StepBadge
+              label={sandboxReady ? "Work 6 context" : "Awaiting weights"}
+              tone={sandboxReady ? "ready" : "default"}
+            />
+          }
+        >
+          <div className="grid gap-4 xl:grid-cols-[minmax(0,1.16fr)_minmax(20rem,0.84fr)]">
+            <div className="overflow-x-auto rounded-[1.7rem] border border-white/[0.08] bg-[linear-gradient(180deg,rgba(10,17,26,0.82),rgba(8,13,20,0.72))]">
+              <div className="min-w-[720px]">
+                <div className="grid grid-cols-[0.8fr_1.15fr_1.4fr_1.2fr] gap-3 border-b border-white/[0.08] px-5 py-3 text-[11px] font-semibold uppercase tracking-[0.18em] text-foreground-subtle">
+                  <span>Ticker</span>
+                  <span>Current weight</span>
+                  <span>Instrument family</span>
+                  <span>Context role</span>
+                </div>
+                {data.tickers.map((ticker, index) => {
+                  const selectedFamily =
+                    argentineInstrumentFamilies[ticker] ?? "unknown";
+                  const family = ARGENTINE_INSTRUMENT_FAMILIES.find(
+                    (item) => item.id === selectedFamily,
+                  );
+
+                  return (
+                    <div
+                      key={`argentina-context-${ticker}`}
+                      className={cn(
+                        "grid grid-cols-[0.8fr_1.15fr_1.4fr_1.2fr] gap-3 px-5 py-4 text-sm text-slate-200 not-last:border-b not-last:border-white/[0.08]",
+                        index % 2 === 0 ? "bg-white/[0.015]" : "bg-transparent",
+                      )}
+                    >
+                      <span className="font-semibold text-foreground">
+                        {ticker}
+                      </span>
+                      <span className="text-foreground-soft">
+                        {weightInputs[ticker]
+                          ? `${Number(weightInputs[ticker]).toFixed(2)}%`
+                          : "Not set"}
+                      </span>
+                      <select
+                        value={selectedFamily}
+                        onChange={(event) =>
+                          onArgentineInstrumentFamilyChange(
+                            ticker,
+                            event.target.value as RiskSetupSectionProps["argentineInstrumentFamilies"][string],
+                          )
+                        }
+                        className="w-full rounded-[1rem] border border-white/10 bg-slate-900/80 px-3 py-2 text-sm text-white outline-none transition focus:border-accent/60"
+                      >
+                        {ARGENTINE_INSTRUMENT_FAMILIES.map((option) => (
+                          <option key={option.id} value={option.id}>
+                            {option.shortName}
+                          </option>
+                        ))}
+                      </select>
+                      <span className="text-foreground-muted">
+                        {family?.horizon ?? "Manual review required"}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <SurfaceCard padding="sm" className="border-white/[0.08]">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-accent-strong/85">
+                  Manual source
+                </p>
+                <p className="mt-3 text-sm leading-7 text-foreground-soft">
+                  Work 6 maps the risk lab to the Argentina WM instrument
+                  manual: currency, liquidity, horizon, risks, client
+                  questions, and operational checks.
+                </p>
+              </SurfaceCard>
+
+              <SurfaceCard padding="sm" className="border-white/[0.08]">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-accent-strong/85">
+                  Interpretation boundary
+                </p>
+                <div className="mt-4 space-y-3">
+                  <StatusLine
+                    label="Risk engine"
+                    value="Unchanged"
+                  />
+                  <StatusLine
+                    label="Classification"
+                    value="Editable by ticker"
+                  />
+                  <StatusLine
+                    label="Use"
+                    value="Context and checklist"
+                  />
+                </div>
+              </SurfaceCard>
+            </div>
+          </div>
+        </Card>
+      ) : null}
 
       {data ? (
         <Card

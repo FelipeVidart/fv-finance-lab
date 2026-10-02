@@ -1,6 +1,8 @@
 import type { FormEvent } from "react";
 import type { PortfolioAnalytics } from "@/lib/finance/portfolio";
 import type {
+  ArgentineInstrumentContextAnalysis,
+  ArgentineInstrumentFamilyId,
   CurrentVsProposedRiskComparison,
   FactorGradVarAnalysis,
   PortfolioScenarioAnalysis,
@@ -25,6 +27,11 @@ import type { LineChartSeries } from "@/components/line-chart-panel";
 export type RiskSectionId = "setup" | "asset-analytics" | "portfolio-analytics";
 
 export type WeightState = Record<string, string>;
+
+export type ArgentineInstrumentFamilyState = Record<
+  string,
+  ArgentineInstrumentFamilyId
+>;
 
 export type WeightValidationState = {
   isValid: boolean;
@@ -81,9 +88,14 @@ export type RiskSetupSectionProps = {
   validationError: string | null;
   portfolioValueInput: string;
   portfolioValueValidation: PortfolioValueValidation;
+  argentineInstrumentFamilies: ArgentineInstrumentFamilyState;
   weightInputs: WeightState;
   weightValidation: WeightValidationState | null;
   onApplyEqualWeights: () => void;
+  onArgentineInstrumentFamilyChange: (
+    ticker: string,
+    familyId: ArgentineInstrumentFamilyId,
+  ) => void;
   onConfidenceLevelChange: (confidenceLevel: PortfolioConfidenceLevel) => void;
   onCurrencyChange: (currency: PortfolioValueCurrency) => void;
   onPeriodChange: (period: MarketDataPeriod) => void;
@@ -109,6 +121,7 @@ export type RiskPortfolioAnalyticsSectionProps = {
   factorGradVarError: string | null;
   factorGradVarLoading: boolean;
   currentVsProposedComparison: CurrentVsProposedRiskComparison | null;
+  argentineInstrumentContext: ArgentineInstrumentContextAnalysis | null;
   holdings: PortfolioHoldingRow[];
   portfolioAnalytics: PortfolioAnalytics | null;
   portfolioCharts: RiskChartModel[];
