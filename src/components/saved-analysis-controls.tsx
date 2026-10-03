@@ -1,6 +1,8 @@
 "use client";
 
 import { useMemo, useState, useSyncExternalStore } from "react";
+import { AnalysisTransferControls } from "@/components/analysis-transfer-controls";
+import type { AnalysisKind } from "@/lib/analysis-transfer";
 import { encodeSavedAnalyses, MAX_SAVED_ANALYSES, parseSavedAnalyses } from "@/lib/analysis-snapshots";
 
 const eventName = "fv-saved-analyses-changed";
@@ -14,7 +16,9 @@ const serverSnapshot = () => null;
 const control = "min-w-0 rounded-lg border border-white/15 bg-background-muted px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-accent";
 const button = "rounded-lg border border-white/15 px-3 py-2 text-sm text-foreground disabled:opacity-40";
 
-export function SavedAnalysisControls<T>({ storageKey, data, validate, onLoad }: {
+export function SavedAnalysisControls<T>({ storageKey, data, validate, onLoad, kind, importCSV }: {
+  kind: AnalysisKind;
+  importCSV?: (raw: string) => T;
   storageKey: string;
   data: T;
   validate: (value: unknown) => value is T;
@@ -67,6 +71,7 @@ export function SavedAnalysisControls<T>({ storageKey, data, validate, onLoad }:
         <button type="button" className={button} disabled={!selected} onClick={() => perform(() => { const current = parseSavedAnalyses(window.localStorage.getItem(storageKey), validate); write(current.filter((analysis) => analysis.id !== selectedId)); setSelectedId(""); setMessage("Saved analysis deleted; current inputs retained."); })}>Delete saved</button>
       </div>
       <p className="text-xs text-foreground-muted">Saved in this browser only. Loading replaces current inputs; unsaved edits are not recovered after reload.</p>
+      <AnalysisTransferControls kind={kind} data={data} validate={validate} onLoad={onLoad} importCSV={importCSV} />
       {message ? <p role="status" className="text-sm text-emerald-300">{message}</p> : null}
       {parsed.error || actionError ? <p role="alert" className="text-sm text-rose-300">{parsed.error ?? actionError}</p> : null}
     </section>

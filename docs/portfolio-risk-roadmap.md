@@ -355,6 +355,24 @@ storage keys and contain inputs only; calculations run again after loading.
 - No cloud sync or automatic recovery of unsaved edits.
 - Tests cover round-trips, draft preservation, independent snapshots and invalid storage.
 
+## Work 10 - Analysis Files and Holdings CSV
+
+Saved analysis controls now include portable JSON export/import for bond and
+fund drafts. Files use a versioned module-specific envelope, schema validation
+and a 5 MB limit. Importing previews the inputs and requires Apply import before
+replacing current work; browser-saved snapshots are unaffected.
+
+Fund look-through also accepts comma-separated CSV using a downloadable synthetic
+template. One row represents one holding; repeated position IDs share one
+portfolio allocation and must have consistent metadata. CSV imports validate
+allocation totals, holding weights, classifications, dates and direct positions.
+Partially disclosed funds keep their unknown exposure. Decimal points are
+required; CSV quoting, escaped quotes, CRLF, BOM and multiline cells are supported.
+
+JSON retains incomplete drafts; CSV requires financially valid composition.
+Imported work is not automatically saved locally. Tests cover file round-trips,
+cross-module rejection, malformed CSV, grouping and exposure conservation.
+
 ## Future Phases
 
 - Later: automatic contractual schedules, factsheet ingestion, recursive fund holdings,
