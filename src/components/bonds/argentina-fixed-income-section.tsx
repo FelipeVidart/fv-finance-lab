@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { SavedAnalysisControls } from "@/components/saved-analysis-controls";
+import { isBondDraft } from "@/lib/analysis-snapshots";
 import { analyzeManualBond } from "@/lib/finance/argentina-fixed-income";
 
 const defaults = { ticker: "Synthetic example", family: "Hard dollar / ON", unit: "USD", cleanPrice: "95", accruedInterest: "0", technicalValue: "100" };
@@ -30,6 +32,9 @@ export function ArgentinaFixedIncomeSection() {
   return (
     <div id="argentina-panel" role="tabpanel" aria-labelledby="argentina-tab" className="space-y-6">
       <header><h3 className="text-xl font-semibold text-foreground">Argentina fixed-income desk</h3><p className="mt-2 text-sm text-foreground-muted">Manual settlement inputs and cash flows. Synthetic example, not live market data.</p></header>
+      <SavedAnalysisControls storageKey="fv-finance-lab:bond-analyses:v1" data={{ form, flows }} validate={isBondDraft} onLoad={(draft) => {
+        setForm(draft.form); setFlows(draft.flows); setNextId(Math.max(-1, ...draft.flows.map((flow) => flow.id)) + 1);
+      }} />
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {(["ticker", "cleanPrice", "accruedInterest", "technicalValue"] as const).map((key) => <label key={key} className="space-y-2 text-sm text-foreground">
           <span className="block">{({ ticker: "Instrument", cleanPrice: "Clean price", accruedInterest: "Accrued interest", technicalValue: "Technical value (including accrued)" })[key]}</span>

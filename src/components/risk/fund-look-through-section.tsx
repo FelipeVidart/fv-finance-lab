@@ -1,10 +1,11 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { SavedAnalysisControls } from "@/components/saved-analysis-controls";
+import { isFundDraft, type PositionDraft } from "@/lib/analysis-snapshots";
 import { analyzeFundLookThrough, type ExposureRow, type LookThroughPosition } from "@/lib/finance/risk/fund-look-through";
 
-type HoldingForm = { id: number; instrument: string; issuer: string; currency: string; family: string; weight: string };
-type PositionForm = { id: number; name: string; kind: "fund" | "direct"; weight: string; asOf: string; source: string; holdings: HoldingForm[] };
+type PositionForm = PositionDraft;
 const example: PositionForm[] = [
   { id: 0, name: "Example bond fund", kind: "fund", weight: "60", asOf: "2026-10-01", source: "Synthetic example", holdings: [
     { id: 1, instrument: "Example sovereign", issuer: "Example treasury", currency: "USD", family: "Hard dollar", weight: "50" },
@@ -46,6 +47,10 @@ export function FundLookThroughSection() {
   return (
     <div id="funds-panel" role="tabpanel" aria-labelledby="funds-tab" className="space-y-6">
       <header><h3 className="text-xl font-semibold text-foreground">Fund holdings and look-through</h3><p className="mt-2 text-sm text-foreground-muted">Manual factsheet snapshots and direct positions. Defaults are synthetic examples.</p></header>
+      <SavedAnalysisControls storageKey="fv-finance-lab:fund-analyses:v1" data={{ positions, analysisDate }} validate={isFundDraft} onLoad={(draft) => {
+        setPositions(draft.positions); setAnalysisDate(draft.analysisDate); setSelectedId(draft.positions[0]?.id ?? -1);
+        setNextId(draft.positions.reduce((maxId, position) => position.holdings.reduce((max, holding) => Math.max(max, holding.id), Math.max(maxId, position.id)), -1) + 1);
+      }} />
       <div className="flex flex-wrap items-end gap-3">
         <label className="min-w-0 flex-1 space-y-2 text-sm text-foreground"><span className="block">Position</span><select className={control} value={selectedId} onChange={(event) => setSelectedId(Number(event.target.value))}>{positions.map((position) => <option key={position.id} value={position.id}>{position.name || "Unnamed"} ({position.weight}%)</option>)}</select></label>
         <button type="button" className={button} onClick={addPosition}>Add position</button>
