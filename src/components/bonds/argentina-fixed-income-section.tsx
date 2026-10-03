@@ -32,7 +32,7 @@ export function ArgentinaFixedIncomeSection() {
   return (
     <div id="argentina-panel" role="tabpanel" aria-labelledby="argentina-tab" className="space-y-6">
       <header><h3 className="text-xl font-semibold text-foreground">Argentina fixed-income desk</h3><p className="mt-2 text-sm text-foreground-muted">Manual settlement inputs and cash flows. Synthetic example, not live market data.</p></header>
-      <SavedAnalysisControls storageKey="fv-finance-lab:bond-analyses:v1" data={{ form, flows }} validate={isBondDraft} onLoad={(draft) => {
+      <SavedAnalysisControls kind="bond" storageKey="fv-finance-lab:bond-analyses:v1" data={{ form, flows }} validate={isBondDraft} onLoad={(draft) => {
         setForm(draft.form); setFlows(draft.flows); setNextId(Math.max(-1, ...draft.flows.map((flow) => flow.id)) + 1);
       }} />
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { SavedAnalysisControls } from "@/components/saved-analysis-controls";
 import { isFundDraft, type PositionDraft } from "@/lib/analysis-snapshots";
+import { importFundCSV } from "@/lib/analysis-transfer";
 import { analyzeFundLookThrough, type ExposureRow, type LookThroughPosition } from "@/lib/finance/risk/fund-look-through";
 
 type PositionForm = PositionDraft;
@@ -47,7 +48,7 @@ export function FundLookThroughSection() {
   return (
     <div id="funds-panel" role="tabpanel" aria-labelledby="funds-tab" className="space-y-6">
       <header><h3 className="text-xl font-semibold text-foreground">Fund holdings and look-through</h3><p className="mt-2 text-sm text-foreground-muted">Manual factsheet snapshots and direct positions. Defaults are synthetic examples.</p></header>
-      <SavedAnalysisControls storageKey="fv-finance-lab:fund-analyses:v1" data={{ positions, analysisDate }} validate={isFundDraft} onLoad={(draft) => {
+      <SavedAnalysisControls kind="fund" importCSV={importFundCSV} storageKey="fv-finance-lab:fund-analyses:v1" data={{ positions, analysisDate }} validate={isFundDraft} onLoad={(draft) => {
         setPositions(draft.positions); setAnalysisDate(draft.analysisDate); setSelectedId(draft.positions[0]?.id ?? -1);
         setNextId(draft.positions.reduce((maxId, position) => position.holdings.reduce((max, holding) => Math.max(max, holding.id), Math.max(maxId, position.id)), -1) + 1);
       }} />
