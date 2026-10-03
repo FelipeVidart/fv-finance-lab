@@ -8,6 +8,7 @@ export const primaryNavigation = [
   { href: "/", label: "Home", match: "exact" },
   { href: "/projects", label: "Projects", match: "exact" },
   { href: "/tools", label: "Tools", match: "prefix" },
+  { href: "/workspace", label: "Workspace", match: "prefix" },
 ] as const satisfies readonly NavItem[];
 
 export const toolNavigation = [
