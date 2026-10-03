@@ -1041,6 +1041,7 @@ export function RiskModuleShell({
 
       {activeSection === "portfolio-analytics" ? (
         <RiskPortfolioAnalyticsSection
+          proposedWeights={proposedWeightValidation?.isValid ? proposedWeightValidation.weights : null}
           data={data}
           factorGradVarAnalysis={factorGradVarResult.analysis}
           factorGradVarError={factorGradVarError}
