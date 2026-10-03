@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { ArsHistoryControls } from "@/components/risk/ars-history-controls";
 import { RiskAssetAnalyticsSection } from "@/components/risk/risk-asset-analytics-section";
 import { RiskPortfolioAnalyticsSection } from "@/components/risk/risk-portfolio-analytics-section";
 import { RiskSectionTabs } from "@/components/risk/risk-section-tabs";
@@ -81,6 +82,7 @@ export function RiskModuleShell({
   const [validationError, setValidationError] = useState<string | null>(null);
   const [requestError, setRequestError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const requestSequence = useRef(0);
   const [data, setData] = useState<MarketDataExplorerPayload | null>(null);
   const [loadedProvider, setLoadedProvider] =
     useState<MarketDataProviderMode | null>(null);
@@ -112,7 +114,9 @@ export function RiskModuleShell({
     nextTickerInput: string,
     nextPeriod: MarketDataPeriod,
     nextProvider: MarketDataProviderMode,
+    priceCurrency?: "ARS",
   ) {
+    const sequence = ++requestSequence.current;
     const parsed = parseTickerInput(nextTickerInput);
 
     if (!parsed.tickers) {
@@ -139,6 +143,7 @@ export function RiskModuleShell({
       url.searchParams.set("tickers", parsed.tickers.join(","));
       url.searchParams.set("period", nextPeriod);
       url.searchParams.set("provider", nextProvider);
+      if (priceCurrency) url.searchParams.set("priceCurrency", priceCurrency);
 
       const response = await fetch(url.toString(), {
         method: "GET",
@@ -146,11 +151,13 @@ export function RiskModuleShell({
       });
       const payload = (await response.json()) as MarketDataRouteResponse;
 
+      if (sequence !== requestSequence.current) return;
       if (!payload.ok) {
         throw new Error(payload.error);
       }
 
       setData(payload.data);
+      if (payload.data.meta.priceCurrency === "ARS") setCurrency("ARS");
       setLoadedProvider(nextProvider);
       const equalWeights = createEqualWeightInputs(payload.data.tickers);
       setWeightInputs(equalWeights);
@@ -160,6 +167,7 @@ export function RiskModuleShell({
       );
       setActiveSection("setup");
     } catch (error) {
+      if (sequence !== requestSequence.current) return;
       setData(null);
       setLoadedProvider(null);
       setWeightInputs({});
@@ -171,7 +179,7 @@ export function RiskModuleShell({
           : "Unable to load market data right now.",
       );
     } finally {
-      setIsLoading(false);
+      if (sequence === requestSequence.current) setIsLoading(false);
     }
   }
 
@@ -233,7 +241,7 @@ export function RiskModuleShell({
     const parsed = parseTickerInput(tickerInput);
 
     if (!parsed.tickers) {
-      return "Enter 1 to 5 comma-separated tickers.";
+      return "Enter 1 to 30 comma-separated tickers.";
     }
 
     return `Tracking ${parsed.tickers.length} unique ticker${
@@ -365,7 +373,7 @@ export function RiskModuleShell({
   ]);
 
   const factorRequestKey =
-    data && loadedProvider && weightValidation?.isValid
+    data && data.meta.priceCurrency !== "ARS" && loadedProvider && weightValidation?.isValid
       ? `${data.period}|${loadedProvider}`
       : null;
 
@@ -991,6 +999,14 @@ export function RiskModuleShell({
         <FundLookThroughSection />
       </div>
 
+      {activeSection === "setup" ? <ArsHistoryControls tickers={tickerInput} period={period} disabled={isLoading} onLoadLocal={() => void loadMarketData(tickerInput, period, "yahoo", "ARS")} onApply={(payload) => {
+        ++requestSequence.current;
+        setData(payload); setLoadedProvider(null); setCurrency("ARS"); setRequestError(null); setValidationError(null); setIsLoading(false);
+        setFactorDataState({ data: null, error: null, requestKey: null });
+        const weights = createEqualWeightInputs(payload.tickers); setWeightInputs(weights); setProposedWeightInputs(weights);
+        setArgentineInstrumentFamilies(buildDefaultArgentineInstrumentFamilyMap(payload.tickers));
+      }} /> : null}
+      {data?.meta.priceCurrency === "ARS" ? <p className="text-sm p-3">Histórico en ARS · {data.meta.priceSource ?? data.meta.provider}. Factor attribution with USD proxies is disabled.</p> : null}
       {activeSection === "setup" ? (
         <RiskSetupSection
           confidenceLevel={confidenceLevel}

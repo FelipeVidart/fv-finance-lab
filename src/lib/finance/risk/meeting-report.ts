@@ -29,7 +29,7 @@ export function buildMeetingReport(input: MeetingReportInput): MeetingReport {
       ["Data provider", data.meta.provider], ["Historical window", `${data.meta.commonStartDate} to ${data.meta.commonEndDate}`],
       ["Risk return observations", String(risk.methodology.observations)], ["Confidence level", percent(risk.tailRisk.confidenceLevel)],
       ["EWMA lambda (parametric volatility)", String(risk.methodology.ewmaLambda)],
-      ["VaR / ES horizon", "One trading day"], ["Portfolio value (manual input)", money(value)], ["Presentation currency", currency],
+      ["VaR / ES horizon", "One trading day"], ["Portfolio value (manual input)", money(value)], ["Presentation currency", currency], ["Historical price currency", data.meta.priceCurrency ?? "Provider native / unverified"], ["Price source", data.meta.priceSource ?? data.meta.provider],
     ] },
     { title: "Portfolio allocation", headers: ["Instrument", "Current weight", "Proposed weight", "Argentina family"], rows: portfolio.tickers.map((ticker) => [ticker, percent(portfolio.weights[ticker]), comparison && proposedWeights ? percent(proposedWeights[ticker]) : "N/A", context?.rows.find((row) => row.ticker === ticker)?.familyName ?? "Unclassified"]) },
     { title: "Historical performance and risk", headers: ["Metric", "Percent", "Amount"], rows: [

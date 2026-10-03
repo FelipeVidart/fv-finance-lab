@@ -19,6 +19,7 @@ type YahooChartPayload = {
 };
 
 type YahooChartResult = {
+  meta?: { currency?: string };
   timestamp?: number[];
   indicators?: {
     quote?: Array<{
@@ -143,6 +144,7 @@ export class YahooMarketDataProvider implements MarketDataProvider {
           actualEndDate: prices[prices.length - 1].date,
           observations: prices.length,
           sourceSymbol,
+          currency: result.meta?.currency,
         },
       };
     } catch (error) {
