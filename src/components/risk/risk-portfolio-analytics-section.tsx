@@ -1,4 +1,5 @@
 import { Card } from "@/components/card";
+import { MeetingReportControls } from "@/components/risk/meeting-report-controls";
 import {
   RiskSectionEmptyState,
   RiskSeriesChartCard,
@@ -27,6 +28,7 @@ import type {
 } from "@/lib/finance/risk/types";
 
 export function RiskPortfolioAnalyticsSection({
+  proposedWeights,
   data,
   factorGradVarAnalysis,
   factorGradVarError,
@@ -70,6 +72,7 @@ export function RiskPortfolioAnalyticsSection({
       aria-labelledby="portfolio-analytics-tab"
       className="space-y-6"
     >
+      {portfolioAnalytics && portfolioRiskAnalysis ? <MeetingReportControls input={{ data, portfolio: portfolioAnalytics, risk: portfolioRiskAnalysis, value: portfolioValue, currency: presentationCurrency, scenarios: scenarioAnalysis, comparison: currentVsProposedComparison, proposedWeights, context: argentineInstrumentContext }} /> : null}
       <SurfaceCard tone="elevated" padding="md" className="border-white/[0.08]">
         <div className="grid gap-4 xl:grid-cols-[minmax(0,1.16fr)_minmax(24rem,0.84fr)]">
           <div>

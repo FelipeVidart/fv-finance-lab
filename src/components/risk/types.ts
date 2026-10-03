@@ -116,6 +116,7 @@ export type RiskAssetAnalyticsSectionProps = {
 };
 
 export type RiskPortfolioAnalyticsSectionProps = {
+  proposedWeights: Record<string, number> | null;
   data: MarketDataExplorerPayload | null;
   factorGradVarAnalysis: FactorGradVarAnalysis | null;
   factorGradVarError: string | null;

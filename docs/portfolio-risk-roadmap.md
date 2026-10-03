@@ -373,6 +373,25 @@ JSON retains incomplete drafts; CSV requires financially valid composition.
 Imported work is not automatically saved locally. Tests cover file round-trips,
 cross-module rejection, malformed CSV, grouping and exposure conservation.
 
+## Work 11 - Exportable Meeting Summary
+
+Portfolio Analytics now includes a report title, optional meeting notes, preview
+and downloadable printable HTML / Markdown. The report uses the currently
+computed portfolio and risk objects, with dataset provider/window, observations,
+confidence level, manual portfolio value and presentation currency.
+
+- Current/proposed allocations and editable Argentina family context.
+- Historical return, volatility, drawdown, daily VaR and Expected Shortfall.
+- Covariance VaR attribution, explicitly distinguished from historical VaR.
+- Hypothetical scenario impacts and underlying factor shocks when available.
+- Current-vs-proposed metrics and percentage-point deltas when available.
+- Missing scenarios/comparison are explicitly marked unavailable.
+- Methodology warnings and limits travel with the exported report.
+- Currency selection does not claim FX conversion of historical price series.
+- Fund look-through and manual bond cash-flow analysis remain separate.
+- HTML is standalone and printable to PDF; user text is escaped in both formats.
+- Tests verify use of computed values, amounts, deltas, unavailable states and escaping.
+
 ## Future Phases
 
 - Later: automatic contractual schedules, factsheet ingestion, recursive fund holdings,
