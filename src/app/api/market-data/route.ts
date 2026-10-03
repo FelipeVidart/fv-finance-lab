@@ -6,6 +6,7 @@ import {
 } from "@/lib/market-data/market-data-service";
 import { buildExplorerPayload } from "@/lib/market-data/normalize";
 import {
+  MAX_RISK_TICKERS,
   isMarketDataPeriod,
   isMarketDataProviderMode,
   parseTickerInput,
@@ -22,11 +23,11 @@ export async function GET(
   const tickersParam = searchParams.get("tickers") ?? "";
   const periodParam = searchParams.get("period") ?? "6M";
   const providerParam = searchParams.get("provider") ?? "auto";
-  const maxTickersParam = Number(searchParams.get("maxTickers") ?? "5");
+  const maxTickersParam = Number(searchParams.get("maxTickers") ?? String(MAX_RISK_TICKERS));
   const maxTickers =
     Number.isInteger(maxTickersParam) && maxTickersParam >= 1
-      ? Math.min(maxTickersParam, 10)
-      : 5;
+      ? Math.min(maxTickersParam, MAX_RISK_TICKERS)
+      : MAX_RISK_TICKERS;
   const parsedTickers = parseTickerInput(tickersParam, { maxTickers });
 
   if (!parsedTickers.tickers) {
@@ -59,6 +60,11 @@ export async function GET(
     );
   }
 
+  const ars = searchParams.get("priceCurrency") === "ARS";
+  if (ars && (providerParam !== "yahoo" || parsedTickers.tickers.some((ticker) => !ticker.endsWith(".BA")))) {
+    return NextResponse.json({ ok: false, error: "ARS mode requires Yahoo and explicit local .BA symbols. Import CSV for funds or unavailable series." }, { status: 400 });
+  }
+
   try {
     const { startDate, endDate } = resolvePeriodDateRange(periodParam);
     const batch = await getBatchHistoricalPrices({
@@ -79,6 +85,9 @@ export async function GET(
       );
     }
 
+    if (ars && Object.values(batch.results).some((result) => result.metadata.currency !== "ARS")) {
+      throw new Error("Provider did not confirm ARS for every series. No USD fallback or FX conversion was applied.");
+    }
     const series = convertBatchToHistoricalSeries(batch);
     const payload = buildExplorerPayload({
       period: periodParam,
@@ -87,6 +96,8 @@ export async function GET(
       warnings: batch.warnings,
       providerDiagnostics: batch.providerDiagnostics,
     });
+
+    if (ars) payload.meta.priceCurrency = "ARS";
 
     return NextResponse.json({
       ok: true,

@@ -29,7 +29,7 @@ const ARGENTINA_EQUITY_TICKERS = new Set([
 
 const HARD_DOLLAR_TICKER_PATTERN = /^(AL|GD|AE|GE)\d{2}[A-Z]?$/;
 const CER_TICKER_PATTERN = /^(TX|TZX|TC|T2X|X|CUAP|DICP|PARP)\w*$/;
-const FIXED_RATE_ARS_TICKER_PATTERN = /^(S|LECAP|BONCAP)\w*$/;
+const FIXED_RATE_ARS_TICKER_PATTERN = /^(S\d|LECAP|BONCAP)\w*$/;
 
 export const ARGENTINE_INSTRUMENT_FAMILIES: ArgentineInstrumentFamilyDefinition[] =
   [
@@ -421,7 +421,7 @@ export const ARGENTINE_INSTRUMENT_FAMILY_BY_ID = Object.fromEntries(
 export function inferArgentineInstrumentFamily(
   ticker: string,
 ): ArgentineInstrumentFamilyId {
-  const normalizedTicker = ticker.trim().toUpperCase();
+  const normalizedTicker = ticker.trim().toUpperCase().replace(/\.BA$/, "");
 
   if (ARGENTINA_EQUITY_TICKERS.has(normalizedTicker)) {
     return "argentina-equity";

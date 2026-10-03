@@ -117,7 +117,7 @@ export function RiskSetupSection({
                   />
                   <div className="mt-4 grid gap-2 text-xs leading-6 sm:grid-cols-2">
                     <p className="rounded-2xl border border-white/[0.06] bg-white/[0.02] px-3 py-2 text-foreground-muted">
-                      Use 1 to 5 comma-separated tickers.
+                      Use 1 to 30 comma-separated tickers.
                     </p>
                     <p className="rounded-2xl border border-white/[0.06] bg-white/[0.02] px-3 py-2 text-foreground-subtle">
                       {inputHint}
