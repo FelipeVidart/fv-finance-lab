@@ -340,6 +340,21 @@ Direct positions are included as a single 100% underlying holding.
 - Unit tests cover exposure conservation, unknown weights, overlap, stale snapshots,
   direct-position rules and invalid inputs.
 
+## Work 9 - Saved Manual Analyses
+
+Bond Argentina and Fund Look-through now offer named Save new analysis, Load
+and Delete saved controls. Snapshots live in versioned, separate browser-local
+storage keys and contain inputs only; calculations run again after loading.
+
+- Saved entries survive page reloads in the same browser and origin.
+- Explicit save/load preserves incomplete drafts, including blank numeric fields.
+- Each save creates a separate snapshot; deletion retains current working inputs.
+- State is server-render safe; storage subscriptions update lists across browser tabs.
+- Nested draft schemas, row IDs, version and a 30-analysis limit are validated.
+- Storage errors are displayed; incompatible data is not silently overwritten.
+- No cloud sync or automatic recovery of unsaved edits.
+- Tests cover round-trips, draft preservation, independent snapshots and invalid storage.
+
 ## Future Phases
 
 - Later: automatic contractual schedules, factsheet ingestion, recursive fund holdings,
