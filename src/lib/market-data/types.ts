@@ -123,7 +123,7 @@ export type MarketDataExplorerPayload = {
   points: ExplorerPoint[];
   metrics: ExplorerTickerMetrics[];
   meta: {
-    priceCurrency?: "ARS";
+    priceCurrency?: "ARS" | "USD";
     priceSource?: string;
     provider: string;
     interval: "1day";
