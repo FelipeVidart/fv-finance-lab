@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { useWorkspaceTheme, type WorkspaceTheme } from "./use-workspace-theme";
 import styles from "./workspace.module.css";
 
 const steps = ["Cargar cartera", "Analizar", "Exportar"] as const;
@@ -28,22 +29,29 @@ function ExampleChart({ drawdown = false }: { drawdown?: boolean }) {
   return <section className={styles.card} aria-label={title}>
     <div className={styles.cardHeading}><h2>{title}</h2><span>{drawdown ? "Desde el máximo" : "Base 100"}</span></div>
     <svg className={styles.chart} viewBox="0 0 560 210" role="img" aria-label={`${title}: trazado ilustrativo, sin cotizaciones reales`}>
-      {[40, 90, 140].map(y => <line key={y} x1="40" x2="520" y1={y} y2={y} stroke="#e8edf0" />)}
+      {[40, 90, 140].map(y => <line key={y} x1="40" x2="520" y1={y} y2={y} stroke="var(--ws-border)" />)}
       <text x="2" y="44">{drawdown ? "0%" : "110"}</text><text x="2" y="94">{drawdown ? "−3%" : "105"}</text><text x="2" y="144">{drawdown ? "−6%" : "100"}</text>
-      <path d={`${path} L520 ${drawdown ? 40 : 160} L40 ${drawdown ? 40 : 160} Z`} fill={drawdown ? "#b6925018" : "#176c6212"} />
-      <path d={path} fill="none" stroke={drawdown ? "#b69250" : "#176c62"} strokeWidth="3" strokeLinejoin="round" />
+      <path d={`${path} L520 ${drawdown ? 40 : 160} L40 ${drawdown ? 40 : 160} Z`} fill={drawdown ? "#b6925018" : "var(--ws-chart-fill)"} />
+      <path d={path} fill="none" stroke={drawdown ? "#b69250" : "var(--ws-accent)"} strokeWidth="3" strokeLinejoin="round" />
       <text x="40" y="193">Inicio</text><text x="265" y="193">Mitad del período</text><text x="500" y="193">Fin</text>
     </svg>
   </section>;
 }
 
-export function WorkspacePreview() {
+export function WorkspacePreview({ initialTheme = "light" }: { initialTheme?: WorkspaceTheme }) {
+  const [theme, setTheme] = useWorkspaceTheme(initialTheme);
   const [step, setStep] = useState(0);
   const [format, setFormat] = useState<"pdf" | "png">("pdf");
-  return <div className={styles.workspace}>
+  return <div className={styles.workspace} data-theme={theme}>
     <header className={styles.header}>
       <Link href="/" className={styles.brand}><span className={styles.monogram}>FV</span><span><strong>Finance Lab</strong><small>Espacio de trabajo</small></span></Link>
-      <Link href="/tools" className={styles.labLink}>Ir al laboratorio ↗</Link>
+      <div className={styles.headerActions}>
+        <div className={styles.themeSwitch} role="group" aria-label="Apariencia">
+          <button type="button" aria-pressed={theme === "light"} onClick={() => setTheme("light")}>Claro</button>
+          <button type="button" aria-pressed={theme === "dark"} onClick={() => setTheme("dark")}>Oscuro</button>
+        </div>
+        <Link href="/tools" className={styles.labLink}>Ir al laboratorio ↗</Link>
+      </div>
     </header>
     <div className={styles.content}>
       <div className={styles.intro}><div><p className={styles.eyebrow}>CARTERAS · WEALTH MANAGEMENT</p><h1>Tu cartera, en perspectiva.</h1><p>Cargá, analizá y prepará material para tus clientes.</p></div><span className={styles.previewBadge}>Propuesta visual · datos de ejemplo</span></div>

@@ -2,7 +2,7 @@
 
 ## Scope
 
-`/workspace` is a Spanish, light-theme, navigable design proposal: load, analyze, export. The original Lab retains its existing chrome and tools. A route-aware SiteFrame gives the workspace its own header and page spacing; CSS Modules keep its light palette scoped. No new dependencies, network requests, local storage or financial engine changes.
+`/workspace` is a Spanish, light/dark-theme, navigable design proposal: load, analyze, export. The original Lab retains its existing chrome and tools. A route-aware SiteFrame gives the workspace its own header and page spacing; CSS Modules keep its light palette scoped. No new dependencies, market-data requests, local storage or financial engine changes. A non-sensitive first-party cookie stores the appearance preference for one year; the server renders that theme on reload, and a client external store preserves it across route transitions.
 
 All four example holdings and chart paths are illustrative. Metrics intentionally remain unavailable instead of presenting invented computed values. Inputs are read-only; real loading is Work 14. Export format selection works; download is visibly disabled until Work 16–17. The current risk tool remains reachable.
 
@@ -22,4 +22,4 @@ Work 12 PR #51 is still open. This branch is based on its latest remote commit `
 
 ## Acceptance
 
-Navigate all three steps in both directions; select both export formats; disabled download remains disabled. Confirm scoped light theme and original Lab navigation across client transitions. Check desktop and narrow-screen overflow, labels and focus states. Run existing tests, typecheck, lint and production build.
+Navigate all three steps in both directions; select both export formats; disabled download remains disabled. Confirm scoped light theme and original Lab navigation across client transitions. Check desktop and narrow-screen overflow, labels and focus states. Verify both themes, reload persistence and Lab → Workspace navigation. Run existing tests, typecheck, lint and production build.
