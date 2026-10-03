@@ -21,6 +21,8 @@ test("aligns actual common dates and requires overlapping observations", () => {
 });
 test("ticker limit accepts 30 and rejects 31", () => {
  const tickers = Array.from({length:30},(_,i)=>`T${i}`);
- assert.equal(parseTickerInput(tickers.join(",")).tickers?.length,30);
- assert.match(parseTickerInput([...tickers,"EXTRA"].join(",")).error!, /30/);
+ assert.equal(parseTickerInput(tickers.join(","), { maxTickers: 30 }).tickers?.length,30);
+ assert.match(parseTickerInput([...tickers,"EXTRA"].join(","), { maxTickers: 30 }).error!, /30/);
 });
+
+test("generic callers retain five-symbol default", () => { assert.match(parseTickerInput("A,B,C,D,E,F").error!, /5/); });

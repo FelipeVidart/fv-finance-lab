@@ -11,7 +11,7 @@ export function importArsHistory(raw: string, expectedTickers: string[], period:
   if (header?.join(",") !== "date,ticker,close,currency,source" || !rows.length || rows.length > 100000) {
     throw new Error("Use date,ticker,close,currency,source and 1 to 100000 rows.");
   }
-  const parsed = parseTickerInput(expectedTickers.join(","));
+  const parsed = parseTickerInput(expectedTickers.join(","), { maxTickers: MAX_RISK_TICKERS });
   if (!parsed.tickers || parsed.tickers.length > MAX_RISK_TICKERS) throw new Error(parsed.error);
   const expected = parsed.tickers;
   const series = new Map<string, Map<string, number>>();

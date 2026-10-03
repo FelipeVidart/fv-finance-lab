@@ -38,7 +38,7 @@ import {
 } from "@/lib/finance/risk/portfolio-risk-analyzer";
 import type { ArgentineInstrumentFamilyId } from "@/lib/finance/risk/types";
 import { loadMarketDataExplorer } from "@/lib/market-data/client";
-import { parseTickerInput } from "@/lib/market-data/request";
+import { MAX_RISK_TICKERS, parseTickerInput } from "@/lib/market-data/request";
 import type {
   MarketDataExplorerPayload,
   MarketDataPeriod,
@@ -117,7 +117,7 @@ export function RiskModuleShell({
     priceCurrency?: "ARS",
   ) {
     const sequence = ++requestSequence.current;
-    const parsed = parseTickerInput(nextTickerInput);
+    const parsed = parseTickerInput(nextTickerInput, { maxTickers: MAX_RISK_TICKERS });
 
     if (!parsed.tickers) {
       setValidationError(parsed.error ?? "Enter valid tickers.");
@@ -238,7 +238,7 @@ export function RiskModuleShell({
   }
 
   const inputHint = useMemo(() => {
-    const parsed = parseTickerInput(tickerInput);
+    const parsed = parseTickerInput(tickerInput, { maxTickers: MAX_RISK_TICKERS });
 
     if (!parsed.tickers) {
       return "Enter 1 to 30 comma-separated tickers.";
@@ -999,7 +999,7 @@ export function RiskModuleShell({
         <FundLookThroughSection />
       </div>
 
-      {activeSection === "setup" ? <ArsHistoryControls tickers={tickerInput} period={period} disabled={isLoading} onLoadLocal={() => void loadMarketData(tickerInput, period, "yahoo", "ARS")} onApply={(payload) => {
+      {activeSection === "setup" ? <ArsHistoryControls key={`${tickerInput}|${period}`} tickers={tickerInput} period={period} disabled={isLoading} onLoadLocal={() => void loadMarketData(tickerInput, period, "yahoo", "ARS")} onApply={(payload) => {
         ++requestSequence.current;
         setData(payload); setLoadedProvider(null); setCurrency("ARS"); setRequestError(null); setValidationError(null); setIsLoading(false);
         setFactorDataState({ data: null, error: null, requestKey: null });

@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import { ARS_HISTORY_TEMPLATE, importArsHistory } from "@/lib/market-data/ars-history";
-import { parseTickerInput } from "@/lib/market-data/request";
+import { MAX_RISK_TICKERS, parseTickerInput } from "@/lib/market-data/request";
 import type { MarketDataExplorerPayload, MarketDataPeriod } from "@/lib/market-data/types";
 
 export function ArsHistoryControls({ tickers, period, disabled, onApply, onLoadLocal }: { tickers: string; period: MarketDataPeriod; disabled: boolean; onApply: (data: MarketDataExplorerPayload) => void; onLoadLocal: () => void }) {
@@ -15,7 +15,7 @@ export function ArsHistoryControls({ tickers, period, disabled, onApply, onLoadL
     <label className="block text-sm">Importar histórico ARS CSV<input type="file" accept=".csv,text/csv" disabled={disabled} className="block mt-2" onChange={async (event) => {
       const file = event.target.files?.[0]; setPending(null); setError(null);
       if (!file) return;
-      try { if (file.size > 5_000_000) throw new Error("Máximo 5 MB."); const parsed = parseTickerInput(tickers); if (!parsed.tickers) throw new Error(parsed.error); setPending(importArsHistory(await file.text(), parsed.tickers, period)); } catch (e) { setError(e instanceof Error ? e.message : "CSV inválido."); }
+      try { if (file.size > 5_000_000) throw new Error("Máximo 5 MB."); const parsed = parseTickerInput(tickers, { maxTickers: MAX_RISK_TICKERS }); if (!parsed.tickers) throw new Error(parsed.error); setPending(importArsHistory(await file.text(), parsed.tickers, period)); } catch (e) { setError(e instanceof Error ? e.message : "CSV inválido."); }
       event.target.value = "";
     }}/></label>
     <button type="button" className="rounded border border-border px-3 py-2" onClick={() => { const url = URL.createObjectURL(new Blob([ARS_HISTORY_TEMPLATE], { type: "text/csv" })); const a = document.createElement("a"); a.href = url; a.download = "historico-ars-template.csv"; a.click(); URL.revokeObjectURL(url); }}>Descargar plantilla de históricos ARS</button>
