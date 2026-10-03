@@ -26,3 +26,5 @@ test("ticker limit accepts 30 and rejects 31", () => {
 });
 
 test("generic callers retain five-symbol default", () => { assert.match(parseTickerInput("A,B,C,D,E,F").error!, /5/); });
+
+test("local CEDEAR symbols are not classified as peso bills", async () => { const { inferArgentineInstrumentFamily } = await import("@/lib/finance/risk/argentina-instruments"); for (const ticker of ["SPY", "SLV", "SMH", "SPY.BA"]) assert.equal(inferArgentineInstrumentFamily(ticker), "cedear"); assert.equal(inferArgentineInstrumentFamily("S30O6"), "fixed-rate-ars"); });
