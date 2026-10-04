@@ -113,3 +113,30 @@
 .footer { display: flex; justify-content: space-between; gap: 16px; font-size: 10px; color: var(--ws-muted); margin-top: 48px; padding-top: 20px; border-top: 1px solid var(--ws-border); }
 @media (max-width: 900px) { .loadGrid, .chartGrid { grid-template-columns: 1fr; } .loadGrid .allocation { flex-direction: row; } .intro { align-items: flex-start; flex-direction: column; } .summary { align-items: flex-start; flex-direction: column; } }
 @media (max-width: 600px) { .header { padding: 16px; gap: 12px; } .labLink { font-size: 11px; } .content { padding: 28px 16px 20px; } .steps { gap: 0; } .steps button { flex: 1; flex-direction: column; padding: 12px 4px; font-size: 11px; gap: 6px; } .summary { padding: 18px; } .card { padding: 18px; } .metrics, .exportGrid { grid-template-columns: 1fr; } .metrics { gap: 10px; } .metric { padding: 16px 18px; } .metric strong { font-size: 26px; margin: 4px 0; } .actions { align-items: stretch; flex-direction: column; } .actions button { width: 100%; } .tableFooter, .footer { flex-direction: column; } .chartGrid .allocation, .loadGrid .allocation { gap: 18px; } .donut { width: 132px; height: 132px; flex-shrink: 0; } .donut > div { width: 94px; height: 94px; } .cardHeading > span { text-align: right; } .previewBadge { white-space: normal; } }
+.saveStatus { color: var(--ws-muted); font-size: 11px; }
+.formGrid { display: grid; grid-template-columns: 1.5fr 1fr 1fr 1fr; gap: 16px; margin-bottom: 28px; }
+.formGrid label { font-size: 11px; color: var(--ws-muted); }
+.workspace input:not([type="checkbox"]):not([type="file"]), .workspace select { background: var(--ws-background); border: 1px solid var(--ws-border); border-radius: 6px; color: var(--ws-text); padding: 10px; font-size: 13px; width: 100%; min-width: 90px; }
+.formGrid input, .formGrid select { margin-top: 7px; }
+.workspace input[type="checkbox"] { accent-color: var(--ws-button); width: 16px; height: 16px; }
+.inlineActions { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
+.fileButton { display: inline-flex; position: relative; padding: 12px 18px; border: 1px solid var(--ws-border); border-radius: 7px; font-size: 13px; color: var(--ws-text); cursor: pointer; }
+.fileButton:focus-within { outline: 3px solid var(--ws-accent); outline-offset: 3px; }
+.fileButton:has(input:disabled) { opacity: .48; cursor: not-allowed; }
+.fileButton input { position: absolute; inset: 0; opacity: 0; width: 100%; cursor: inherit; }
+.removeButton { font-size: 22px; padding: 0 8px; background: transparent; color: var(--ws-muted); border: none; }
+.excludedRow { opacity: .65; }
+.weightSummary { margin-top: 20px; padding: 16px; background: var(--ws-tint); border-radius: 8px; font-size: 12px; }
+.weightSummary p { color: var(--ws-muted); margin-top: 8px; line-height: 1.8; }
+.inputHint { color: var(--ws-muted); font-size: 12px; line-height: 1.8; margin-top: 16px; }
+.historyCard { margin-top: 20px; }
+.historyCard > p { font-size: 12px; color: var(--ws-muted); margin: 12px 0; line-height: 1.8; }
+.historyCard .primary { margin-top: 12px; }
+.confirmation { display: flex; align-items: flex-start; gap: 10px; white-space: normal; line-height: 1.8; margin: 20px 0; font-size: 13px; }
+.confirmation input { flex-shrink: 0; margin-top: 4px; }
+.notice, .error { border-radius: 8px; padding: 14px; margin: 16px 0; font-size: 13px; line-height: 1.8; }
+.notice { color: var(--ws-badge-text); background: var(--ws-badge); border: 1px solid var(--ws-badge-border); }
+.error { color: #ad3434; background: #fff0f0; border: 1px solid #e6b2b2; }
+.workspace[data-theme="dark"] .error { color: #f0baba; background: #3a2329; border-color: #64404a; }
+@media (max-width: 900px) { .formGrid { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 600px) { .formGrid { grid-template-columns: 1fr; } .cardHeading:has(.inlineActions) { align-items: flex-start; flex-direction: column; } }
