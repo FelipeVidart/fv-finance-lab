@@ -168,6 +168,12 @@
 @media (max-width: 450px) { .advancedMetrics { grid-template-columns: 1fr; } .barRow { grid-template-columns: 60px minmax(0, 1fr) 66px; gap: 8px; } }
 
 .exportPanel { margin: 24px 0; }
+.exportPanel .cardHeading > div { min-width: 0; }
+.exportPanel .cardHeading > button { flex-shrink: 0; }
+@media (max-width: 600px) {
+  .exportPanel .cardHeading { align-items: stretch; flex-direction: column; }
+  .exportPanel .cardHeading > button { width: 100%; }
+}
 .exportDownloads { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin: 24px 0; }
 .exportDownload { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; padding: 20px; background: var(--ws-background); border: 1px solid var(--ws-border); border-radius: 12px; }
 .exportDownload p { margin: 6px 0 0; color: var(--ws-muted); font-size: 12px; }
