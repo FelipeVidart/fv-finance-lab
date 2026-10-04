@@ -18,6 +18,7 @@ export type ChartBundle = {
   name: string; currency: string; start: string; end: string; coverage: number;
   source: string; excluded: string[]; missing: string[]; observations: number;
   warnings: string[]; charts: ExportChart[];
+  comparison?: { metrics: ChartBundle["metrics"]; weights: { ticker: string; current: number; proposed: number; currentRisk: number; proposedRisk: number }[]; evolution: { date: string; value: number }[]; riskAvailable: boolean };
   diagnostics?: ReturnType<typeof buildReportDiagnostics>;
   dynamicVolatility?: { date: string; value: number }[];
   portfolioValue?: number | null;
