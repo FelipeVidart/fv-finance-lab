@@ -30,7 +30,7 @@ export function WorkspaceExport({ bundle, onBack }: { bundle: ChartBundle; onBac
     {error && <p className={styles.error} role="alert">{error}</p>}
     {(message || busy) && <p className={styles.inputHint} role="status" aria-live="polite">{message || "Preparando archivos…"} {fileLink && <a href={fileLink.url} download={fileLink.name} className={styles.downloadRetry}>Descargar nuevamente</a>}</p>}
     <section className={`${styles.card} ${styles.exportPanel}`} aria-label="Informe PDF">
-      <div className={styles.cardHeading}><div><h2>Informe para clientes</h2><p className={styles.inputHint}>Resumen, composición, evolución, drawdown, riesgo y notas.</p></div><button type="button" disabled={!!busy} className={styles.primary} onClick={() => void download("pdf")}>{busy === "pdf" ? "Generando PDF…" : "Descargar informe PDF"}</button></div>
+      <div className={styles.cardHeading}><div><h2>Informe para clientes</h2><p className={styles.inputHint}>Composición, peso versus riesgo, correlaciones, evolución, recuperación y pérdidas de cola.</p></div><button type="button" disabled={!!busy} className={styles.primary} onClick={() => void download("pdf")}>{busy === "pdf" ? "Generando PDF…" : "Descargar informe PDF"}</button></div>
       <div className={styles.reportFields}><label>Título o alias de cartera<input maxLength={100} value={title} disabled={!!busy} onChange={e => setTitle(e.target.value)} /></label><label>Comentario del asesor · opcional<textarea maxLength={1200} rows={3} value={comment} disabled={!!busy} onChange={e => setComment(e.target.value)} placeholder="Observaciones para la conversación con el cliente" /></label></div>
     </section>
     <section className={`${styles.card} ${styles.exportPanel}`} aria-label="Descarga de gráficos">
