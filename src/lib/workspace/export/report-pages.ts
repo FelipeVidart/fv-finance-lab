@@ -26,7 +26,7 @@ export function wrapReportText(value: string, limit = 88): string[] {
   return lines;
 }
 function metricCards(items: [string, string][], y: number) {
-  return items.map(([label, value], i) => `<rect x="${32 + i * 180}" y="${y}" width="169" height="62" rx="6" fill="#f1f5f4"/>${text(43 + i * 180, y + 21, label, 8.5)}${text(43 + i * 180, y + 46, value, 20, "#182b3a")}`).join("");
+  return items.map(([label, value], i) => `<rect x="${32 + i * 180}" y="${y}" width="169" height="62" rx="3" fill="#f3f6f5"/><line x1="${32 + i * 180}" x2="${201 + i * 180}" y1="${y}" y2="${y}" stroke="#176c62" stroke-width="1.5"/>${text(43 + i * 180, y + 21, label, 8.5)}${text(43 + i * 180, y + 46, value, 20, "#182b3a")}`).join("");
 }
 function history(chart: ExportChart, top: number) {
   const points = chart.points!, drawdown = chart.id === "drawdown", zeroLine = drawdown && chart.title !== "Volatilidad dinámica EWMA";
@@ -110,7 +110,6 @@ function histogram(bundle: ChartBundle) {
 export function renderReportPages(bundle: ChartBundle, options: ReportOptions, generatedAt: string): ReportPage[] {
   if (options.title.length > 100 || options.comment.length > 1200) throw new Error("El título admite 100 caracteres y el comentario 1200.");
   const title = options.title.trim() || bundle.name;
-  const header = text(32, 34, "FV FINANCE LAB · INFORME DE CARTERA", 9, "#176c62") + wrapReportText(title, 74).map((s, i) => text(32, 62 + i * 15, s, 13, "#182b3a")).join("") + text(32, 110, `${bundle.currency} · ${bundle.start} a ${bundle.end} · Cobertura ${formatPercent(bundle.coverage)}`, 10) + text(32, 129, `Generado: ${generatedAt}`, 8);
   const sections: { name: string; body: string }[] = [], m = bundle.metrics;
   const weights = [...bundle.charts[0].rows!].sort((a, b) => b.value - a.value);
   const selected = weights.slice(0, 10);
@@ -160,5 +159,16 @@ export function renderReportPages(bundle: ChartBundle, options: ReportOptions, g
   const notes = [...(options.comment.trim() ? ["Comentario del asesor", options.comment.trim(), ""] : ["Comentario del asesor", "Sin comentario adicional.", ""]), "Datos y metodología", ...exportNotes(bundle, generatedAt).slice(1), "Correlación de Pearson sobre retornos diarios comunes. Volatilidad EWMA anualizada a 252 ruedas, lambda 0,94. Histogramas de frecuencias, sin asumir normalidad.", "Las recuperaciones corresponden al regreso al máximo previo, con días calendario desde el mínimo. Una caída abierta no tiene fecha de recuperación estimada."];
   const noteLines = notes.flatMap(note => [...wrapReportText(note), ""]);
   for (let i = 0; i < noteLines.length; i += 43) sections.push({ name: i ? "Notas - continuación" : "Comentario y metodología", body: noteLines.slice(i, i + 43).map((s, line) => text(32, 161 + line * 14, s, 10, "#182b3a")).join("") });
-  return sections.map((section, i) => ({ section: section.name, width: 1600, height: Math.round(1600 * HEIGHT / WIDTH), svg: `<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="${Math.round(1600 * HEIGHT / WIDTH)}" viewBox="0 0 ${WIDTH} ${HEIGHT}"><rect width="595" height="842" fill="#ffffff"/><g font-family="Arial, sans-serif">${header}${section.body}<line x1="32" x2="562" y1="812" y2="812" stroke="#e0e6ea"/>${text(32, 828, section.name, 8)}${text(562, 828, `${i + 1} / ${sections.length}`, 8, "#637482", "end")}</g></svg>` }));
+  return sections.map((section, i) => {
+    const heading = i === 0 ? "Cartera en perspectiva" : section.name;
+    const header = `<text x="32" y="33" font-size="18" font-weight="bold" fill="#176c62">FV</text>`
+      + text(64, 32, "FINANCE LAB", 9, "#182b3a") + text(562, 32, "INFORME DE CARTERA", 8, "#637482", "end")
+      + `<line x1="32" x2="562" y1="46" y2="46" stroke="#d7e0df"/>`
+      + text(32, 65, `${String(i + 1).padStart(2, "0")} / ANÁLISIS DE CARTERA`, 7.5, "#176c62")
+      + `<text x="32" y="96" font-family="ReportSerif" font-size="24" fill="#182b3a">${escapeXml(heading)}</text>`
+      + wrapReportText(title, 110).map((s, j) => text(32, 114 + j * 12, s, 9, "#637482")).join("")
+      + text(32, 142, `${bundle.currency} · ${bundle.start} a ${bundle.end} · Cobertura ${formatPercent(bundle.coverage)}`, 8);
+    const body = section.body.replace(/font-size="(17|19)"/g, 'font-family="ReportSerif" font-size="18"');
+    return { section: section.name, width: 1600, height: Math.round(1600 * HEIGHT / WIDTH), svg: `<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="${Math.round(1600 * HEIGHT / WIDTH)}" viewBox="0 0 ${WIDTH} ${HEIGHT}"><rect width="595" height="842" fill="#ffffff"/><g font-family="ReportSans">${header}${body}<line x1="32" x2="562" y1="812" y2="812" stroke="#d7e0df"/>${text(32, 828, "FV Finance Lab · Análisis histórico", 7)}${text(562, 828, `${i + 1} / ${sections.length}`, 8, "#637482", "end")}</g></svg>` };
+  });
 }
