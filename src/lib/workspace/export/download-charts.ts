@@ -32,6 +32,6 @@ export async function prepareChartDownload(bundle: ChartBundle, id: ExportChart[
 export function saveDownload(blob: Blob, name: string) {
   const url = URL.createObjectURL(blob), anchor = document.createElement("a");
   anchor.href = url; anchor.download = name; document.body.appendChild(anchor); anchor.click(); anchor.remove();
-  // Keep the URL alive long enough for Safari to start reading it.
-  setTimeout(() => URL.revokeObjectURL(url), 60_000);
+  // The caller keeps this URL for an explicit retry link and revokes it on replacement/unmount.
+  return url;
 }
