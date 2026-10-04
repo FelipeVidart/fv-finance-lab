@@ -75,6 +75,7 @@ export type HistoricalPriceResponse = {
     actualStartDate?: string;
     actualEndDate?: string;
     observations: number;
+    currency?: string;
     sourceSymbol: string;
     cacheHit?: boolean;
   };
@@ -122,9 +123,11 @@ export type MarketDataExplorerPayload = {
   points: ExplorerPoint[];
   metrics: ExplorerTickerMetrics[];
   meta: {
+    priceCurrency?: "ARS";
+    priceSource?: string;
     provider: string;
     interval: "1day";
-    adjustMode: "all";
+    adjustMode: "all" | "user-supplied";
     observations: number;
     commonStartDate: string;
     commonEndDate: string;

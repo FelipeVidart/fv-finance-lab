@@ -11,6 +11,7 @@ const PROVIDER_MODES = [
   "twelveData",
 ] as const satisfies readonly MarketDataProviderMode[];
 const TICKER_PATTERN = /^[A-Z][A-Z0-9.-]{0,9}$/;
+export const MAX_RISK_TICKERS = 30;
 const DEFAULT_MAX_TICKERS = 5;
 const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
