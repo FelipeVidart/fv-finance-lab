@@ -2,10 +2,11 @@
 import { useMemo, useState } from "react";
 import type { PortfolioAnalytics } from "@/lib/finance/portfolio";
 import { buildPortfolioRiskAnalysis } from "@/lib/finance/risk/portfolio-risk-analysis";
+import { compareWorkspacePortfolio } from "@/lib/finance/risk/workspace-comparison";
 import { chartSeries } from "@/lib/workspace/chart-series";
 import type { applyHistoryPreview, HistoryPreview } from "@/lib/workspace/history-preview";
 import type { PortfolioDraft } from "@/lib/workspace/portfolio-draft";
-import { buildChartBundle, CHART_COLORS } from "@/lib/workspace/export/chart-bundle";
+import { buildChartBundle, CHART_COLORS, type ChartBundle } from "@/lib/workspace/export/chart-bundle";
 import { WorkspaceExport } from "./workspace-export";
 import styles from "./workspace.module.css";
 
@@ -51,7 +52,18 @@ export function WorkspaceAnalysis({ applied, draft, onEdit, onExport, exportOnly
   const excluded = [...new Set([...draft.positions.filter(p => p.excluded || p.kind === "money-market").map(p => p.ticker), ...applied.excluded])];
   const shortSample = portfolio.dailyReturns.length < 20;
   const bundle = useMemo(() => buildChartBundle(applied, draft, risk), [applied, draft, risk]);
-  if (exportOnly) return <WorkspaceExport bundle={bundle} onBack={onBack} />;
+  const [proposal, setProposal] = useState<{ base: Applied; values: Record<string, string>; result: ChartBundle | null; error: string } | null>(null);
+  const proposalValues = proposal?.base === applied ? proposal.values : Object.fromEntries(portfolio.tickers.map(t => [t, String(applied.weights[t] * 100)]));
+  const proposed = proposal?.base === applied ? proposal.result : null;
+  const comparisonBundle: ChartBundle = proposed ? { ...bundle, comparison: { metrics: proposed.metrics, riskAvailable: proposed.charts[1].available, weights: portfolio.tickers.map(ticker => ({ ticker, current: applied.weights[ticker], proposed: proposed.charts[0].rows!.find(r => r.ticker === ticker)!.value, currentRisk: bundle.charts[1].rows!.find(r=>r.ticker===ticker)!.value, proposedRisk: proposed.charts[1].rows!.find(r=>r.ticker===ticker)!.value })), evolution: proposed.charts[2].points! } } : bundle;
+  function applyProposal() {
+    try {
+      const result = compareWorkspacePortfolio(preview.data, proposalValues, applied.portfolioValue);
+      const next = buildChartBundle({ ...applied, weights: result.weights, portfolio: result.portfolio }, draft, result.risk);
+      setProposal({ base: applied, values: proposalValues, result: next, error: "" });
+    } catch (e) { setProposal({ base: applied, values: proposalValues, result: null, error: e instanceof Error ? e.message : "Revisá los pesos." }); }
+  }
+  if (exportOnly) return <WorkspaceExport bundle={comparisonBundle} onBack={onBack} />;
   return <>
     <section className={styles.summary}><div><span className={styles.eyebrow}>{applied.excluded.length ? "MUESTRA PARCIAL" : "CARTERA ANALIZADA"}</span><h2>{draft.name || "Mi cartera"}</h2></div><div className={styles.summaryItems}><span>{portfolio.tickers.length} activos · {draft.currency}</span><span>Cobertura {percent(applied.coverage)}</span><span>{dateLabel(preview.data.meta.commonStartDate)} – {dateLabel(preview.data.meta.commonEndDate)}</span></div></section>
     {applied.excluded.length > 0 && <p className={styles.notice}>Muestra cubierta con pesos normalizados. Sin histórico: {applied.excluded.join(", ")}.</p>}
@@ -71,6 +83,15 @@ export function WorkspaceAnalysis({ applied, draft, onEdit, onExport, exportOnly
       {preview.data.meta.warnings?.map((warning, i) => <p key={i}>{warning.message}</p>)}
       <div className={styles.tableWrap}><table><caption>Pesos y riesgo por activo</caption><thead><tr><th>Activo</th><th>Peso</th><th>Volatilidad anual</th><th>Aporte al riesgo</th></tr></thead><tbody>{risk.riskContribution.map(row => <tr key={row.ticker}><td>{row.ticker}</td><td>{percent(row.weight)}</td><td>{percent(row.annualizedVolatility)}</td><td>{risk.riskContribution.some(r => r.contributionToVolatility !== 0) ? percent(row.percentContributionToVolatility) : "—"}</td></tr>)}</tbody></table></div>
     </details>
+    <details className={`${styles.advanced} ${styles.analysisDetails}`}><summary>Comparar con una propuesta</summary>
+      <p>Mismos activos cubiertos, moneda, fechas y rebalanceo diario. Modificá los pesos; podés llevar un activo a 0%. La comparación es histórica, no un pronóstico.</p>
+      <div className={styles.tableWrap}><table><thead><tr><th>Activo</th><th>Actual</th><th>Propuesta (%)</th></tr></thead><tbody>{portfolio.tickers.map(t => <tr key={t}><td>{t}</td><td>{percent(applied.weights[t])}</td><td><input aria-label={`Peso propuesto ${t}`} inputMode="decimal" className={styles.proposalInput} value={proposalValues[t]} onChange={e=>setProposal({base:applied,values:{...proposalValues,[t]:e.target.value},result:null,error:""})}/></td></tr>)}</tbody></table></div>
+      <div className={styles.actions}><button type="button" className={styles.primary} onClick={applyProposal}>Aplicar propuesta</button><button type="button" className={styles.secondary} onClick={()=>setProposal(null)}>Restablecer pesos</button></div>
+      {proposal?.base===applied && proposal.error && <p role="alert" className={styles.error}>{proposal.error}</p>}
+      <p role="status">{proposed ? "Propuesta aplicada. Se incluirá la comparación en el PDF." : "Sin propuesta aplicada. El PDF incluye solamente la cartera actual."}</p>
+      {proposed && <div className={styles.tableWrap}><table><caption>Actual versus propuesta · misma muestra histórica</caption><thead><tr><th>Métrica</th><th>Actual</th><th>Propuesta</th><th>Cambio (pp)</th></tr></thead><tbody>{([['Retorno del período','totalReturn'],['Volatilidad anual','annualizedVolatility'],['Máximo drawdown','maxDrawdown'],['VaR diario 95%','historicalVaR'],['ES diario 95%','expectedShortfall']] as const).map(([label,key])=><tr key={key}><td>{label}</td><td>{shortSample && (key==='historicalVaR'||key==='expectedShortfall') ? 'N/D' : percent(bundle.metrics[key])}</td><td>{shortSample && (key==='historicalVaR'||key==='expectedShortfall') ? 'N/D' : percent(proposed.metrics[key])}</td><td>{shortSample && (key==='historicalVaR'||key==='expectedShortfall') ? 'N/D' : ((proposed.metrics[key]-bundle.metrics[key])*100).toLocaleString('es-AR',{maximumFractionDigits:2})}</td></tr>)}</tbody></table></div>}
+    </details>
+    <details className={`${styles.advanced} ${styles.analysisDetails}`}><summary>Cómo interpretar este análisis</summary><p>Los precios son históricos. La evolución responde: ¿qué habría pasado con estos pesos constantes durante ese período? No mide la rentabilidad real de tu cuenta ni pronostica el futuro.</p><p>Volatilidad, correlaciones y aportes al riesgo son estimaciones con esa muestra. EWMA da más peso a movimientos recientes. VaR es un umbral de pérdida diario al 95%; ES promedia las pérdidas de la cola. Ninguno es una pérdida máxima garantizada.</p><p>Sin operaciones, flujos, impuestos ni comisiones; sin conversión de moneda. En ARS, precios de CEDEARs incluyen movimientos de la cotización local y no separan automáticamente el efecto cambiario. Cobertura parcial: sólo la muestra cubierta, con pesos normalizados.</p><p>Usalo para comparar concentración, diversificación y comportamiento histórico. Complementalo con horizonte, liquidez y necesidades del cliente, y análisis de instrumentos. No estima TIR, default o liquidez de bonos/ONs.</p></details>
     <div className={styles.actions}><button type="button" className={styles.secondary} onClick={onEdit}>← Editar cartera</button><button type="button" className={styles.primary} onClick={onExport}>Exportar →</button></div>
   </>;
 }

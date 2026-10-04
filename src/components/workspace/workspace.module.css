@@ -179,3 +179,5 @@
 .reportFields textarea { resize: vertical; }
 @media (max-width: 800px) { .reportFields { grid-template-columns: 1fr; } }
 .downloadRetry { display: inline-block; margin-left: 10px; color: var(--ws-accent); text-decoration: underline; }
+
+.proposalInput { width: 105px; max-width: 105px; padding: 8px; border: 1px solid var(--ws-border); border-radius: 6px; background: var(--ws-surface); color: var(--ws-text); }
