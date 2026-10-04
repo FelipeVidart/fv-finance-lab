@@ -140,3 +140,29 @@
 .workspace[data-theme="dark"] .error { color: #f0baba; background: #3a2329; border-color: #64404a; }
 @media (max-width: 900px) { .formGrid { grid-template-columns: 1fr 1fr; } }
 @media (max-width: 600px) { .formGrid { grid-template-columns: 1fr; } .cardHeading:has(.inlineActions) { align-items: flex-start; flex-direction: column; } }
+
+.workspace { --ws-drawdown: #b95247; }
+.workspace[data-theme="dark"] { --ws-drawdown: #ed9c91; }
+.analysisGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; margin: 24px 0; }
+.analysisChart { min-width: 0; }
+.analysisChart h2 { font-size: 17px; }
+.analysisChart svg { display: block; width: 100%; touch-action: pan-y; }
+.analysisChart svg text { fill: var(--ws-muted); font-size: 11px; }
+.chartReadout { display: flex; align-items: baseline; gap: 12px; margin: 16px 0 0; }
+.chartReadout strong { font-size: 25px; }
+.chartReadout span, .chartSlider { color: var(--ws-muted); font-size: 12px; }
+.chartSlider { display: flex; align-items: center; gap: 14px; }
+.chartSlider input { flex: 1; min-width: 0; accent-color: var(--ws-accent); }
+.barList { max-height: 300px; overflow-y: auto; padding: 15px 0; }
+.barRow { display: grid; grid-template-columns: 70px minmax(0, 1fr) 74px; align-items: center; gap: 12px; padding: 10px 0; font-size: 13px; }
+.barRow > span { text-align: right; font-variant-numeric: tabular-nums; }
+.barTrack { height: 20px; position: relative; background: var(--ws-neutral); border-radius: 3px; }
+.barFill { position: absolute; top: 3px; bottom: 3px; border-radius: 2px; }
+.barZero { position: absolute; top: -3px; bottom: -3px; width: 1px; background: var(--ws-muted); }
+.analysisDetails { padding: 20px; background: var(--ws-surface); border: 1px solid var(--ws-border); border-radius: 14px; }
+.analysisDetails p { color: var(--ws-muted); font-size: 13px; line-height: 1.7; }
+.advancedMetrics { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; margin: 24px 0; }
+.advancedMetrics dt { color: var(--ws-muted); font-size: 12px; }
+.advancedMetrics dd { margin: 7px 0 0; font-weight: 600; }
+@media (max-width: 800px) { .analysisGrid { grid-template-columns: 1fr; } .advancedMetrics { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 450px) { .advancedMetrics { grid-template-columns: 1fr; } .barRow { grid-template-columns: 60px minmax(0, 1fr) 66px; gap: 8px; } }
