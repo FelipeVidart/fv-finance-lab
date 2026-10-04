@@ -172,3 +172,10 @@
 .exportDownload { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; padding: 20px; background: var(--ws-background); border: 1px solid var(--ws-border); border-radius: 12px; }
 .exportDownload p { margin: 6px 0 0; color: var(--ws-muted); font-size: 12px; }
 @media (max-width: 800px) { .exportDownloads { grid-template-columns: 1fr; } }
+
+.reportFields { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); gap: 20px; margin-top: 22px; }
+.reportFields label { display: flex; flex-direction: column; gap: 9px; color: var(--ws-muted); font-size: 13px; }
+.reportFields input, .reportFields textarea { width: 100%; padding: 12px; border: 1px solid var(--ws-border); border-radius: 8px; background: var(--ws-background); color: var(--ws-text); }
+.reportFields textarea { resize: vertical; }
+@media (max-width: 800px) { .reportFields { grid-template-columns: 1fr; } }
+.downloadRetry { display: inline-block; margin-left: 10px; color: var(--ws-accent); text-decoration: underline; }

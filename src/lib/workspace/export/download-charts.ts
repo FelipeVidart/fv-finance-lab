@@ -3,7 +3,9 @@ import { renderChartSvg } from "./chart-svg";
 import { createZip } from "./zip";
 
 export async function chartPng(bundle: ChartBundle, chart: ExportChart, generatedAt: string): Promise<Blob> {
-  const { svg, width, height } = renderChartSvg(bundle, chart, generatedAt);
+  return svgImageBlob(renderChartSvg(bundle, chart, generatedAt));
+}
+export async function svgImageBlob({ svg, width, height }: { svg: string; width: number; height: number }, type: "image/png" | "image/jpeg" = "image/png"): Promise<Blob> {
   const url = URL.createObjectURL(new Blob([svg], { type: "image/svg+xml;charset=utf-8" }));
   try {
     const image = new Image();
@@ -11,7 +13,7 @@ export async function chartPng(bundle: ChartBundle, chart: ExportChart, generate
     const canvas = document.createElement("canvas"); canvas.width = width; canvas.height = height;
     const context = canvas.getContext("2d"); if (!context) throw new Error("Este navegador no permite generar imágenes.");
     context.drawImage(image, 0, 0);
-    return await new Promise<Blob>((resolve, reject) => canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error("No se pudo generar el PNG.")), "image/png"));
+    return await new Promise<Blob>((resolve, reject) => canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error("No se pudo generar el PNG.")), type, .94));
   } finally { URL.revokeObjectURL(url); }
 }
 export async function prepareChartDownload(bundle: ChartBundle, id: ExportChart["id"] | "all") {
@@ -30,6 +32,6 @@ export async function prepareChartDownload(bundle: ChartBundle, id: ExportChart[
 export function saveDownload(blob: Blob, name: string) {
   const url = URL.createObjectURL(blob), anchor = document.createElement("a");
   anchor.href = url; anchor.download = name; document.body.appendChild(anchor); anchor.click(); anchor.remove();
-  // Keep the URL alive long enough for Safari to start reading it.
-  setTimeout(() => URL.revokeObjectURL(url), 60_000);
+  // The caller keeps this URL for an explicit retry link and revokes it on replacement/unmount.
+  return url;
 }

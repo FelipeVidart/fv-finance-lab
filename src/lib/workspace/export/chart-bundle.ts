@@ -17,6 +17,7 @@ export type ChartBundle = {
   name: string; currency: string; start: string; end: string; coverage: number;
   source: string; excluded: string[]; missing: string[]; observations: number;
   warnings: string[]; charts: ExportChart[];
+  metrics: { totalReturn: number; annualizedVolatility: number; maxDrawdown: number; historicalVaR: number; expectedShortfall: number; currentDrawdown: number };
 };
 export function buildChartBundle(applied: ReturnType<typeof applyHistoryPreview> & { preview: HistoryPreview; portfolio: PortfolioAnalytics }, draft: PortfolioDraft, risk: PortfolioRiskAnalysis): ChartBundle {
   return {
@@ -26,6 +27,7 @@ export function buildChartBundle(applied: ReturnType<typeof applyHistoryPreview>
     excluded: [...new Set([...draft.positions.filter(p => p.excluded || p.kind === "money-market").map(p => p.ticker), ...applied.excluded])],
     missing: [...applied.excluded], observations: applied.portfolio.dailyReturns.length,
     warnings: (applied.preview.data.meta.warnings ?? []).map(w => w.message),
+    metrics: { totalReturn: applied.portfolio.metrics.totalReturn, annualizedVolatility: applied.portfolio.metrics.annualizedVolatility, maxDrawdown: applied.portfolio.metrics.maxDrawdown, historicalVaR: risk.tailRisk.historicalVaR, expectedShortfall: risk.tailRisk.historicalExpectedShortfall, currentDrawdown: risk.drawdownSummary.currentDrawdown },
     charts: [
       { id: "composicion", title: "Composición de la cartera", unit: "% del valor analizado", available: true, rows: applied.portfolio.tickers.map(ticker => ({ ticker, value: applied.weights[ticker] })) },
       { id: "riesgo", title: "Aporte al riesgo", unit: "% de la volatilidad", available: risk.riskContribution.some(r => r.contributionToVolatility !== 0), rows: risk.riskContribution.map(r => ({ ticker: r.ticker, value: r.percentContributionToVolatility })) },
