@@ -1,3 +1,4 @@
+import { buildReportDiagnostics } from "@/lib/finance/risk/report-diagnostics";
 import type { PortfolioAnalytics } from "@/lib/finance/portfolio";
 import type { PortfolioRiskAnalysis } from "@/lib/finance/risk/types";
 import type { applyHistoryPreview, HistoryPreview } from "@/lib/workspace/history-preview";
@@ -17,6 +18,9 @@ export type ChartBundle = {
   name: string; currency: string; start: string; end: string; coverage: number;
   source: string; excluded: string[]; missing: string[]; observations: number;
   warnings: string[]; charts: ExportChart[];
+  diagnostics?: ReturnType<typeof buildReportDiagnostics>;
+  dynamicVolatility?: { date: string; value: number }[];
+  portfolioValue?: number | null;
   metrics: { totalReturn: number; annualizedVolatility: number; maxDrawdown: number; historicalVaR: number; expectedShortfall: number; currentDrawdown: number };
 };
 export function buildChartBundle(applied: ReturnType<typeof applyHistoryPreview> & { preview: HistoryPreview; portfolio: PortfolioAnalytics }, draft: PortfolioDraft, risk: PortfolioRiskAnalysis): ChartBundle {
@@ -27,6 +31,9 @@ export function buildChartBundle(applied: ReturnType<typeof applyHistoryPreview>
     excluded: [...new Set([...draft.positions.filter(p => p.excluded || p.kind === "money-market").map(p => p.ticker), ...applied.excluded])],
     missing: [...applied.excluded], observations: applied.portfolio.dailyReturns.length,
     warnings: (applied.preview.data.meta.warnings ?? []).map(w => w.message),
+    diagnostics: buildReportDiagnostics(applied.preview.data, applied.portfolio),
+    dynamicVolatility: risk.ewmaVolatilitySeries.map(p => ({ ...p, value: p.value * Math.sqrt(252) })),
+    portfolioValue: applied.portfolioValue,
     metrics: { totalReturn: applied.portfolio.metrics.totalReturn, annualizedVolatility: applied.portfolio.metrics.annualizedVolatility, maxDrawdown: applied.portfolio.metrics.maxDrawdown, historicalVaR: risk.tailRisk.historicalVaR, expectedShortfall: risk.tailRisk.historicalExpectedShortfall, currentDrawdown: risk.drawdownSummary.currentDrawdown },
     charts: [
       { id: "composicion", title: "Composición de la cartera", unit: "% del valor analizado", available: true, rows: applied.portfolio.tickers.map(ticker => ({ ticker, value: applied.weights[ticker] })) },
