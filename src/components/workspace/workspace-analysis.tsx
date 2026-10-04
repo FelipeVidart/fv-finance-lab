@@ -5,12 +5,14 @@ import { buildPortfolioRiskAnalysis } from "@/lib/finance/risk/portfolio-risk-an
 import { chartSeries } from "@/lib/workspace/chart-series";
 import type { applyHistoryPreview, HistoryPreview } from "@/lib/workspace/history-preview";
 import type { PortfolioDraft } from "@/lib/workspace/portfolio-draft";
+import { buildChartBundle, CHART_COLORS } from "@/lib/workspace/export/chart-bundle";
+import { WorkspaceExport } from "./workspace-export";
 import styles from "./workspace.module.css";
 
 type Applied = ReturnType<typeof applyHistoryPreview> & { preview: HistoryPreview; portfolio: PortfolioAnalytics };
 const percent = (n: number) => `${(n * 100).toLocaleString("es-AR", { maximumFractionDigits: 2 })}%`;
 const dateLabel = (date: string) => new Date(`${date}T12:00:00Z`).toLocaleDateString("es-AR", { day: "2-digit", month: "short", year: "numeric", timeZone: "UTC" });
-const colors = ["#248c7c", "#5688b5", "#ba8a40", "#a779aa", "#6b98a0", "#b96961"];
+const colors = CHART_COLORS;
 
 function HistoryChart({ title, points, drawdown = false }: { title: string; points: { date: string; value: number }[]; drawdown?: boolean }) {
   const [selected, setSelected] = useState<number | null>(null);
@@ -43,23 +45,23 @@ function BarChart({ title, rows, signed = false, available = true }: { title: st
   </section>;
 }
 
-export function WorkspaceAnalysis({ applied, draft, onEdit }: { applied: Applied; draft: PortfolioDraft; onEdit: () => void }) {
+export function WorkspaceAnalysis({ applied, draft, onEdit, onExport, exportOnly = false, onBack }: { applied: Applied; draft: PortfolioDraft; onEdit: () => void; onExport: () => void; exportOnly?: boolean; onBack: () => void }) {
   const { portfolio, preview } = applied;
   const risk = useMemo(() => buildPortfolioRiskAnalysis({ data: preview.data, tickers: portfolio.tickers, weights: applied.weights, portfolioDailyReturns: portfolio.dailyReturns, portfolioNavPoints: portfolio.points, portfolioValue: applied.portfolioValue }), [applied, portfolio, preview]);
-  const evolution = useMemo(() => portfolio.points.map(p => ({ date: p.date, value: p.nav })), [portfolio]);
-  const drawdown = useMemo(() => portfolio.points.map(p => ({ date: p.date, value: p.drawdown })), [portfolio]);
   const excluded = [...new Set([...draft.positions.filter(p => p.excluded || p.kind === "money-market").map(p => p.ticker), ...applied.excluded])];
   const shortSample = portfolio.dailyReturns.length < 20;
+  const bundle = useMemo(() => buildChartBundle(applied, draft, risk), [applied, draft, risk]);
+  if (exportOnly) return <WorkspaceExport bundle={bundle} onBack={onBack} />;
   return <>
     <section className={styles.summary}><div><span className={styles.eyebrow}>{applied.excluded.length ? "MUESTRA PARCIAL" : "CARTERA ANALIZADA"}</span><h2>{draft.name || "Mi cartera"}</h2></div><div className={styles.summaryItems}><span>{portfolio.tickers.length} activos · {draft.currency}</span><span>Cobertura {percent(applied.coverage)}</span><span>{dateLabel(preview.data.meta.commonStartDate)} – {dateLabel(preview.data.meta.commonEndDate)}</span></div></section>
     {applied.excluded.length > 0 && <p className={styles.notice}>Muestra cubierta con pesos normalizados. Sin histórico: {applied.excluded.join(", ")}.</p>}
     {shortSample && <p className={styles.notice}>Muestra corta: {portfolio.dailyReturns.length} retornos diarios. Las estimaciones de riesgo son poco representativas.</p>}
     <div className={styles.metrics}>{[["Rendimiento del período", portfolio.metrics.totalReturn], ["Volatilidad anualizada", portfolio.metrics.annualizedVolatility], ["Máximo drawdown", portfolio.metrics.maxDrawdown]].map(([label, value]) => <section className={styles.metric} key={label as string}><span>{label as string}</span><strong>{percent(value as number)}</strong></section>)}</div>
     <div className={styles.analysisGrid}>
-      <BarChart title="Composición de la cartera" rows={portfolio.tickers.map(ticker => ({ ticker, value: applied.weights[ticker] }))}/>
-      <BarChart title="Aporte al riesgo" signed available={risk.riskContribution.some(r => r.contributionToVolatility !== 0)} rows={risk.riskContribution.map(r => ({ ticker: r.ticker, value: r.percentContributionToVolatility }))}/>
-      <HistoryChart title="Evolución de la cartera" points={evolution}/>
-      <HistoryChart title="Drawdown" points={drawdown} drawdown/>
+      <BarChart title="Composición de la cartera" rows={bundle.charts[0].rows!}/>
+      <BarChart title="Aporte al riesgo" signed available={bundle.charts[1].available} rows={bundle.charts[1].rows!}/>
+      <HistoryChart title="Evolución de la cartera" points={bundle.charts[2].points!}/>
+      <HistoryChart title="Drawdown" points={bundle.charts[3].points!} drawdown/>
     </div>
     <details className={`${styles.advanced} ${styles.analysisDetails}`}><summary>Métricas avanzadas y metodología</summary>
       <dl className={styles.advancedMetrics}>{[["VaR histórico diario · 95%", shortSample ? "Muestra insuficiente" : percent(risk.tailRisk.historicalVaR)], ["Pérdida media en la cola · 95%", shortSample ? "Muestra insuficiente" : percent(risk.tailRisk.historicalExpectedShortfall)], ["Mejor día", percent(risk.descriptiveStats.bestDailyReturn)], ["Peor día", percent(risk.descriptiveStats.worstDailyReturn)], ["Días positivos", percent(risk.descriptiveStats.positiveDayRatio)], ["Drawdown actual", percent(risk.drawdownSummary.currentDrawdown)]].map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl>
@@ -69,6 +71,6 @@ export function WorkspaceAnalysis({ applied, draft, onEdit }: { applied: Applied
       {preview.data.meta.warnings?.map((warning, i) => <p key={i}>{warning.message}</p>)}
       <div className={styles.tableWrap}><table><caption>Pesos y riesgo por activo</caption><thead><tr><th>Activo</th><th>Peso</th><th>Volatilidad anual</th><th>Aporte al riesgo</th></tr></thead><tbody>{risk.riskContribution.map(row => <tr key={row.ticker}><td>{row.ticker}</td><td>{percent(row.weight)}</td><td>{percent(row.annualizedVolatility)}</td><td>{risk.riskContribution.some(r => r.contributionToVolatility !== 0) ? percent(row.percentContributionToVolatility) : "—"}</td></tr>)}</tbody></table></div>
     </details>
-    <div className={styles.actions}><button type="button" className={styles.secondary} onClick={onEdit}>← Editar cartera</button><span>Exportación de gráficos e informes: próxima etapa</span></div>
+    <div className={styles.actions}><button type="button" className={styles.secondary} onClick={onEdit}>← Editar cartera</button><button type="button" className={styles.primary} onClick={onExport}>Exportar →</button></div>
   </>;
 }

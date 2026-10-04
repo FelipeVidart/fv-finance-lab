@@ -166,3 +166,9 @@
 .advancedMetrics dd { margin: 7px 0 0; font-weight: 600; }
 @media (max-width: 800px) { .analysisGrid { grid-template-columns: 1fr; } .advancedMetrics { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 450px) { .advancedMetrics { grid-template-columns: 1fr; } .barRow { grid-template-columns: 60px minmax(0, 1fr) 66px; gap: 8px; } }
+
+.exportPanel { margin: 24px 0; }
+.exportDownloads { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin: 24px 0; }
+.exportDownload { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; padding: 20px; background: var(--ws-background); border: 1px solid var(--ws-border); border-radius: 12px; }
+.exportDownload p { margin: 6px 0 0; color: var(--ws-muted); font-size: 12px; }
+@media (max-width: 800px) { .exportDownloads { grid-template-columns: 1fr; } }
