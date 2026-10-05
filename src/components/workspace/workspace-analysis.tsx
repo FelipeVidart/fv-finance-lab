@@ -1,5 +1,7 @@
 "use client";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { assetPieColor, pieSlices, riskPieRows, type PieRow } from "@/lib/workspace/risk-pie";
+import { buildWorkspaceFactorReport, type WorkspaceFactorReport } from "@/lib/workspace/factor-report";
 import type { PortfolioAnalytics } from "@/lib/finance/portfolio";
 import { buildPortfolioRiskAnalysis } from "@/lib/finance/risk/portfolio-risk-analysis";
 import { compareWorkspacePortfolio } from "@/lib/finance/risk/workspace-comparison";
@@ -14,6 +16,14 @@ type Applied = ReturnType<typeof applyHistoryPreview> & { preview: HistoryPrevie
 const percent = (n: number) => `${(n * 100).toLocaleString("es-AR", { maximumFractionDigits: 2 })}%`;
 const dateLabel = (date: string) => new Date(`${date}T12:00:00Z`).toLocaleDateString("es-AR", { day: "2-digit", month: "short", year: "numeric", timeZone: "UTC" });
 const colors = CHART_COLORS;
+
+function Donut({ rows, title, label }: { rows: PieRow[]; title: string; label: string }) {
+  return <div><h3>{title}</h3><svg viewBox="0 0 260 230" role="img" aria-label={`${title}: ${label}`} style={{width:"100%",maxHeight:230}}>{pieSlices(rows,130,110,90).filter(s=>s.value>0).map(s=>s.full?<circle key={s.ticker} cx="130" cy="110" r="90" fill={assetPieColor(s.index)}/>:<path key={s.ticker} d={s.path} fill={assetPieColor(s.index)} stroke="var(--ws-surface)" strokeWidth="1.5"/>)}<circle cx="130" cy="110" r="57" fill="var(--ws-surface)"/><text x="130" y="114" textAnchor="middle" fill="var(--ws-text)" fontSize="18">100%</text></svg><p className={styles.inputHint}>{label}</p></div>;
+}
+function WeightRiskPies({ weights, risks, available }: { weights: PieRow[]; risks: PieRow[]; available: boolean }) {
+  const pie = riskPieRows(weights.map(w=>({ticker:w.ticker,value:risks.find(r=>r.ticker===w.ticker)?.value??0})));
+  return <section className={styles.card} aria-label="Peso y riesgo en tortas"><h2>Peso en cartera versus aporte al riesgo</h2><div className={styles.analysisGrid}><Donut rows={weights} title="Peso en cartera" label="Porcentaje del capital analizado"/>{available && pie.available ? <Donut rows={pie.rows} title="Aporte al riesgo" label={pie.partial?"Aportes positivos normalizados a 100%":"Porcentaje de la volatilidad"}/> : <p>Sin variación suficiente para una torta de riesgo.</p>}</div>{pie.partial && <p className={styles.notice}>La torta muestra sólo los aportes positivos. Los negativos reducen el riesgo y se conservan con su signo en el detalle.</p>}<div className={styles.tableWrap}><table><thead><tr><th>Activo</th><th>Peso</th><th>Aporte firmado al riesgo</th></tr></thead><tbody>{weights.map((w,i)=><tr key={w.ticker}><td><span style={{color:assetPieColor(i)}}>●</span> {w.ticker}</td><td>{percent(w.value)}</td><td>{available?percent(risks.find(r=>r.ticker===w.ticker)?.value??0):"N/D"}</td></tr>)}</tbody></table></div></section>;
+}
 
 function HistoryChart({ title, points, drawdown = false }: { title: string; points: { date: string; value: number }[]; drawdown?: boolean }) {
   const [selected, setSelected] = useState<number | null>(null);
@@ -36,13 +46,13 @@ function HistoryChart({ title, points, drawdown = false }: { title: string; poin
   </section>;
 }
 
-function BarChart({ title, rows, signed = false, available = true }: { title: string; rows: { ticker: string; value: number }[]; signed?: boolean; available?: boolean }) {
+function BarChart({ title, rows, signed = false, available = true, factor = false }: { title: string; rows: { ticker: string; value: number }[]; signed?: boolean; available?: boolean; factor?: boolean }) {
   const low = signed ? Math.min(0, ...rows.map(r => r.value)) : 0;
   const high = Math.max(0, ...rows.map(r => r.value));
   const span = high - low || 1;
-  return <section className={`${styles.card} ${styles.analysisChart}`} aria-label={title}><div className={styles.cardHeading}><h2>{title}</h2><span>{signed ? "% de la volatilidad" : "% del valor analizado"}</span></div>
+  return <section className={`${styles.card} ${styles.analysisChart}`} aria-label={title}><div className={styles.cardHeading}><h2>{title}</h2><span>{signed ? factor ? "% del VaR del modelo" : "% de la volatilidad" : "% del valor analizado"}</span></div>
     {available ? <div className={styles.barList}>{rows.map((row, i) => <div key={row.ticker} className={styles.barRow}><strong>{row.ticker}</strong><div className={styles.barTrack}><span className={styles.barZero} style={{ left: `${-low / span * 100}%` }}/><span className={styles.barFill} style={{ left: `${(Math.min(0, row.value) - low) / span * 100}%`, width: `${Math.abs(row.value) / span * 100}%`, background: row.value < 0 ? "var(--ws-drawdown)" : colors[i % colors.length] }}/></div><span>{percent(row.value)}</span></div>)}</div> : <p className={styles.inputHint}>Sin variación observada: no se puede distribuir la volatilidad entre activos.</p>}
-    {signed && available && <p className={styles.inputHint}>Un aporte negativo reduce la volatilidad de esta combinación.</p>}
+    {signed && available && <p className={styles.inputHint}>Un aporte negativo reduce el riesgo de esta combinación dentro del modelo utilizado.</p>}
   </section>;
 }
 
@@ -51,7 +61,26 @@ export function WorkspaceAnalysis({ applied, draft, onEdit, onExport, exportOnly
   const risk = useMemo(() => buildPortfolioRiskAnalysis({ data: preview.data, tickers: portfolio.tickers, weights: applied.weights, portfolioDailyReturns: portfolio.dailyReturns, portfolioNavPoints: portfolio.points, portfolioValue: applied.portfolioValue }), [applied, portfolio, preview]);
   const excluded = [...new Set([...draft.positions.filter(p => p.excluded || p.kind === "money-market").map(p => p.ticker), ...applied.excluded])];
   const shortSample = portfolio.dailyReturns.length < 20;
-  const bundle = useMemo(() => buildChartBundle(applied, draft, risk), [applied, draft, risk]);
+  const baseBundle = useMemo(() => buildChartBundle(applied, draft, risk), [applied, draft, risk]);
+  const [factorState,setFactorState] = useState<{base:Applied;report:WorkspaceFactorReport}|null>(null);
+  useEffect(()=>{
+    const controller=new AbortController();
+    let active=true;
+    const timeout=setTimeout(()=>controller.abort(),25000);
+    async function load() {
+      try {
+        const r=await fetch("/api/workspace-factors",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({start:applied.preview.data.meta.commonStartDate,end:applied.preview.data.meta.commonEndDate}),signal:controller.signal});
+        const payload=await r.json();
+        if(!r.ok||!payload.ok)throw new Error(payload.error??"Factores no disponibles.");
+        const report=buildWorkspaceFactorReport(applied.preview.data,payload.data,applied.weights,applied.portfolio.dailyReturns);
+        if(active)setFactorState({base:applied,report});
+      } catch(e) {if(active)setFactorState({base:applied,report:{status:"unavailable",reason:controller.signal.aborted?"Los factores demoraron demasiado. Podés exportar el análisis de activos y reintentar luego.":e instanceof Error?e.message:"Factores no disponibles."}});}
+      finally {clearTimeout(timeout);}
+    }
+    void load(); return ()=>{active=false;clearTimeout(timeout);controller.abort();};
+  },[applied]);
+  const factors:WorkspaceFactorReport=factorState?.base===applied?factorState.report:{status:"loading"};
+  const bundle:ChartBundle={...baseBundle,factors};
   const [proposal, setProposal] = useState<{ base: Applied; values: Record<string, string>; result: ChartBundle | null; error: string } | null>(null);
   const proposalValues = proposal?.base === applied ? proposal.values : Object.fromEntries(portfolio.tickers.map(t => [t, String(applied.weights[t] * 100)]));
   const proposed = proposal?.base === applied ? proposal.result : null;
@@ -69,6 +98,8 @@ export function WorkspaceAnalysis({ applied, draft, onEdit, onExport, exportOnly
     {applied.excluded.length > 0 && <p className={styles.notice}>Muestra cubierta con pesos normalizados. Sin histórico: {applied.excluded.join(", ")}.</p>}
     {shortSample && <p className={styles.notice}>Muestra corta: {portfolio.dailyReturns.length} retornos diarios. Las estimaciones de riesgo son poco representativas.</p>}
     <div className={styles.metrics}>{[["Rendimiento del período", portfolio.metrics.totalReturn], ["Volatilidad anualizada", portfolio.metrics.annualizedVolatility], ["Máximo drawdown", portfolio.metrics.maxDrawdown]].map(([label, value]) => <section className={styles.metric} key={label as string}><span>{label as string}</span><strong>{percent(value as number)}</strong></section>)}</div>
+    <WeightRiskPies weights={[...bundle.charts[0].rows!].sort((a,b)=>b.value-a.value)} risks={bundle.charts[1].rows!} available={bundle.charts[1].available}/>
+    <section className={styles.card} aria-label="Factores de riesgo"><h2>Factores de riesgo</h2>{factors.status==="loading"?<p role="status">Calculando factores históricos…</p>:factors.status==="unavailable"?<p className={styles.notice}>{factors.reason}</p>:<><p>Modelo de factores · VaR diario 95%: {percent(factors.valueAtRisk!)} · R²: {factors.rSquared==null?"N/D":percent(factors.rSquared)} · {factors.observations} retornos alineados.</p><BarChart title="Aporte al VaR del modelo por factor" rows={factors.rows!} signed factor/><p>{factors.rows!.map(r=>`${r.ticker}: ${r.proxy}`).join(" · ")}</p><details className={styles.advanced}><summary>Supuestos del modelo de factores</summary>{factors.warnings?.map(w=><p key={w}>{w}</p>)}</details></>}</section>
     <div className={styles.analysisGrid}>
       <BarChart title="Composición de la cartera" rows={bundle.charts[0].rows!}/>
       <BarChart title="Aporte al riesgo" signed available={bundle.charts[1].available} rows={bundle.charts[1].rows!}/>
