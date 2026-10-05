@@ -24,6 +24,6 @@ test('comparison report retains current data and adds two pages with short-sampl
  const p=compareWorkspacePortfolio(preview.data,{SPY:'100',EFA:'0'},1000), pb=buildChartBundle({...a,preview,portfolio:p.portfolio,weights:p.weights},draft,p.risk);
  b.comparison={metrics:pb.metrics,weights:preview.data.tickers.map(t=>({ticker:t,current:.5,proposed:p.weights[t],currentRisk:0,proposedRisk:1})),evolution:pb.charts[2].points!,riskAvailable:true};
  const pages=renderReportPages(b,{title:'Test',comment:''},'Test');
- assert.equal(pages.length,8);assert.ok(pages[5].svg.includes('No es una proyección'));assert.ok(pages[5].svg.includes('N/D'));
- assert.ok(pages[6].svg.includes('50% / 0%'));assert.ok(!pages.some(p=>/NaN|Infinity/.test(p.svg)));
+ assert.equal(pages.length,9);assert.ok(pages[6].svg.includes('No es una proyección'));assert.ok(pages[6].svg.includes('N/D'));
+ assert.ok(pages[7].svg.includes('50% / 0%'));assert.ok(!pages.some(p=>/NaN|Infinity/.test(p.svg)));
 });

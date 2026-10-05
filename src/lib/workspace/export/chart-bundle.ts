@@ -3,6 +3,7 @@ import type { PortfolioAnalytics } from "@/lib/finance/portfolio";
 import type { PortfolioRiskAnalysis } from "@/lib/finance/risk/types";
 import type { applyHistoryPreview, HistoryPreview } from "@/lib/workspace/history-preview";
 import type { PortfolioDraft } from "@/lib/workspace/portfolio-draft";
+import type { WorkspaceFactorReport } from "@/lib/workspace/factor-report";
 
 export const CHART_COLORS = ["#248c7c", "#5688b5", "#ba8a40", "#a779aa", "#6b98a0", "#b96961"];
 export const formatPercent = (n: number) => `${(n * 100).toLocaleString("es-AR", { maximumFractionDigits: 2 })}%`;
@@ -15,6 +16,7 @@ export type ExportChart = {
   available: boolean;
 };
 export type ChartBundle = {
+  factors?: WorkspaceFactorReport;
   name: string; currency: string; start: string; end: string; coverage: number;
   source: string; excluded: string[]; missing: string[]; observations: number;
   warnings: string[]; charts: ExportChart[];

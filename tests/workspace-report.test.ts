@@ -18,21 +18,21 @@ function fixture() {
 }
 test('report uses applied metrics and preserves partial sample, comment and source', () => {
  const b=fixture(), pages=renderReportPages(b,{title:'Ñ & <script>',comment:'Revisar concentración.'},'2026-10-04');
- assert.equal(pages.length,6); assert.equal(b.coverage,.75);
+ assert.equal(pages.length,7); assert.equal(b.coverage,.75);
  const all=pages.map(p=>p.svg).join('\n');
  assert.ok(all.includes('Cobertura 75%')); assert.ok(all.includes('MUESTRA PARCIAL'));
  assert.ok(all.includes('Revisar concentración.')); assert.ok(all.includes('Sin histórico: EFA'));
  assert.ok(all.includes('Excluidos: BCMMA, EFA')); assert.ok(all.includes('No disponible'));
  assert.ok(all.includes('Ñ &amp; &lt;script&gt;')); assert.ok(!all.includes('<script>'));
  assert.ok(all.includes('-1%')); assert.ok(!/NaN|Infinity/.test(all));
- assert.ok(pages[5].svg.includes('6 / 6'));
+ assert.ok(pages.at(-1)!.svg.includes('7 / 7'));
 });
 test('30 assets stay in page bounds and long notes create numbered continuation pages', () => {
  const b=fixture(); b.charts[0].rows=Array.from({length:30},(_,i)=>({ticker:`ASSET${i}`,value:1/30})); b.charts[1].rows=b.charts[0].rows;
  b.source='Long source '.repeat(2000);
  const pages=renderReportPages(b,{title:'W'.repeat(100),comment:'Comentario '.repeat(100)},'Test');
  assert.ok(pages.length>6); assert.ok(pages[1].svg.includes('ASSET29'));
- assert.ok(pages[3].svg.includes('Evolución de la cartera')); assert.ok(pages.at(-1)!.svg.includes(`${pages.length} / ${pages.length}`));
+ assert.ok(pages.some(p=>p.svg.includes('Evolución de la cartera'))); assert.ok(pages.at(-1)!.svg.includes(`${pages.length} / ${pages.length}`));
  assert.equal(wrapReportText('W'.repeat(100),74).join(''),'W'.repeat(100));
  assert.throws(()=>renderReportPages(b,{title:'a'.repeat(101),comment:''},'Test'));
  assert.throws(()=>renderReportPages(b,{title:'',comment:'a'.repeat(1201)},'Test'));

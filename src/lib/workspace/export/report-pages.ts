@@ -1,6 +1,7 @@
 import { chartSeries } from "@/lib/workspace/chart-series";
 import { CHART_COLORS, exportNotes, formatPercent, type ChartBundle, type ExportChart } from "./chart-bundle";
 import { escapeXml } from "./chart-svg";
+import { assetPieColor, pieSlices, riskPieRows, type PieRow } from "@/lib/workspace/risk-pie";
 export type ReportOptions = { title: string; comment: string };
 export type ReportPage = { svg: string; width: number; height: number; section: string };
 const WIDTH = 595, HEIGHT = 842;
@@ -107,6 +108,35 @@ function histogram(bundle: ChartBundle) {
   }
   return svg + text(32, 722, "Rojo: VaR · Azul: pérdida media de cola (ES). No son pérdidas máximas garantizadas.", 9);
 }
+function pairedPies(bundle: ChartBundle, weights: PieRow[]) {
+  const risks=weights.map(w=>({ticker:w.ticker,value:bundle.charts[1].rows?.find(r=>r.ticker===w.ticker)?.value??0}));
+  const risk=riskPieRows(risks);
+  const ring=(rows:PieRow[],cx:number)=>pieSlices(rows,cx,320,85).filter(s=>s.value>0).map(s=>s.full?`<circle cx="${cx}" cy="320" r="85" fill="${assetPieColor(s.index)}"/>`:`<path d="${s.path}" fill="${assetPieColor(s.index)}" stroke="white" stroke-width="1.5"/>`).join("")+`<circle cx="${cx}" cy="320" r="52" fill="white"/>`+text(cx,325,"100%",18,"#182b3a","middle");
+  let svg=text(165,194,"Peso en cartera",16,"#182b3a","middle")+text(430,194,"Aporte al riesgo",16,"#182b3a","middle")+text(165,215,"% del capital analizado",8,"#637482","middle")+text(430,215,risk.partial?"Aportes positivos normalizados":"% de la volatilidad",8,"#637482","middle")+ring(weights,165);
+  svg+=bundle.charts[1].available&&risk.available?ring(risk.rows,430):text(430,320,"No disponible",11,"#637482","middle");
+  weights.forEach((w,i)=>{
+    const column=weights.length>15&&i>=Math.ceil(weights.length/2)?1:0;
+    const row=column?i-Math.ceil(weights.length/2):i;
+    const x=32+column*275,y=452+row*18;
+    svg+=`<rect x="${x}" y="${y-7}" width="7" height="7" fill="${assetPieColor(i)}"/>`+text(x+15,y,w.ticker,8,"#182b3a")+text(x+135,y,formatPercent(w.value),8,"#182b3a","end")+text(x+245,y,bundle.charts[1].available?formatPercent(risks[i].value):"N/D",8,"#182b3a","end");
+  });
+  return svg+[32,...(weights.length>15?[307]:[])].map(x=>text(x,432,"Activo",8)+text(x+135,432,"Peso",8,"#637482","end")+text(x+245,432,"Aporte firmado",8,"#637482","end")).join("")+paragraph(risk.partial?"La torta de riesgo muestra sólo los aportes positivos, normalizados a 100%. El detalle conserva los aportes negativos y los porcentajes firmados originales.":"Mismos colores por activo en ambas tortas. Una porción de riesgo mayor que su peso señala un aporte a volatilidad proporcionalmente elevado en esta muestra.",750);
+}
+function factorPage(bundle: ChartBundle) {
+  const f=bundle.factors!;
+  if(f.status!=="ready")return paragraph(`Factores no disponibles: ${f.reason??"los datos todavía se están cargando"}. No se reemplazan por categorías sectoriales ni se completan con valores estimados.`,180);
+  let svg=metricCards([["VaR del modelo · diario 95%",formatPercent(f.valueAtRisk!)],["R² · ajuste en la muestra",f.rSquared==null?"N/D":formatPercent(f.rSquared)],["Retornos alineados",String(f.observations)]],168)+text(32,258,`${f.start} a ${f.end} · Proxies ETF en USD`,9);
+  const rows=f.rows!,low=Math.min(0,...rows.map(r=>r.value)),high=Math.max(...rows.map(r=>r.value),.01),span=high-low;
+  svg+=text(32,290,"Aporte firmado al VaR del modelo",17,"#182b3a");
+  rows.forEach((r,i)=>{
+    const y=320+i*33,zero=235-low/span*190;
+    svg+=text(32,y,r.ticker,9,"#182b3a")+text(185,y,r.proxy,8)+`<line x1="${zero}" x2="${zero}" y1="${y-11}" y2="${y+5}" stroke="#637482"/>`+`<rect x="${235+(Math.min(0,r.value)-low)/span*190}" y="${y-9}" width="${Math.abs(r.value)/span*190}" height="10" fill="${r.value<0?"#b95247":"#248c7c"}"/>`+text(562,y,formatPercent(r.value),9,"#182b3a","end");
+  });
+  svg+=text(32,581,"Alcance del modelo",17,"#182b3a");
+  let y=602;
+  for(const warning of f.warnings??[]){const lines=wrapReportText(warning,110);svg+=lines.map((s,i)=>text(32,y+i*11,s,8.5)).join("");y+=lines.length*11+7;}
+  return svg;
+}
 export function renderReportPages(bundle: ChartBundle, options: ReportOptions, generatedAt: string): ReportPage[] {
   if (options.title.length > 100 || options.comment.length > 1200) throw new Error("El título admite 100 caracteres y el comentario 1200.");
   const title = options.title.trim() || bundle.name;
@@ -126,7 +156,9 @@ export function renderReportPages(bundle: ChartBundle, options: ReportOptions, g
   });
   if (weights.length <= 12) positions += paragraph("Retorno y máximo drawdown de cada activo en el período común. La volatilidad individual no es su aporte al riesgo: las correlaciones también influyen.", 267 + weights.length * spacing + 50);
   sections.push({ name: "Composición y concentración", body: text(32, 168, "Distribución y comportamiento por activo", 19, "#182b3a") + paragraph(`${weights.length} activos analizados · Pesos sobre la muestra cubierta. Los tres mayores pesos suman ${formatPercent(topThree)}.`, 193) + positions + text(32, 785, "Detalle completo. Retornos históricos, volatilidad anualizada a 252 ruedas y caídas desde máximos.", 8) });
+  sections.push({name:"Peso en cartera versus riesgo",body:pairedPies(bundle,weights)});
   sections.push({ name: "Peso, riesgo y diversificación", body: text(32, 164, "Peso versus aporte al riesgo", 19, "#182b3a") + weightRisk(bundle, selected) + correlationGrid(bundle, selected) + paragraph(weights.length > 10 ? "Se muestran los 10 activos de mayor peso; matriz parcial. Todas las posiciones figuran en composición. Correlaciones muestrales, no garantías de diversificación futura." : "Correlaciones muestrales. N/D indica ausencia de variación o datos insuficientes; no se interpreta como correlación cero.", 745) });
+  if(bundle.factors)sections.push({name:"Factores de riesgo",body:factorPage(bundle)});
   let episodes = text(32, 726, "Principales caídas y recuperación desde el mínimo", 11, "#182b3a");
   const rows = bundle.diagnostics?.drawdowns.episodes ?? [];
   if (!rows.length) episodes += text(32, 750, "Sin episodios de caída observados en esta muestra.", 9);

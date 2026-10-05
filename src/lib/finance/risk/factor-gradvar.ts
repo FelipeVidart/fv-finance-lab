@@ -63,6 +63,7 @@ export const DEFAULT_FACTOR_DEFINITIONS: FactorDefinition[] = [
 
 type DatedReturnRow = {
   date: string;
+  startDate: string;
   values: Record<string, number>;
 };
 
@@ -268,6 +269,7 @@ function buildAlignedReturnSeries(input: {
     if (
       !assetRow ||
       !factorRow ||
+      assetRow.startDate !== factorRow.startDate ||
       typeof portfolioReturn !== "number" ||
       !Number.isFinite(portfolioReturn) ||
       !hasFiniteValues(assetRow.values, input.tickers) ||
@@ -317,6 +319,7 @@ function buildDatedReturnRows(input: {
 
   return input.data.points.slice(1).map((point, index) => ({
     date: point.date,
+    startDate: input.data.points[index].date,
     values: Object.fromEntries(
       input.keys.map((key) => [key, returnSeries[key][index]]),
     ),
