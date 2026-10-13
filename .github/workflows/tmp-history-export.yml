@@ -6,6 +6,9 @@ on:
     paths:
       - ".github/workflows/tmp-history-export.yml"
       - "scripts/tmp-export-history.mjs"
+  pull_request:
+    branches:
+      - main
   workflow_dispatch:
 
 permissions:
