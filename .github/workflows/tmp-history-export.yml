@@ -8,11 +8,16 @@ on:
       - "scripts/tmp-export-history.mjs"
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   export:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: tmp-history-export-20261013
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
@@ -21,3 +26,11 @@ jobs:
         with:
           name: wm-v2vg-r3nr-history
           path: tmp-history/
+      - name: Commit generated history
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add tmp-history/
+          git diff --cached --quiet && exit 0
+          git commit -m "Generate temporary proxy history CSVs"
+          git push origin HEAD:tmp-history-export-20261013
