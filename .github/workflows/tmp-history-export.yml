@@ -1,0 +1,23 @@
+name: tmp-history-export
+on:
+  push:
+    branches:
+      - tmp-history-export-20261013
+    paths:
+      - ".github/workflows/tmp-history-export.yml"
+      - "scripts/tmp-export-history.mjs"
+  workflow_dispatch:
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - run: node scripts/tmp-export-history.mjs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wm-v2vg-r3nr-history
+          path: tmp-history/
